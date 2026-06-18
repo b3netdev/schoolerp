@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+import { Link, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, Users, GraduationCap, UsersRound, BookOpen,
   ClipboardCheck, CreditCard, FileText, Calendar, Bell, Settings,

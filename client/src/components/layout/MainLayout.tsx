@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Navbar } from "./Navbar";
-import { useLocation } from "wouter";
+import { useLocation } from "react-router-dom";
 
 interface MainLayoutProps {
   children: React.ReactNode;

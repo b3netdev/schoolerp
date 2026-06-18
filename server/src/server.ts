@@ -4,6 +4,7 @@ import express, { Request, Response } from "express";
 import cors from "cors";
 import { corsOptions } from "./utils/cors.js";
 import { testConnection } from "./config/database.js";
+import { errorHandler } from "./middlewares/error.middleware.js";
 
 const app = express();
 
@@ -21,6 +22,8 @@ app.get("/", (req: Request, res: Response) => {
   res.send("School Management Server is running");
 });
 
+
+app.use(errorHandler)
 
 const PORT = process.env.PORT || 5000;
 

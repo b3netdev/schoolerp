@@ -1,15 +1,15 @@
 import { useState } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+
 import { Sidebar } from "./Sidebar";
 import { Navbar } from "./Navbar";
-import { useLocation } from "react-router-dom";
 
 interface MainLayoutProps {
-  children: React.ReactNode;
   onLogout: () => void;
 }
 
 const pageTitles: Record<string, string> = {
-  "/": "Dashboard",
+  "/dashboard": "Dashboard",
   "/students": "Students",
   "/teachers": "Teachers",
   "/parents": "Parents",
@@ -25,22 +25,38 @@ const pageTitles: Record<string, string> = {
   "/settings": "Settings",
 };
 
-export function MainLayout({ children, onLogout }: MainLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [location] = useLocation();
-  const title = pageTitles[location] || "EduAdmin";
+export function MainLayout({
+  onLogout,
+}: MainLayoutProps) {
+  const [sidebarOpen, setSidebarOpen] =
+    useState(false);
+
+  const location = useLocation();
+
+  const title =
+    pageTitles[location.pathname] ||
+    "EduAdmin";
 
   return (
     <div className="h-screen bg-background flex overflow-hidden">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar
+        isOpen={sidebarOpen}
+        onClose={() =>
+          setSidebarOpen(false)
+        }
+      />
+
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Navbar
-          onMenuClick={() => setSidebarOpen(true)}
+          onMenuClick={() =>
+            setSidebarOpen(true)
+          }
           pageTitle={title}
           onLogout={onLogout}
         />
-        <main className="flex-1 p-6 overflow-y-auto" data-testid="main-content">
-          {children}
+
+        <main className="flex-1 p-6 overflow-y-auto">
+          <Outlet />
         </main>
       </div>
     </div>

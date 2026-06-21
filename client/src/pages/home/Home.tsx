@@ -5,6 +5,14 @@ import { useNavigate } from "react-router-dom";
 
 const Home = () => {
   const navigate = useNavigate()
+
+  const HandleSignIn = (role: string) => {
+    if (role == "admin") {
+      navigate("/admin/signin")
+    }
+  }
+
+
   return (
     <div
       className={styles.homeContainer}
@@ -32,15 +40,21 @@ const Home = () => {
             <p className={styles.loginTitle}>Continue to your portal</p>
 
             <div className={styles.loginButtons}>
-              <button className={styles.studentBtn}>
+              <button className={styles.studentBtn}
+                onClick={() => HandleSignIn("student")}
+              >
                 Login as Student
               </button>
 
-              <button className={styles.teacherBtn}>
+              <button className={styles.teacherBtn}
+                onClick={() => HandleSignIn("teacher")}
+              >
                 Login as Teacher
               </button>
 
-              <button className={styles.adminBtn}>
+              <button className={styles.adminBtn}
+                onClick={() => HandleSignIn("admin")}
+              >
                 Login as Admin
               </button>
             </div>

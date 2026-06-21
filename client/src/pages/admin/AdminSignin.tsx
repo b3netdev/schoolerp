@@ -1,18 +1,29 @@
 import { FormEvent, useState } from "react";
 import { Input } from "@/components/ui/input";
 import styles from "./AdminSignin.module.css";
+import { useNavigate } from "react-router-dom";
 
 const AdminSignin = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState("tuhinroy@gmail.com");
+  const [password, setPassword] = useState("Tuhin@1234");
+  const navigate = useNavigate()
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     console.log({
       email,
       password,
     });
+    localStorage.setItem(
+      "user",
+      JSON.stringify({
+        id: "456",
+        name: "John",
+        role: "TEACHER",
+      })
+    );
+
+    navigate("/dashboard")
   };
 
   return (

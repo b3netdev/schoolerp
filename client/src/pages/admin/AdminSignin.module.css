@@ -1,0 +1,427 @@
+/* ============================================================
+   AdminSignin.module.css
+   Theme: blue-slate (matches globals.css HSL palette)
+   Responsive: mobile-first, breakpoint at 768px
+   ============================================================ */
+
+/* ---------- Page shell ---------- */
+.signinPage {
+    position: relative;
+    min-height: 100svh;
+    display: flex;
+    align-items: stretch;
+    background-color: hsl(222, 47%, 11%);
+    /* --sidebar */
+    font-family: var(--app-font-sans, 'Inter', sans-serif);
+    overflow: hidden;
+}
+
+/* Subtle radial glow behind the left panel */
+.signinPage::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse 70% 60% at 20% 50%, hsl(221 83% 53% / 0.18) 0%, transparent 70%),
+        radial-gradient(ellipse 40% 40% at 80% 10%, hsl(223 47% 43% / 0.10) 0%, transparent 60%);
+    pointer-events: none;
+}
+
+/* ---------- Decorative overlay grid (optional texture) ---------- */
+.overlay {
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(hsl(215 32% 17% / 0.35) 1px, transparent 1px),
+        linear-gradient(90deg, hsl(215 32% 17% / 0.35) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ---------- Two-column wrapper ---------- */
+.signinWrapper {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    width: 100%;
+    min-height: 100svh;
+    flex-direction: column;
+    /* stacked on mobile */
+}
+
+@media (min-width: 768px) {
+    .signinWrapper {
+        flex-direction: row;
+    }
+}
+
+/* ============================================================
+   LEFT PANEL — branding / copy
+   ============================================================ */
+.leftContent {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 3rem 2rem 2.5rem;
+    gap: 1.25rem;
+    flex: 0 0 auto;
+}
+
+@media (min-width: 768px) {
+    .leftContent {
+        flex: 1 1 0%;
+        padding: 4rem 4rem 4rem 5%;
+        max-width: 52%;
+    }
+}
+
+@media (min-width: 1280px) {
+    .leftContent {
+        padding: 4rem 5rem 4rem 8%;
+        max-width: 55%;
+    }
+}
+
+/* Badge pill */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.85rem;
+    border-radius: 999px;
+    border: 1px solid hsl(221 83% 53% / 0.4);
+    background: hsl(221 83% 53% / 0.12);
+    color: hsl(221 83% 75%);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    width: fit-content;
+}
+
+.badge::before {
+    content: '';
+    display: block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: hsl(221 83% 65%);
+    box-shadow: 0 0 0 2px hsl(221 83% 65% / 0.3);
+    animation: pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.5;
+        transform: scale(0.85);
+    }
+}
+
+/* Headline */
+.leftContent h1 {
+    margin: 0;
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
+    font-weight: 700;
+    line-height: 1.18;
+    color: hsl(210 40% 98%);
+    letter-spacing: -0.02em;
+}
+
+/* Accent word coloring via a wrapping span if desired — works fine as-is */
+.leftContent p {
+    margin: 0;
+    font-size: 0.975rem;
+    line-height: 1.7;
+    color: hsl(215 16% 65%);
+    max-width: 38ch;
+}
+
+/* Feature list dots — add inside JSX if desired */
+.featureList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-top: 0.5rem;
+    list-style: none;
+    padding: 0;
+}
+
+.featureList li {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.875rem;
+    color: hsl(215 20% 72%);
+}
+
+.featureList li::before {
+    content: '';
+    flex-shrink: 0;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: hsl(221 83% 60%);
+}
+
+/* ============================================================
+   RIGHT PANEL — form card
+   ============================================================ */
+.formCard {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: hsl(210 40% 98%);
+    /* --background light */
+    padding: 2.5rem 1.5rem;
+    flex: 0 0 auto;
+    min-height: 100svh;
+}
+
+@media (min-width: 768px) {
+    .formCard {
+        flex: 1 1 0%;
+        max-width: 48%;
+        padding: 4rem 8% 4rem 5%;
+    }
+}
+
+@media (min-width: 1280px) {
+    .formCard {
+        max-width: 45%;
+        padding: 4rem 10% 4rem 6%;
+    }
+}
+
+/* Card inner container — keeps content from stretching too wide */
+.formCard>* {
+    max-width: 420px;
+    width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* ---------- Form header ---------- */
+.formHeader {
+    margin-bottom: 2rem;
+}
+
+.formHeader h2 {
+    margin: 0 0 0.4rem;
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: hsl(222 47% 11%);
+}
+
+.formHeader p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: hsl(215 16% 47%);
+}
+
+/* ---------- Form ---------- */
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+
+/* ---------- Form group ---------- */
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.formGroup label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: hsl(222 47% 20%);
+    letter-spacing: 0.02em;
+}
+
+/* ---------- Input field ---------- */
+.inputField {
+    height: 2.75rem !important;
+    border-radius: 0.5rem !important;
+    border: 1.5px solid hsl(214 32% 88%) !important;
+    background: hsl(210 40% 99%) !important;
+    font-size: 0.9rem !important;
+    color: hsl(222 47% 11%) !important;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
+    padding: 0 0.875rem !important;
+    width: 100% !important;
+}
+
+.inputField::placeholder {
+    color: hsl(215 16% 64%) !important;
+}
+
+.inputField:focus {
+    outline: none !important;
+    border-color: hsl(221 83% 53%) !important;
+    box-shadow: 0 0 0 3px hsl(221 83% 53% / 0.15) !important;
+}
+
+/* ---------- Form options row ---------- */
+.formOptions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: -0.2rem;
+}
+
+.rememberMe {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.825rem;
+    color: hsl(215 16% 40%);
+    user-select: none;
+}
+
+.rememberMe input[type='checkbox'] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 1rem;
+    height: 1rem;
+    border: 1.5px solid hsl(214 32% 78%);
+    border-radius: 0.25rem;
+    background: white;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.rememberMe input[type='checkbox']:checked {
+    background: hsl(223 47% 43%);
+    border-color: hsl(223 47% 43%);
+}
+
+.rememberMe input[type='checkbox']:checked::after {
+    content: '';
+    position: absolute;
+    top: 1.5px;
+    left: 4.5px;
+    width: 4px;
+    height: 7px;
+    border: 2px solid #fff;
+    border-top: none;
+    border-left: none;
+    transform: rotate(45deg);
+}
+
+/* ---------- Forgot password ---------- */
+.forgotBtn {
+    all: unset;
+    cursor: pointer;
+    font-size: 0.825rem;
+    font-weight: 500;
+    color: hsl(223 47% 43%);
+    transition: color 0.15s ease;
+}
+
+.forgotBtn:hover {
+    color: hsl(221 83% 53%);
+    text-decoration: underline;
+}
+
+/* ---------- Primary sign-in button ---------- */
+.signinBtn {
+    all: unset;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    height: 2.85rem;
+    border-radius: 0.5rem;
+    background: hsl(223 47% 43%);
+    color: hsl(210 40% 98%);
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    margin-top: 0.4rem;
+    transition: background 0.18s ease, box-shadow 0.18s ease, transform 0.1s ease;
+    box-shadow: 0 2px 8px hsl(223 47% 43% / 0.3);
+}
+
+.signinBtn:hover {
+    background: hsl(221 83% 53%);
+    box-shadow: 0 4px 16px hsl(221 83% 53% / 0.35);
+}
+
+.signinBtn:active {
+    transform: scale(0.985);
+}
+
+.signinBtn:focus-visible {
+    outline: 3px solid hsl(221 83% 53% / 0.5);
+    outline-offset: 2px;
+}
+
+/* Loading state — toggle a .loading class on the button via JS */
+.signinBtn.loading {
+    pointer-events: none;
+    opacity: 0.75;
+}
+
+/* ---------- Divider (optional utility) ---------- */
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: hsl(215 16% 64%);
+    font-size: 0.75rem;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: hsl(214 32% 88%);
+}
+
+/* ---------- Footer note ---------- */
+.footerNote {
+    margin-top: 1.75rem;
+    text-align: center;
+    font-size: 0.78rem;
+    color: hsl(215 16% 60%);
+}
+
+.footerNote a {
+    color: hsl(223 47% 43%);
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.footerNote a:hover {
+    text-decoration: underline;
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .badge::before {
+        animation: none;
+    }
+
+    .signinBtn,
+    .inputField,
+    .forgotBtn {
+        transition: none !important;
+    }
+}

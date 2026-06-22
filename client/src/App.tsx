@@ -21,6 +21,7 @@ import Timetable from "./pages/Timetable";
 import NoticeBoard from "./pages/NoticeBoard";
 import Settings from "./pages/Settings";
 import { MainLayout } from "./components/layout/MainLayout";
+import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -40,124 +41,33 @@ function App() {
         <Routes>
 
           {/* Public */}
-          <Route
-            path="/"
-            element={<Home />}
-          />
-
-          <Route
-            path="/admin/signin"
-            element={<AdminSignin />}
-          />
-
+          <Route path="/" element={<Home />} />
+          <Route path="/admin/signin" element={<AdminSignin />} />
           {/* Layout Route */}
-          <Route
-            element={
-              <MainLayout
-                onLogout={handleLogout}
-              />
-            }
-          >
-
+          <Route element={<MainLayout onLogout={handleLogout} />} >
             {/* Everyone */}
-            <Route
-              element={
-                <ProtectedRoute
-                  allowedRoles={[
-                    "ADMIN",
-                    "TEACHER",
-                    "STUDENT",
-                  ]}
-                />
-              }
-            >
-              <Route
-                path="/dashboard"
-                element={<Dashboard />}
-              />
-
-              <Route
-                path="/subjects"
-                element={<Subjects />}
-              />
-
-              <Route
-                path="/timetable"
-                element={<Timetable />}
-              />
-              <Route
-                path="/students"
-                element={<Students />}
-              />
-              <Route
-                path="/classes"
-                element={<Classes />}
-              />
-              <Route
-                path="/exams"
-                element={<Exams />}
-              />
+            <Route element={<ProtectedRoute allowedRoles={["ADMIN", "TEACHER", "STUDENT",]} />} >
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/subjects" element={<Subjects />} />
+              <Route path="/timetable" element={<Timetable />} />
+              <Route path="/students" element={<Students />} />
+              <Route path="/classes" element={<Classes />} />
+              <Route path="/exams" element={<Exams />} />
             </Route>
-
             {/* Admin + Teacher */}
-            <Route
-              element={
-                <ProtectedRoute
-                  allowedRoles={[
-                    "ADMIN",
-                    "TEACHER",
-                  ]}
-                />
-              }
-            >
-              <Route
-                path="/attendance"
-                element={<Attendance />}
-              />
-
-              <Route
-                path="/marks-entry"
-                element={<MarksEntry />}
-              />
+            <Route element={<ProtectedRoute allowedRoles={["ADMIN", "TEACHER",]} />}>
+              <Route path="/attendance" element={<Attendance />} />
+              <Route path="/marks-entry" element={<MarksEntry />} />
+              <Route path="/marksheet" element={<Marksheet />} />
             </Route>
-
             {/* Admin Only */}
-            <Route
-              element={
-                <ProtectedRoute
-                  allowedRoles={[
-                    "ADMIN",
-                  ]}
-                />
-              }
-            >
-              <Route
-                path="/teachers"
-                element={<Teachers />}
-              />
-
-              <Route
-                path="/fees"
-                element={<Fees />}
-              />
-
-              <Route
-                path="/settings"
-                element={<Settings />}
-              />
+            <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
+              <Route path="/teachers" element={<Teachers />} />
+              <Route path="/fees" element={<Fees />} />
+              <Route path="/settings" element={<Settings />} />
             </Route>
-
           </Route>
-
-          <Route
-            path="*"
-            element={
-              <Navigate
-                to="/dashboard"
-                replace
-              />
-            }
-          />
+          <Route path="*" element={ <NotFound/>}/>
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

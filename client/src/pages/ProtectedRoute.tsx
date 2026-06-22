@@ -18,10 +18,7 @@ const ProtectedRoute = ({
 
     if (!user) {
         return (
-            <Navigate
-                to="/admin/signin"
-                replace
-            />
+            <Navigate to="/admin/signin" replace />
         );
     }
 
@@ -29,10 +26,7 @@ const ProtectedRoute = ({
         !allowedRoles.includes(user.role)
     ) {
         return (
-            <Navigate
-                to="/dashboard"
-                replace
-            />
+            <Navigate to="/dashboard"replace />
         );
     }
 

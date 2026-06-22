@@ -22,16 +22,12 @@ import NoticeBoard from "./pages/NoticeBoard";
 import Settings from "./pages/Settings";
 import { MainLayout } from "./components/layout/MainLayout";
 import NotFound from "./pages/NotFound";
+import { useNavigate } from "react-router-dom";
 
 const queryClient = new QueryClient();
 
 function App() {
-  const handleLogout = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem(
-      "accessToken"
-    );
-  };
+  
 
   return (
     <QueryClientProvider
@@ -44,7 +40,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/admin/signin" element={<AdminSignin />} />
           {/* Layout Route */}
-          <Route element={<MainLayout onLogout={handleLogout} />} >
+          <Route element={<MainLayout  />} >
             {/* Everyone */}
             <Route element={<ProtectedRoute allowedRoles={["ADMIN", "TEACHER", "STUDENT",]} />} >
               <Route path="/dashboard" element={<Dashboard />} />

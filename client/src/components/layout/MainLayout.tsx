@@ -1,12 +1,10 @@
 import { useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { Sidebar } from "./Sidebar";
 import { Navbar } from "./Navbar";
 
-interface MainLayoutProps {
-  onLogout: () => void;
-}
+
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -25,14 +23,20 @@ const pageTitles: Record<string, string> = {
   "/settings": "Settings",
 };
 
-export function MainLayout({
-  onLogout,
-}: MainLayoutProps) {
+export function MainLayout() {
   const [sidebarOpen, setSidebarOpen] =
     useState(false);
 
   const location = useLocation();
+const navigate = useNavigate()
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    localStorage.removeItem(
+      "accessToken"
+    );
+    navigate("/")
 
+  };
   const title =
     pageTitles[location.pathname] ||
     "EduAdmin";
@@ -52,7 +56,7 @@ export function MainLayout({
             setSidebarOpen(true)
           }
           pageTitle={title}
-          onLogout={onLogout}
+          onLogout={handleLogout}
         />
 
         <main className="flex-1 p-6 overflow-y-auto">

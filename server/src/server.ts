@@ -5,7 +5,7 @@ import cors from "cors";
 import { corsOptions } from "./utils/cors.js";
 import { dbConnection } from "./config/database.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
-import UserRouter from "./routes/user.route.js";
+import AuthRouter from "./routes/auth.route.js";
 import cookieParser from "cookie-parser";
 const app = express();
 dbConnection();
@@ -19,7 +19,7 @@ app.get("/", (req: Request, res: Response) => {
   res.send("School Management Server is running");
 });
 
-app.use(`/${process.env.API_VERSION}/user`,UserRouter);
+app.use(`/${process.env.API_VERSION}/auth`,AuthRouter);
 
 
 app.use(errorHandler);

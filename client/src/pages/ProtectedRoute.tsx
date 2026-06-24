@@ -1,9 +1,9 @@
 import { Navigate, Outlet } from "react-router-dom";
-
+import { useAppSelector } from "../../redux/hooks";
 type UserRole =
-    | "ADMIN"
-    | "TEACHER"
-    | "STUDENT";
+    | "admin"
+    | "teacher"
+    | "student";
 
 interface Props {
     allowedRoles: UserRole[];
@@ -12,9 +12,8 @@ interface Props {
 const ProtectedRoute = ({
     allowedRoles,
 }: Props) => {
-    const user = JSON.parse(
-        localStorage.getItem("user") || "null"
-    );
+    const user = useAppSelector(state=>state.auth)
+  
 
     if (!user) {
         return (

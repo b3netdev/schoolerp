@@ -23,7 +23,7 @@ interface SidebarProps {
   onClose: () => void;
 }
 
-type UserRole = "ADMIN" | "TEACHER" | "STUDENT";
+type UserRole = "admin" | "teacher" | "student";
 
 interface NavItem {
   href: string;
@@ -37,73 +37,73 @@ const mainNav: NavItem[] = [
     href: "/dashboard",
     icon: LayoutDashboard,
     label: "Dashboard",
-    roles: ["ADMIN", "TEACHER", "STUDENT"],
+    roles: ["admin", "teacher", "student"],
   },
   {
     href: "/students",
     icon: GraduationCap,
     label: "Students",
-    roles: ["ADMIN", "TEACHER"],
+    roles: ["admin", "teacher"],
   },
   {
     href: "/teachers",
     icon: Users,
     label: "Teachers",
-    roles: ["ADMIN"],
+    roles: ["admin"],
   },
   {
     href: "/parents",
     icon: UsersRound,
     label: "Parents",
-    roles: ["ADMIN"],
+    roles: ["admin"],
   },
   {
     href: "/classes",
     icon: BookOpen,
     label: "Classes",
-    roles: ["ADMIN", "TEACHER"],
+    roles: ["admin", "teacher"],
   },
   {
     href: "/subjects",
     icon: LibraryBig,
     label: "Subjects",
-    roles: ["ADMIN", "TEACHER", "STUDENT"],
+    roles: ["admin", "teacher", "student"],
   },
   {
     href: "/attendance",
     icon: ClipboardCheck,
     label: "Attendance",
-    roles: ["ADMIN", "TEACHER"],
+    roles: ["admin", "teacher"],
   },
   {
     href: "/fees",
     icon: CreditCard,
     label: "Fees",
-    roles: ["ADMIN"],
+    roles: ["admin"],
   },
   {
     href: "/exams",
     icon: FileText,
     label: "Exams & Results",
-    roles: ["ADMIN", "TEACHER"],
+    roles: ["admin", "teacher"],
   },
   {
     href: "/marks-entry",
     icon: ClipboardList,
     label: "Marks Entry",
-    roles: ["ADMIN", "TEACHER"],
+    roles: ["admin", "teacher"],
   },
   {
     href: "/marksheet",
     icon: FileDown,
     label: "Marksheet",
-    roles: ["ADMIN", "TEACHER", "STUDENT"],
+    roles: ["admin", "teacher", "student"],
   },
   {
     href: "/timetable",
     icon: Calendar,
     label: "Timetable",
-    roles: ["ADMIN", "TEACHER", "STUDENT"],
+    roles: ["admin", "teacher", "student"],
   },
 ];
 
@@ -112,13 +112,13 @@ const adminNav: NavItem[] = [
     href: "/notices",
     icon: Bell,
     label: "Notice Board",
-    roles: ["ADMIN", "TEACHER", "STUDENT"],
+    roles: ["admin", "teacher", "student"],
   },
   {
     href: "/settings",
     icon: Settings,
     label: "Settings",
-    roles: ["ADMIN"],
+    roles: ["admin"],
   },
 ];
 
@@ -132,7 +132,7 @@ export function Sidebar({
     localStorage.getItem("user") || "{}"
   );
 
-  const role: UserRole = user?.role || "STUDENT";
+  const role: UserRole = user?.role || "student";
 
   const isActive = (href: string) => {
     return location.pathname === href;

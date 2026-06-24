@@ -2,28 +2,26 @@ import { FormEvent, useState } from "react";
 import { Input } from "@/components/ui/input";
 import styles from "./AdminSignin.module.css";
 import { useNavigate } from "react-router-dom";
+import useAuth from "../../hooks/useAuth"
 
 const AdminSignin = () => {
   const [email, setEmail] = useState("tuhinroy@gmail.com");
   const [password, setPassword] = useState("Tuhin@1234");
   const navigate = useNavigate()
+  const { adminLogin, loading, error } = useAuth()
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log({
+    const payload = {
       email,
-      password,
-    });
-    localStorage.setItem(
-      "user",
-      JSON.stringify({
-        id: "456",
-        name: "John",
-        role: "TEACHER",
-      })
-    );
+      password
+    }
+    const data = await adminLogin(payload)
+    if (data) {
+      navigate("/dashboard")
+    }
 
-    navigate("/dashboard")
+
   };
 
   return (
@@ -92,7 +90,9 @@ const AdminSignin = () => {
             </div>
 
             <button type="submit" className={styles.signinBtn}>
-              Sign In
+              {
+                loading ? "Loading" : "Sign IN"
+              }
             </button>
           </form>
         </div>

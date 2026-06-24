@@ -22,51 +22,54 @@ import NoticeBoard from "./pages/NoticeBoard";
 import Settings from "./pages/Settings";
 import { MainLayout } from "./components/layout/MainLayout";
 import NotFound from "./pages/NotFound";
+import { Provider } from "react-redux";
+import { store } from "../redux/store";
 
 
 const queryClient = new QueryClient();
 
 function App() {
-  
+
 
   return (
-    <QueryClientProvider
-      client={queryClient}
-    >
-      <BrowserRouter>
-        <Routes>
-
-          {/* Public */}
-          <Route path="/" element={<Home />} />
-          <Route path="/admin/signin" element={<AdminSignin />} />
-          {/* Layout Route */}
-          <Route element={<MainLayout  />} >
-            {/* Everyone */}
-            <Route element={<ProtectedRoute allowedRoles={["ADMIN", "TEACHER", "STUDENT",]} />} >
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/subjects" element={<Subjects />} />
-              <Route path="/timetable" element={<Timetable />} />
-              <Route path="/students" element={<Students />} />
-              <Route path="/classes" element={<Classes />} />
-              <Route path="/exams" element={<Exams />} />
+    <Provider store={store}>
+      <QueryClientProvider
+        client={queryClient}
+      >
+        <BrowserRouter>
+          <Routes>
+            {/* Public */}
+            <Route path="/" element={<Home />} />
+            <Route path="/admin/signin" element={<AdminSignin />} />
+            {/* Layout Route */}
+            <Route element={<MainLayout />} >
+              {/* Everyone */}
+              <Route element={<ProtectedRoute allowedRoles={["admin", "teacher", "student",]} />} >
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/subjects" element={<Subjects />} />
+                <Route path="/timetable" element={<Timetable />} />
+                <Route path="/students" element={<Students />} />
+                <Route path="/classes" element={<Classes />} />
+                <Route path="/exams" element={<Exams />} />
+              </Route>
+              {/* Admin + Teacher */}
+              <Route element={<ProtectedRoute allowedRoles={["admin", "teacher",]} />}>
+                <Route path="/attendance" element={<Attendance />} />
+                <Route path="/marks-entry" element={<MarksEntry />} />
+                <Route path="/marksheet" element={<Marksheet />} />
+              </Route>
+              {/* Admin Only */}
+              <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+                <Route path="/teachers" element={<Teachers />} />
+                <Route path="/fees" element={<Fees />} />
+                <Route path="/settings" element={<Settings />} />
+              </Route>
             </Route>
-            {/* Admin + Teacher */}
-            <Route element={<ProtectedRoute allowedRoles={["ADMIN", "TEACHER",]} />}>
-              <Route path="/attendance" element={<Attendance />} />
-              <Route path="/marks-entry" element={<MarksEntry />} />
-              <Route path="/marksheet" element={<Marksheet />} />
-            </Route>
-            {/* Admin Only */}
-            <Route element={<ProtectedRoute allowedRoles={["ADMIN"]} />}>
-              <Route path="/teachers" element={<Teachers />} />
-              <Route path="/fees" element={<Fees />} />
-              <Route path="/settings" element={<Settings />} />
-            </Route>
-          </Route>
-          <Route path="*" element={ <NotFound/>}/>
-        </Routes>
-      </BrowserRouter>
-    </QueryClientProvider>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </Provider>
   );
 }
 export default App;

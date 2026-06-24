@@ -23,7 +23,7 @@ const dbConfig = {
 const pool = new Pool(dbConfig);
 
 // Test database connection
-export const testConnection = async () => {
+export const dbConnection = async () => {
   try {
     const client = await pool.connect();
 

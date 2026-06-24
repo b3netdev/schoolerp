@@ -22,7 +22,7 @@ import NoticeBoard from "./pages/NoticeBoard";
 import Settings from "./pages/Settings";
 import { MainLayout } from "./components/layout/MainLayout";
 import NotFound from "./pages/NotFound";
-import { useNavigate } from "react-router-dom";
+
 
 const queryClient = new QueryClient();
 

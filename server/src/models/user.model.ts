@@ -47,7 +47,7 @@ export class UserModel {
     return result.rows;
   }
 
-  static async findById(id: number): Promise<User | null> {
+  static async findById(id: string): Promise<User | null> {
     const result = await query<User>(
       `
       SELECT *

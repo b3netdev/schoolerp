@@ -11,7 +11,7 @@ interface JwtPayload {
 }
 
 export const isAuthenticated = catchAsync(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: any, res: Response, next: NextFunction) => {
     const token = req.cookies?.authtoken;
 
     if (!token) {
@@ -38,7 +38,22 @@ export const isAuthenticated = catchAsync(
       email: user.email,
       role: user.role,
     };
-
     next();
-  }
+  },
 );
+
+type Role = "admin" | "teacher" | "student";
+
+export const authorizeRoles = (...roles: Role[]) =>
+  catchAsync(async (req: any, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return next(new AppError("Unable to get user", 401));
+    }
+
+    if (!roles.includes(req.user.role as Role)) {
+      return next(
+        new AppError("You do not have permission to perform this action.", 403),
+      );
+    }
+    next();
+  });

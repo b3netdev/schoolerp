@@ -30,7 +30,6 @@ export const createAdmin = catchAsync(
   },
 );
 
-
 export const adminLogin = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const { email, password } = req.body;
@@ -39,7 +38,8 @@ export const adminLogin = catchAsync(
     const user = await UserModel.findByEmail(email);
     if (!user) return next(new AppError("Wrong email or password", 409));
     const ispasswordMatch = await bcrypt.compare(password, user.password);
-    if (!ispasswordMatch) return next(new AppError("Wrong email or password", 404));
+    if (!ispasswordMatch)
+      return next(new AppError("Wrong email or password", 404));
     const expiresIn = (process.env.JWT_EXPIRES_IN ||
       "7d") as SignOptions["expiresIn"];
 
@@ -64,6 +64,26 @@ export const adminLogin = catchAsync(
     res.status(200).json({
       message: "Logged in successfully",
       success: true,
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  },
+);
+
+export const checkAuth = catchAsync(
+  async (req: any, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return next(new AppError("Unable to get user", 401));
+    }
+    const user = await UserModel.findById(req.user.id);
+    if (!user) return next(new AppError("User not found", 401));
+
+    res.status(200).json({
+      message: "Get user",
       data: {
         id: user.id,
         name: user.name,

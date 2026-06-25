@@ -5,8 +5,8 @@ import { useNavigate } from "react-router-dom";
 import useAuth from "../../hooks/useAuth"
 
 const AdminSignin = () => {
-  const [email, setEmail] = useState("tuhinroy@gmail.com");
-  const [password, setPassword] = useState("Tuhin@1234");
+  const [email, setEmail] = useState("tuhin@gmail.com");
+  const [password, setPassword] = useState("Tuhin1234");
   const navigate = useNavigate()
   const { adminLogin, loading, error } = useAuth()
 

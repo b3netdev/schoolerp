@@ -1,9 +1,9 @@
 import { createSlice } from "@reduxjs/toolkit";
-
+export type UserRole = "admin" | "teacher" | "student";
 interface authuser {
   name?: string;
   id?: string;
-  role?: string;
+  role: UserRole;
   email?: string;
 }
 interface authState{
@@ -22,9 +22,11 @@ const authSlice = createSlice({
   reducers: {
     setAuth: (state, action) => {
        state.user = action.payload
+        state.isAuthenticated = true;
     },
     clearAuth: (state) => {
       state.user = null;
+       state.isAuthenticated = false
     },
   },
 });

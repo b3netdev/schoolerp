@@ -12,8 +12,9 @@ interface Props {
 const ProtectedRoute = ({
     allowedRoles,
 }: Props) => {
-    const user = useAppSelector(state=>state.auth)
+    const user = useAppSelector(state=>state.auth.user)
   
+    console.log(user)
 
     if (!user) {
         return (

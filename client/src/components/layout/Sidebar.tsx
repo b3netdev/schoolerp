@@ -17,6 +17,7 @@ import {
   FileDown,
   LibraryBig,
 } from "lucide-react";
+import { useAppSelector } from "../../../redux/hooks";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -51,12 +52,12 @@ const mainNav: NavItem[] = [
     label: "Teachers",
     roles: ["admin"],
   },
-  {
-    href: "/parents",
-    icon: UsersRound,
-    label: "Parents",
-    roles: ["admin"],
-  },
+  // {
+  //   href: "/parents",
+  //   icon: UsersRound,
+  //   label: "Parents",
+  //   roles: ["admin"],
+  // },
   {
     href: "/classes",
     icon: BookOpen,
@@ -127,10 +128,7 @@ export function Sidebar({
   onClose,
 }: SidebarProps) {
   const location = useLocation();
-
-  const user = JSON.parse(
-    localStorage.getItem("user") || "{}"
-  );
+  const { user } = useAppSelector(state => state.auth)
 
   const role: UserRole = user?.role || "student";
 

@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { Sidebar } from "./Sidebar";
 import { Navbar } from "./Navbar";
+import { useAppSelector } from "../../../redux/hooks";
 
 
 
@@ -26,14 +27,12 @@ const pageTitles: Record<string, string> = {
 export function MainLayout() {
   const [sidebarOpen, setSidebarOpen] =
     useState(false);
+    const {user} = useAppSelector(state=>state.auth)
 
   const location = useLocation();
 const navigate = useNavigate()
   const handleLogout = () => {
-    localStorage.removeItem("user");
-    localStorage.removeItem(
-      "accessToken"
-    );
+
     navigate("/")
 
   };

@@ -43,11 +43,25 @@ const useAuth = () => {
         catch (error) {
             setError(error)
         }
-        finally{
+        finally {
             setCheckAUthLoading(false)
         }
     }
 
+    const logOut = async () => {
+        try {
+            const response = await api.post("/auth/logout")
+            if (response.data.success) {
+                return true
+            }
+            return false
+
+        }
+        catch (error) {
+            return false
+
+        }
+    }
 
 
     return {
@@ -55,7 +69,8 @@ const useAuth = () => {
         error,
         loading,
         checkAuth,
-        checkAuthLoading
+        checkAuthLoading,
+        logOut
     }
 
 

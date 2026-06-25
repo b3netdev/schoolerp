@@ -4,7 +4,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Navbar } from "./Navbar";
 import { useAppSelector } from "../../../redux/hooks";
-
+import useAuth from "@/hooks/useAuth";
 
 
 const pageTitles: Record<string, string> = {
@@ -27,13 +27,17 @@ const pageTitles: Record<string, string> = {
 export function MainLayout() {
   const [sidebarOpen, setSidebarOpen] =
     useState(false);
-    const {user} = useAppSelector(state=>state.auth)
+  const { user } = useAppSelector(state => state.auth)
+  const { logOut } = useAuth()
 
   const location = useLocation();
-const navigate = useNavigate()
-  const handleLogout = () => {
 
-    navigate("/")
+  const navigate = useNavigate()
+  const handleLogout = async () => {
+    const data = await logOut()
+    if (data) {
+      navigate("/")
+    }
 
   };
   const title =

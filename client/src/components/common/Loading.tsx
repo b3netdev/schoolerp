@@ -1,4 +1,3 @@
-// src/components/common/LoadingPage.jsx
 
 const LoadingPage = ({
   title = "Loading",

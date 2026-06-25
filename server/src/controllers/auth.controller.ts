@@ -74,6 +74,20 @@ export const adminLogin = catchAsync(
   },
 );
 
+export const signOut = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    res.clearCookie("authtoken", {
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax",
+    });
+    return res.status(200).json({
+      success: true,
+      message: "Logged out successfully",
+    });
+  },
+);
+
 export const checkAuth = catchAsync(
   async (req: any, res: Response, next: NextFunction) => {
     if (!req.user) {

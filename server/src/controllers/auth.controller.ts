@@ -84,6 +84,7 @@ export const checkAuth = catchAsync(
 
     res.status(200).json({
       message: "Get user",
+      success: true,
       data: {
         id: user.id,
         name: user.name,

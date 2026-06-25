@@ -24,7 +24,7 @@ import { MainLayout } from "./components/layout/MainLayout";
 import NotFound from "./pages/NotFound";
 import { Provider } from "react-redux";
 import { store } from "../redux/store";
-
+import AuthInitializer from "./components/common/AuthInitializer";
 
 const queryClient = new QueryClient();
 
@@ -36,38 +36,41 @@ function App() {
       <QueryClientProvider
         client={queryClient}
       >
-        <BrowserRouter>
-          <Routes>
-            {/* Public */}
-            <Route path="/" element={<Home />} />
-            <Route path="/admin/signin" element={<AdminSignin />} />
-            {/* Layout Route */}
-            <Route element={<MainLayout />} >
-              {/* Everyone */}
-              <Route element={<ProtectedRoute allowedRoles={["admin", "teacher", "student",]} />} >
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/subjects" element={<Subjects />} />
-                <Route path="/timetable" element={<Timetable />} />
-                <Route path="/students" element={<Students />} />
-                <Route path="/classes" element={<Classes />} />
-                <Route path="/exams" element={<Exams />} />
+        <AuthInitializer>
+
+          <BrowserRouter>
+            <Routes>
+              {/* Public */}
+              <Route path="/" element={<Home />} />
+              <Route path="/admin/signin" element={<AdminSignin />} />
+              {/* Layout Route */}
+              <Route element={<MainLayout />} >
+                {/* Everyone */}
+                <Route element={<ProtectedRoute allowedRoles={["admin", "teacher", "student",]} />} >
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/subjects" element={<Subjects />} />
+                  <Route path="/timetable" element={<Timetable />} />
+                  <Route path="/students" element={<Students />} />
+                  <Route path="/classes" element={<Classes />} />
+                  <Route path="/exams" element={<Exams />} />
+                </Route>
+                {/* Admin + Teacher */}
+                <Route element={<ProtectedRoute allowedRoles={["admin", "teacher",]} />}>
+                  <Route path="/attendance" element={<Attendance />} />
+                  <Route path="/marks-entry" element={<MarksEntry />} />
+                  <Route path="/marksheet" element={<Marksheet />} />
+                </Route>
+                {/* Admin Only */}
+                <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+                  <Route path="/teachers" element={<Teachers />} />
+                  <Route path="/fees" element={<Fees />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Route>
               </Route>
-              {/* Admin + Teacher */}
-              <Route element={<ProtectedRoute allowedRoles={["admin", "teacher",]} />}>
-                <Route path="/attendance" element={<Attendance />} />
-                <Route path="/marks-entry" element={<MarksEntry />} />
-                <Route path="/marksheet" element={<Marksheet />} />
-              </Route>
-              {/* Admin Only */}
-              <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
-                <Route path="/teachers" element={<Teachers />} />
-                <Route path="/fees" element={<Fees />} />
-                <Route path="/settings" element={<Settings />} />
-              </Route>
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </AuthInitializer>
       </QueryClientProvider>
     </Provider>
   );

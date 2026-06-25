@@ -30,6 +30,7 @@ export const createAdmin = catchAsync(
   },
 );
 
+
 export const adminLogin = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const { email, password } = req.body;

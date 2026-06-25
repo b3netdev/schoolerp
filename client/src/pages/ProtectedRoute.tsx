@@ -14,7 +14,10 @@ const ProtectedRoute = ({
 }: Props) => {
     const user = useAppSelector(state=>state.auth.user)
   
-    console.log(user)
+  
+
+    
+
 
     if (!user) {
         return (

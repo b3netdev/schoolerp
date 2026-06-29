@@ -25,6 +25,7 @@ import NotFound from "./pages/NotFound";
 import { Provider } from "react-redux";
 import { store } from "../redux/store";
 import AuthInitializer from "./components/common/AuthInitializer";
+import ComingSoon from "./components/common/ommingSoon";
 
 const queryClient = new QueryClient();
 
@@ -43,30 +44,62 @@ function App() {
               {/* Public */}
               <Route path="/" element={<Home />} />
               <Route path="/admin/signin" element={<AdminSignin />} />
-              {/* Layout Route */}
-              <Route element={<MainLayout />} >
-                {/* Everyone */}
-                <Route element={<ProtectedRoute allowedRoles={["admin", "teacher", "student",]} />} >
-                  <Route path="/dashboard" element={<Dashboard />} />
-                  <Route path="/subjects" element={<Subjects />} />
-                  <Route path="/timetable" element={<Timetable />} />
-                  <Route path="/students" element={<Students />} />
-                  <Route path="/classes" element={<Classes />} />
-                  <Route path="/exams" element={<Exams />} />
+
+              {/* Role based protected area */}
+              <Route
+                path="/:portal"
+                element={
+                  <ProtectedRoute
+                    allowedRoles={["admin", "teacher", "student"]}
+                    checkPortal={true}
+                  >
+                    <MainLayout />
+                  </ProtectedRoute>
+                }
+              >
+                {/* /admin redirects to /admin/dashboard */}
+                {/* /teacher redirects to /teacher/dashboard */}
+                {/* /student redirects to /student/dashboard */}
+                <Route index element={<Navigate to="dashboard" replace />} />
+
+                {/* Admin + Teacher + Student */}
+                <Route
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={["admin", "teacher", "student"]}
+                    />
+                  }
+                >
+                  <Route path="dashboard" element={<Dashboard />} />
+                  <Route path="subjects" element={<ComingSoon />} />
+                  <Route path="timetable" element={<ComingSoon />} />
+                  <Route path="marksheet" element={<ComingSoon />} />
                 </Route>
+
                 {/* Admin + Teacher */}
-                <Route element={<ProtectedRoute allowedRoles={["admin", "teacher",]} />}>
-                  <Route path="/attendance" element={<Attendance />} />
-                  <Route path="/marks-entry" element={<MarksEntry />} />
-                  <Route path="/marksheet" element={<Marksheet />} />
+                <Route
+                  element={
+                    <ProtectedRoute allowedRoles={["admin", "teacher"]} />
+                  }
+                >
+                  <Route path="students" element={<ComingSoon />} />
+                  <Route path="classes" element={<ComingSoon />} />
+                  <Route path="exams" element={<ComingSoon />} />
+                  <Route path="attendance" element={<ComingSoon />} />
+                  <Route path="marks-entry" element={<ComingSoon />} />
+                  <Route path="notices" element={<ComingSoon />} />
                 </Route>
+
                 {/* Admin Only */}
-                <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
-                  <Route path="/teachers" element={<Teachers />} />
-                  <Route path="/fees" element={<Fees />} />
-                  <Route path="/settings" element={<Settings />} />
+                <Route
+                  element={<ProtectedRoute allowedRoles={["admin"]} />}
+                >
+                  <Route path="teachers" element={<ComingSoon />} />
+                  <Route path="fees" element={<ComingSoon />} />
+                  <Route path="settings" element={<ComingSoon />} />
                 </Route>
               </Route>
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

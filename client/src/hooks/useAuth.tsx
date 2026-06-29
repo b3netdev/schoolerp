@@ -19,7 +19,7 @@ const useAuth = () => {
             const data = await api.post(`/auth/admin-login`, payload)
             if (data?.data?.success == true) {
                 dispatch(setAuth(data.data.data))
-                return true
+                return data.data.data
             }
         }
         catch (error) {

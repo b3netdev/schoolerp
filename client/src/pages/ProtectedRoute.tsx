@@ -1,26 +1,36 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useParams } from "react-router-dom";
 import { useAppSelector } from "../../redux/hooks";
 import useAuth from "@/hooks/useAuth";
-import { useEffect, } from "react";
+import { useEffect } from "react";
 import LoadingPage from "@/components/common/Loading";
+
 type UserRole = "admin" | "teacher" | "student";
 
 interface Props {
     allowedRoles: UserRole[];
+    checkPortal?: boolean;
+    children?: React.ReactNode;
 }
 
-const ProtectedRoute = ({ allowedRoles }: Props) => {
+const validRoles: UserRole[] = ["admin", "teacher", "student"];
+
+const ProtectedRoute = ({
+    allowedRoles,
+    checkPortal = false,
+    children,
+}: Props) => {
+    const { portal } = useParams();
+
     const user = useAppSelector((state) => state.auth.user);
+
     const { checkAuth, loading } = useAuth();
 
     useEffect(() => {
         const verifyAuth = async () => {
-            console.log("CALLING",2)
             if (!user) {
                 await checkAuth();
             }
         };
-         console.log("CALLING",1)
 
         verifyAuth();
     }, [user]);
@@ -33,11 +43,38 @@ const ProtectedRoute = ({ allowedRoles }: Props) => {
         return <Navigate to="/admin/signin" replace />;
     }
 
-    if (!allowedRoles.includes(user.role)) {
-        return <Navigate to="/dashboard" replace />;
+    /**
+     * This checks if URL prefix is valid.
+     * Example:
+     * /admin/dashboard
+     * /teacher/dashboard
+     * /student/dashboard
+     */
+    if (checkPortal) {
+        if (!portal || !validRoles.includes(portal as UserRole)) {
+            return <Navigate to={`/${user.role}/dashboard`} replace />;
+        }
+
+        /**
+         * This prevents teacher from opening /admin/dashboard
+         * This prevents student from opening /teacher/dashboard
+         */
+        if (portal !== user.role) {
+            return <Navigate to={`/${user.role}/dashboard`} replace />;
+        }
     }
 
-    return <Outlet />;
+    /**
+     * This checks page permission.
+     * Example:
+     * student cannot access attendance
+     * teacher cannot access fees
+     */
+    if (!allowedRoles.includes(user.role)) {
+        return <Navigate to={`/${user.role}/dashboard`} replace />;
+    }
+
+    return children ? <>{children}</> : <Outlet />;
 };
 
 export default ProtectedRoute;

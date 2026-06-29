@@ -3,7 +3,6 @@ import {
   LayoutDashboard,
   Users,
   GraduationCap,
-  UsersRound,
   BookOpen,
   ClipboardCheck,
   CreditCard,
@@ -16,7 +15,9 @@ import {
   ClipboardList,
   FileDown,
   LibraryBig,
+  type LucideIcon,
 } from "lucide-react";
+
 import { useAppSelector } from "../../../redux/hooks";
 
 interface SidebarProps {
@@ -27,81 +28,75 @@ interface SidebarProps {
 type UserRole = "admin" | "teacher" | "student";
 
 interface NavItem {
-  href: string;
-  icon: any;
+  path: string;
+  icon: LucideIcon;
   label: string;
   roles: UserRole[];
 }
 
 const mainNav: NavItem[] = [
   {
-    href: "/dashboard",
+    path: "dashboard",
     icon: LayoutDashboard,
     label: "Dashboard",
     roles: ["admin", "teacher", "student"],
   },
   {
-    href: "/students",
+    path: "students",
     icon: GraduationCap,
     label: "Students",
     roles: ["admin", "teacher"],
   },
   {
-    href: "/teachers",
+    path: "teachers",
     icon: Users,
     label: "Teachers",
     roles: ["admin"],
   },
-  // {
-  //   href: "/parents",
-  //   icon: UsersRound,
-  //   label: "Parents",
-  //   roles: ["admin"],
-  // },
   {
-    href: "/classes",
+    path: "classes",
     icon: BookOpen,
     label: "Classes",
     roles: ["admin", "teacher"],
   },
   {
-    href: "/subjects",
+    path: "subjects",
     icon: LibraryBig,
     label: "Subjects",
     roles: ["admin", "teacher", "student"],
   },
   {
-    href: "/attendance",
+    path: "attendance",
     icon: ClipboardCheck,
     label: "Attendance",
     roles: ["admin", "teacher"],
   },
   {
-    href: "/fees",
+    path: "fees",
     icon: CreditCard,
     label: "Fees",
     roles: ["admin"],
   },
   {
-    href: "/exams",
+    path: "exams",
     icon: FileText,
     label: "Exams & Results",
     roles: ["admin", "teacher"],
   },
   {
-    href: "/marks-entry",
+    path: "marks-entry",
     icon: ClipboardList,
     label: "Marks Entry",
     roles: ["admin", "teacher"],
   },
   {
-    href: "/marksheet",
+    path: "marksheet",
     icon: FileDown,
     label: "Marksheet",
     roles: ["admin", "teacher", "student"],
   },
   {
-    href: "/timetable",
+    path: "timetable",
     icon: Calendar,
     label: "Timetable",
     roles: ["admin", "teacher", "student"],
@@ -110,30 +105,31 @@ const mainNav: NavItem[] = [
 
 const adminNav: NavItem[] = [
   {
-    href: "/notices",
+    path: "notices",
     icon: Bell,
     label: "Notice Board",
     roles: ["admin", "teacher", "student"],
   },
   {
-    href: "/settings",
+    path: "settings",
     icon: Settings,
     label: "Settings",
     roles: ["admin"],
   },
 ];
 
-export function Sidebar({
-  isOpen,
-  onClose,
-}: SidebarProps) {
+export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
-  const { user } = useAppSelector(state => state.auth)
+
+  const { user } = useAppSelector((state) => state.auth);
 
   const role: UserRole = user?.role || "student";
 
-  const isActive = (href: string) => {
-    return location.pathname === href;
+
+  const basePath = `/${role}`;
+
+  const isActive = (path: string) => {
+    return location.pathname === `${basePath}/${path}`;
   };
 
   const filteredMainNav = mainNav.filter((item) =>
@@ -145,12 +141,12 @@ export function Sidebar({
   );
 
   const NavLink = ({ item }: { item: NavItem }) => {
-    const active = isActive(item.href);
+    const active = isActive(item.path);
 
     return (
       <li>
         <Link
-          to={item.href}
+          to={`${basePath}/${item.path}`}
           onClick={onClose}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${active
             ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
@@ -174,9 +170,7 @@ export function Sidebar({
       )}
 
       <aside
-        className={`fixed top-0 left-0 h-full w-64 bg-sidebar z-30 flex flex-col transition-transform duration-300 lg:translate-x-0 lg:static lg:z-auto ${isOpen
-          ? "translate-x-0"
-          : "-translate-x-full"
+        className={`fixed top-0 left-0 h-full w-64 bg-sidebar z-30 flex flex-col transition-transform duration-300 lg:translate-x-0 lg:static lg:z-auto ${isOpen ? "translate-x-0" : "-translate-x-full"
           }`}
       >
         {/* Logo */}
@@ -213,25 +207,23 @@ export function Sidebar({
 
           <ul className="space-y-1">
             {filteredMainNav.map((item) => (
-              <NavLink
-                key={item.href}
-                item={item}
-              />
+              <NavLink key={item.path} item={item} />
             ))}
           </ul>
 
-          <p className="px-3 mt-5 mb-2 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
-            Administration
-          </p>
+          {filteredAdminNav.length > 0 && (
+            <>
+              <p className="px-3 mt-5 mb-2 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
+                Administration
+              </p>
 
-          <ul className="space-y-1">
-            {filteredAdminNav.map((item) => (
-              <NavLink
-                key={item.href}
-                item={item}
-              />
-            ))}
-          </ul>
+              <ul className="space-y-1">
+                {filteredAdminNav.map((item) => (
+                  <NavLink key={item.path} item={item} />
+                ))}
+              </ul>
+            </>
+          )}
         </nav>
 
         {/* Footer */}
@@ -246,7 +238,7 @@ export function Sidebar({
                 {user?.name || "User"}
               </p>
 
-              <p className="text-xs text-sidebar-foreground/50 truncate">
+              <p className="text-xs text-sidebar-foreground/50 truncate capitalize">
                 {role}
               </p>
             </div>

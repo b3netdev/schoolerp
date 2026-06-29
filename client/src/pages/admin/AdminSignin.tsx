@@ -16,9 +16,10 @@ const AdminSignin = () => {
       email,
       password
     }
-    const data = await adminLogin(payload)
+    const data: any = await adminLogin(payload)
+    console.log(data)
     if (data) {
-      navigate("/dashboard")
+      navigate(`/${data.role}/dashboard`);
     }
 
 

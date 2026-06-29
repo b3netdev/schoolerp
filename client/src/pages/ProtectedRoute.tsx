@@ -43,33 +43,17 @@ const ProtectedRoute = ({
         return <Navigate to="/admin/signin" replace />;
     }
 
-    /**
-     * This checks if URL prefix is valid.
-     * Example:
-     * /admin/dashboard
-     * /teacher/dashboard
-     * /student/dashboard
-     */
     if (checkPortal) {
         if (!portal || !validRoles.includes(portal as UserRole)) {
             return <Navigate to={`/${user.role}/dashboard`} replace />;
         }
 
-        /**
-         * This prevents teacher from opening /admin/dashboard
-         * This prevents student from opening /teacher/dashboard
-         */
+
         if (portal !== user.role) {
             return <Navigate to={`/${user.role}/dashboard`} replace />;
         }
     }
 
-    /**
-     * This checks page permission.
-     * Example:
-     * student cannot access attendance
-     * teacher cannot access fees
-     */
     if (!allowedRoles.includes(user.role)) {
         return <Navigate to={`/${user.role}/dashboard`} replace />;
     }

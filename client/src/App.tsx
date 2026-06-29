@@ -57,12 +57,9 @@ function App() {
                   </ProtectedRoute>
                 }
               >
-                {/* /admin redirects to /admin/dashboard */}
-                {/* /teacher redirects to /teacher/dashboard */}
-                {/* /student redirects to /student/dashboard */}
+
                 <Route index element={<Navigate to="dashboard" replace />} />
 
-                {/* Admin + Teacher + Student */}
                 <Route
                   element={
                     <ProtectedRoute
@@ -76,7 +73,6 @@ function App() {
                   <Route path="marksheet" element={<ComingSoon />} />
                 </Route>
 
-                {/* Admin + Teacher */}
                 <Route
                   element={
                     <ProtectedRoute allowedRoles={["admin", "teacher"]} />
@@ -90,7 +86,6 @@ function App() {
                   <Route path="notices" element={<ComingSoon />} />
                 </Route>
 
-                {/* Admin Only */}
                 <Route
                   element={<ProtectedRoute allowedRoles={["admin"]} />}
                 >

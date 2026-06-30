@@ -25,6 +25,7 @@ import NotFound from "./pages/NotFound";
 import { Provider } from "react-redux";
 import { store } from "../redux/store";
 import AuthInitializer from "./components/common/AuthInitializer";
+import Sections from "./pages/Sections";
 import ComingSoon from "./components/common/ommingSoon";
 
 const queryClient = new QueryClient();
@@ -92,6 +93,7 @@ function App() {
                   <Route path="teachers" element={<ComingSoon />} />
                   <Route path="fees" element={<ComingSoon />} />
                   <Route path="settings" element={<Settings />} />
+                  <Route path="sections" element={<Sections />} />
                 </Route>
               </Route>
 

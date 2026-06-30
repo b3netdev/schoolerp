@@ -52,7 +52,7 @@ export const authorizeRoles = (...roles: Role[]) =>
 
     if (!roles.includes(req.user.role as Role)) {
       return next(
-        new AppError("You do not have permission to perform this action.", 403),
+        new AppError("Permission denied", 403),
       );
     }
     next();

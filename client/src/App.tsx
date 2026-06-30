@@ -91,7 +91,7 @@ function App() {
                 >
                   <Route path="teachers" element={<ComingSoon />} />
                   <Route path="fees" element={<ComingSoon />} />
-                  <Route path="settings" element={<ComingSoon />} />
+                  <Route path="settings" element={<Settings />} />
                 </Route>
               </Route>
 

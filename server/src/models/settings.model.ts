@@ -36,20 +36,17 @@ export interface BulkUpdateSetting {
 
 const tableName = "settings";
 
-export class SettingsModel {
-  static async create(data: CreateSettings): Promise<Settings> {
-    const result = await query<Settings>(
-      `
-      INSERT INTO ${tableName} 
-      (name, setting_group, key, type, value)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *
-      `,
-      [data.name, data.setting_group, data.key, data.type, data.value],
-    );
+export interface UpdateSettingsPayload {
+  id?: number;
+  key?: string;
+  name?: string;
+  setting_group?: string;
+  type?: string;
+  value?: string;
+}
 
-    return result.rows[0];
-  }
+export class SettingsModel {
+
 
   static async findAll(): Promise<Settings[]> {
     const result = await query<Settings>(
@@ -135,42 +132,88 @@ export class SettingsModel {
     return result.rows;
   }
 
+  static generateSettingKey(name: string): string {
+    return name
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  };
+
+
   static async update(
-    id: number,
-    data: UpdateSettings,
-  ): Promise<Settings | null> {
-    const existing = await this.findById(id);
+    data: UpdateSettingsPayload | UpdateSettingsPayload[]
+  ): Promise<Settings[]> {
+    const settingsArray = Array.isArray(data) ? data : [data];
 
-    if (!existing) {
-      return null;
-    }
+    const updatedSettings: Settings[] = [];
 
-    const result = await query<Settings>(
-      `
-      UPDATE ${tableName}
-      SET
-        name = $1,
-        setting_group = $2,
-        key = $3,
-        type = $4,
-        value = $5,
-        updated_at = NOW()
-      WHERE id = $6
-      AND deleted_at IS NULL
+    for (const item of settingsArray) {
+      const settingKey = item.key
+        ? item.key
+        : item.name
+          ? this.generateSettingKey(item.name)
+          : null;
+      if (!settingKey) {
+        continue;
+      }
+
+
+      const existing = await this.findByKey(settingKey);
+      if (existing) {
+        const result = await query<Settings>(
+          `
+        UPDATE ${tableName}
+        SET
+          name = $1,
+          setting_group = $2,
+          type = $3,
+          value = $4,
+          updated_at = NOW(),
+          deleted_at = NULL
+        WHERE "key" = $5
+        RETURNING *
+        `,
+          [
+            item.name ?? existing.name,
+            item.setting_group ?? existing.setting_group,
+            item.type ?? existing.type,
+            item.value ?? existing.value,
+            settingKey,
+          ]
+        );
+
+        if (result.rows[0]) {
+          updatedSettings.push(result.rows[0]);
+        }
+
+        continue;
+      }
+
+      const result = await query<Settings>(
+        `
+      INSERT INTO ${tableName}
+      (name, setting_group, "key", type, value)
+      VALUES ($1, $2, $3, $4, $5)
       RETURNING *
       `,
-      [
-        data.name ?? existing.name,
-        data.setting_group ?? existing.setting_group,
-        data.key ?? existing.key,
-        data.type ?? existing.type,
-        data.value ?? existing.value,
-        id,
-      ],
-    );
+        [
+          item.name ?? settingKey,
+          item.setting_group ?? "general",
+          settingKey,
+          item.type ?? "text",
+          item.value ?? "",
+        ]
+      );
 
-    return result.rows[0] || null;
+      if (result.rows[0]) {
+        updatedSettings.push(result.rows[0]);
+      }
+    }
+
+    return updatedSettings;
   }
+
 
   static async delete(id: number): Promise<boolean> {
     const result = await query<Settings>(

@@ -1,10 +1,20 @@
-import { Tabs } from "@/components/common/Tabs";
-import { Breadcrumb } from "@/components/common/Breadcrumb";
-import { PageHeader } from "@/components/common/PageHeader";
-import { Avatar } from "@/components/common/Avatar";
-import { Badge, statusToBadgeVariant } from "@/components/common/Badge";
-import { users } from "@/data/dummyData";
-import { Settings as SettingsIcon, User, Shield } from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+  type ReactNode,
+} from "react";
+
+import {
+  Settings as SettingsIcon,
+  User,
+  Shield,
+  Bell,
+  Save,
+} from "lucide-react";
+
 import {
   Select,
   SelectContent,
@@ -12,30 +22,69 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useState } from "react";
 
-const tabs = [
-  { id: "general", label: "General", icon: <SettingsIcon className="w-4 h-4" /> },
-  { id: "admin", label: "Admin Profile", icon: <User className="w-4 h-4" /> },
-  { id: "users", label: "Users & Roles", icon: <Shield className="w-4 h-4" /> },
-];
+import useSettings from "@/hooks/useSettngs";
 
-function FormField({ label, value, type = "text" }: { label: string; value: string; type?: string }) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-foreground mb-1.5">{label}</label>
-      <input
-        type={type}
-        defaultValue={value}
-        className="w-full h-9 px-3 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-      />
-    </div>
-  );
+type SettingGroup = "general" | "users" | "security" | "notifications";
+
+type SettingFieldType =
+  | "text"
+  | "email"
+  | "number"
+  | "textarea"
+  | "select"
+  | "timezone";
+
+interface SelectOption {
+  label: string;
+  value: string;
 }
 
+interface SettingField {
+  name: string;
+  field_key: string;
+  setting_group: SettingGroup;
+  type: SettingFieldType;
+  value?: string;
+  options?: SelectOption[];
+}
 
+interface TabItem {
+  id: SettingGroup;
+  label: string;
+  icon: ReactNode;
+}
 
-const fallbackTimeZones: any = [
+interface TimeZoneOption {
+  key: string;
+  value: string;
+  label: string;
+}
+
+interface SettingResponse {
+  id?: number;
+  name: string;
+  setting_group: string;
+  key?: string;
+  type: string;
+  value?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  deleted_at?: string | null;
+}
+
+interface SettingsPayload {
+  name: string;
+  setting_group: string;
+  key: string;
+  type: string;
+  value: string;
+}
+
+type FormDataState = Record<string, string>;
+type DbKeyState = Record<string, string>;
+
+const fallbackTimeZones: string[] = [
   "UTC",
   "Asia/Kolkata",
   "Asia/Dubai",
@@ -59,13 +108,8 @@ const fallbackTimeZones: any = [
   "Australia/Melbourne",
   "Pacific/Auckland",
 ];
-export type TimeZoneOption = {
-  key: string;
-  label: string;
-  value: string;
-};
 
-const getTimeZoneOffset = (timeZone: string) => {
+const getTimeZoneOffset = (timeZone: string): string => {
   try {
     const formatter = new Intl.DateTimeFormat("en-US", {
       timeZone,
@@ -73,7 +117,6 @@ const getTimeZoneOffset = (timeZone: string) => {
     });
 
     const parts = formatter.formatToParts(new Date());
-
     const offset = parts.find((part) => part.type === "timeZoneName")?.value;
 
     return offset?.replace("GMT", "UTC") || "UTC";
@@ -82,204 +125,496 @@ const getTimeZoneOffset = (timeZone: string) => {
   }
 };
 
+const getSupportedTimeZones = (): string[] => {
+  const intlWithSupportedValues = Intl as typeof Intl & {
+    supportedValuesOf?: (key: "timeZone") => string[];
+  };
 
+  if (typeof intlWithSupportedValues.supportedValuesOf === "function") {
+    return intlWithSupportedValues.supportedValuesOf("timeZone");
+  }
 
+  return fallbackTimeZones;
+};
 
+const timeZoneOptions: TimeZoneOption[] = getSupportedTimeZones().map(
+  (zone) => ({
+    key: zone,
+    value: zone,
+    label: `${getTimeZoneOffset(zone)} - ${zone.replace(/_/g, " ")}`,
+  })
+);
 
+const tabs: TabItem[] = [
+  {
+    id: "general",
+    label: "General",
+    icon: <SettingsIcon className="h-4 w-4" />,
+  },
+  {
+    id: "users",
+    label: "Users",
+    icon: <User className="h-4 w-4" />,
+  },
+  {
+    id: "security",
+    label: "Security",
+    icon: <Shield className="h-4 w-4" />,
+  },
+  {
+    id: "notifications",
+    label: "Notifications",
+    icon: <Bell className="h-4 w-4" />,
+  },
+];
 
+const settingsFields: SettingField[] = [
+  // General
+  {
+    name: "School Name",
+    field_key: "school_name",
+    setting_group: "general",
+    type: "text",
+  },
+  {
+    name: "School Phone",
+    field_key: "school_phone",
+    setting_group: "general",
+    type: "text",
+  },
+  {
+    name: "School Email",
+    field_key: "school_email",
+    setting_group: "general",
+    type: "email",
+  },
+  {
+    name: "Time Zone",
+    field_key: "timezone",
+    setting_group: "general",
+    type: "timezone",
+  },
+  {
+    name: "Address",
+    field_key: "school_address",
+    setting_group: "general",
+    type: "textarea",
+  },
 
-export const timeZoneOptions: TimeZoneOption[] =
-  typeof Intl !== "undefined" &&
-    typeof (Intl as any).supportedValuesOf === "function"
-    ? (Intl as any).supportedValuesOf("timeZone").map((zone: string) => ({
-      key: zone,
-      value: zone,
-      label: `${getTimeZoneOffset(zone)} - ${zone.replace("_", " ")}`,
-    }))
-    : fallbackTimeZones.map((zone: string) => ({
-      key: zone,
-      value: zone,
-      label: `${getTimeZoneOffset(zone)} - ${zone.replace("_", " ")}`,
+  // Users
+  {
+    name: "Default User Role",
+    field_key: "default_user_role",
+    setting_group: "users",
+    type: "select",
+    options: [
+      { label: "Admin", value: "admin" },
+      { label: "Teacher", value: "teacher" },
+      { label: "Student", value: "student" },
+    ],
+  },
+  {
+    name: "Allow User Registration",
+    field_key: "allow_user_registration",
+    setting_group: "users",
+    type: "select",
+    options: [
+      { label: "Yes", value: "true" },
+      { label: "No", value: "false" },
+    ],
+  },
+
+  // Security
+  {
+    name: "Two Factor Authentication",
+    field_key: "two_factor_authentication",
+    setting_group: "security",
+    type: "select",
+    options: [
+      { label: "Enabled", value: "true" },
+      { label: "Disabled", value: "false" },
+    ],
+  },
+  {
+    name: "Password Minimum Length",
+    field_key: "password_minimum_length",
+    setting_group: "security",
+    type: "number",
+  },
+
+  // Notifications
+  {
+    name: "Email Notification",
+    field_key: "email_notification",
+    setting_group: "notifications",
+    type: "select",
+    options: [
+      { label: "Enabled", value: "true" },
+      { label: "Disabled", value: "false" },
+    ],
+  },
+  {
+    name: "SMS Notification",
+    field_key: "sms_notification",
+    setting_group: "notifications",
+    type: "select",
+    options: [
+      { label: "Enabled", value: "true" },
+      { label: "Disabled", value: "false" },
+    ],
+  },
+];
+
+const createEmptyFormData = (): FormDataState => {
+  return settingsFields.reduce<FormDataState>((acc, field) => {
+    acc[field.field_key] = field.value ?? "";
+    return acc;
+  }, {});
+};
+
+const createDefaultDbKeys = (): DbKeyState => {
+  return settingsFields.reduce<DbKeyState>((acc, field) => {
+    acc[field.field_key] = field.field_key;
+    return acc;
+  }, {});
+};
+
+const normalizeText = (value: string | undefined | null): string => {
+  return String(value ?? "").trim().toLowerCase();
+};
+
+const findSettingForField = (
+  field: SettingField,
+  fetchedSettings: SettingResponse[]
+): SettingResponse | undefined => {
+  return fetchedSettings.find((setting) => {
+    const keyMatched = normalizeText(setting.key) === normalizeText(field.field_key);
+
+    const nameAndGroupMatched =
+      normalizeText(setting.name) === normalizeText(field.name) &&
+      normalizeText(setting.setting_group) === normalizeText(field.setting_group);
+
+    return keyMatched || nameAndGroupMatched;
+  });
+};
+
+const buildFormDataFromFetchedSettings = (
+  fetchedSettings: SettingResponse[]
+): {
+  formData: FormDataState;
+  dbKeys: DbKeyState;
+} => {
+  const nextFormData = createEmptyFormData();
+  const nextDbKeys = createDefaultDbKeys();
+
+  settingsFields.forEach((field) => {
+    const matchedSetting = findSettingForField(field, fetchedSettings);
+
+    nextFormData[field.field_key] = String(matchedSetting?.value ?? "");
+    nextDbKeys[field.field_key] = matchedSetting?.key || field.field_key;
+  });
+
+  return {
+    formData: nextFormData,
+    dbKeys: nextDbKeys,
+  };
+};
+
+const Settings = () => {
+  const { getSettings, updateSettingsData, getLoading, updateLoading } =
+    useSettings();
+
+  const [activeTab, setActiveTab] = useState<SettingGroup>("general");
+
+  const [formData, setFormData] = useState<FormDataState>(createEmptyFormData());
+
+  const [initialFormData, setInitialFormData] = useState<FormDataState>(
+    createEmptyFormData()
+  );
+
+  const [dbKeys, setDbKeys] = useState<DbKeyState>(createDefaultDbKeys());
+
+  const activeFields = settingsFields.filter(
+    (field) => field.setting_group === activeTab
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchSettings = async () => {
+      const fetchedSettings = await getSettings();
+
+      if (!isMounted) return;
+
+      const safeSettings = Array.isArray(fetchedSettings)
+        ? fetchedSettings
+        : [];
+
+      const patchedData = buildFormDataFromFetchedSettings(safeSettings);
+
+      setFormData(patchedData.formData);
+      setInitialFormData(patchedData.formData);
+      setDbKeys(patchedData.dbKeys);
+    };
+
+    fetchSettings();
+
+    return () => {
+      isMounted = false;
+    };
+
+    // Keep empty dependency to fetch only once on page load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const changedPayload = useMemo<SettingsPayload[]>(() => {
+    return settingsFields
+      .filter((field) => {
+        const currentValue = String(formData[field.field_key] ?? "");
+        const initialValue = String(initialFormData[field.field_key] ?? "");
+
+        return currentValue !== initialValue;
+      })
+      .map((field) => ({
+        name: field.name,
+        setting_group: field.setting_group,
+        key: dbKeys[field.field_key] || field.field_key,
+        type: field.type,
+        value: String(formData[field.field_key] ?? ""),
+      }));
+  }, [formData, initialFormData, dbKeys]);
+
+  const hasChanges = changedPayload.length > 0;
+
+  const handleInputChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value ?? "",
     }));
+  };
 
-interface TimeZoneDropdownFieldProps {
-  label?: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  disabled?: boolean;
-}
+  const handleSelectChange = (fieldKey: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [fieldKey]: value ?? "",
+    }));
+  };
 
-const TimeZoneDropdownField = ({
-  label = "Time Zone",
-  value,
-  onChange,
-  placeholder = "Select time zone",
-  disabled = false,
-}: TimeZoneDropdownFieldProps) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!hasChanges) return;
+
+    console.log("Only changed settings payload:", changedPayload);
+
+    const updatedSettings = await updateSettingsData(changedPayload);
+
+    if (!updatedSettings) return;
+
+    const updatedArray = Array.isArray(updatedSettings)
+      ? updatedSettings
+      : [updatedSettings];
+
+    const nextDbKeys = { ...dbKeys };
+
+    updatedArray.forEach((setting: SettingResponse) => {
+      const matchedField = settingsFields.find((field) => {
+        const keyMatched =
+          normalizeText(setting.key) === normalizeText(dbKeys[field.field_key]) ||
+          normalizeText(setting.key) === normalizeText(field.field_key);
+
+        const nameAndGroupMatched =
+          normalizeText(setting.name) === normalizeText(field.name) &&
+          normalizeText(setting.setting_group) ===
+          normalizeText(field.setting_group);
+
+        return keyMatched || nameAndGroupMatched;
+      });
+
+      if (matchedField) {
+        nextDbKeys[matchedField.field_key] =
+          setting.key || matchedField.field_key;
+      }
+    });
+
+    setDbKeys(nextDbKeys);
+    setInitialFormData(formData);
+  };
+
+  const handleCancel = () => {
+    setFormData(initialFormData);
+  };
+
+  const renderField = (field: SettingField) => {
+    if (field.type === "textarea") {
+      return (
+        <div key={field.field_key} className="sm:col-span-2">
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
+            {field.name}
+          </label>
+
+          <textarea
+            name={field.field_key}
+            value={formData[field.field_key] ?? ""}
+            onChange={handleInputChange}
+            rows={3}
+            className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
+      );
+    }
+
+    if (field.type === "timezone") {
+      return (
+        <div key={field.field_key}>
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
+            {field.name}
+          </label>
+
+          <Select
+            value={formData[field.field_key] ?? ""}
+            onValueChange={(value) => handleSelectChange(field.field_key, value)}
+          >
+            <SelectTrigger className="w-full rounded-lg border border-border bg-background text-sm text-foreground focus:ring-2 focus:ring-primary/30">
+              <SelectValue placeholder="Select time zone" />
+            </SelectTrigger>
+
+            <SelectContent className="max-h-72">
+              {timeZoneOptions.map((zone) => (
+                <SelectItem key={zone.key} value={zone.value}>
+                  {zone.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      );
+    }
+
+    if (field.type === "select") {
+      return (
+        <div key={field.field_key}>
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
+            {field.name}
+          </label>
+
+          <Select
+            value={formData[field.field_key] ?? ""}
+            onValueChange={(value) => handleSelectChange(field.field_key, value)}
+          >
+            <SelectTrigger className="w-full rounded-lg border border-border bg-background text-sm text-foreground focus:ring-2 focus:ring-primary/30">
+              <SelectValue placeholder={`Select ${field.name}`} />
+            </SelectTrigger>
+
+            <SelectContent>
+              {field.options?.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      );
+    }
+
+    return (
+      <div key={field.field_key}>
+        <label className="mb-1.5 block text-sm font-medium text-foreground">
+          {field.name}
+        </label>
+
+        <input
+          type={field.type}
+          name={field.field_key}
+          value={formData[field.field_key] ?? ""}
+          onChange={handleInputChange}
+          className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+        />
+      </div>
+    );
+  };
+
   return (
-    <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-foreground">
-        {label}
-      </label>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Manage school, user, security, and notification settings.
+        </p>
+      </div>
 
-      <Select value={value} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger className="w-full rounded-lg border border-border bg-background text-sm text-foreground focus:ring-2 focus:ring-primary/30">
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
+      <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
+        <div className="rounded-xl border border-border bg-card p-3">
+          <div className="space-y-1">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${activeTab === tab.id
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
 
-        <SelectContent className="max-h-72">
-          {timeZoneOptions.map((zone) => (
-            <SelectItem key={zone.key} value={zone.value}>
-              {zone.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold capitalize text-foreground">
+                {activeTab} Settings
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Update {activeTab} related settings from here.
+              </p>
+            </div>
+
+            {getLoading && (
+              <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                Loading...
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {activeFields.map((field) => renderField(field))}
+          </div>
+
+          {hasChanges && (
+            <div className="mt-6 flex gap-2">
+              <button
+                type="submit"
+                disabled={updateLoading}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Save className="h-4 w-4" />
+                {updateLoading ? "Saving..." : "Save Changes"}
+              </button>
+
+              <button
+                type="button"
+                disabled={updateLoading}
+                onClick={handleCancel}
+                className="rounded-lg bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </form>
   );
 };
 
-
-export default function Settings() {
-  const [formData, setFormData] = useState({
-    system_name: "",
-    system_email: "",
-    school_name: "",
-    system_phone: "",
-    school_address: "",
-    timezone: "",
-  });
-  return (
-    <div>
-      <Breadcrumb items={[{ label: "Settings" }]} />
-      <PageHeader title="Settings" description="Manage school and account configuration" />
-
-      <div className="bg-card border border-border rounded-xl p-6">
-        <Tabs tabs={tabs} defaultTab="general">
-          {(active) => {
-            if (active === "general") {
-              return (
-                <div className="max-w-2xl space-y-5">
-                  <h3 className="text-sm font-semibold text-foreground">School Information</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <FormField label="System Name" value={formData.system_name} />
-                    <FormField label="System email" value={formData.system_email} />
-                    <FormField label="System Phone" value={formData.system_phone} />
-                    <FormField label="School Name" value={formData.school_name} />
-                    <TimeZoneDropdownField
-                      value={formData.timezone}
-                      onChange={(value) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          timezone: value,
-                        }))
-                      }
-                    />
-
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-1.5">School Address</label>
-                    <textarea
-                      defaultValue={formData.school_address}
-                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
-                      rows={2}
-
-                    />
-                  </div>
-                  <div className="flex gap-2 pt-2">
-                    <button className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity">
-                      Save Changes
-                    </button>
-                    <button className="px-4 py-2 bg-muted text-foreground text-sm font-medium rounded-lg hover:bg-muted/80 transition-colors">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              );
-            }
-
-            if (active === "admin") {
-              return (
-                <div className="max-w-2xl">
-                  <div className="flex items-center gap-5 mb-6 pb-6 border-b border-border">
-                    <Avatar initials="JA" name="John Admin" size="lg" />
-                    <div>
-                      <h3 className="text-base font-semibold text-foreground">John Admin</h3>
-                      <p className="text-sm text-muted-foreground">Super Administrator</p>
-                      <button className="mt-2 text-xs text-primary hover:underline">Change Photo</button>
-                    </div>
-                  </div>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <FormField label="First Name" value="John" />
-                      <FormField label="Last Name" value="Admin" />
-                      <FormField label="Email" value="john@school.edu" type="email" />
-                      <FormField label="Phone" value="555-0001" />
-                    </div>
-                    <FormField label="Role" value="Super Administrator" />
-                    <div className="flex gap-2 pt-2">
-                      <button className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity">
-                        Update Profile
-                      </button>
-                      <button className="px-4 py-2 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors">
-                        Change Password
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-
-            // if (active === "users") {
-            //   return (
-            //     <div>
-            //       <div className="flex items-center justify-between mb-5">
-            //         <div>
-            //           <h3 className="text-sm font-semibold text-foreground">System Users</h3>
-            //           <p className="text-xs text-muted-foreground mt-0.5">{users.length} users configured</p>
-            //         </div>
-            //         <button className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-medium rounded-lg hover:opacity-90 transition-opacity">
-            //           Add User
-            //         </button>
-            //       </div>
-            //       <div className="overflow-x-auto">
-            //         <table className="w-full">
-            //           <thead>
-            //             <tr className="border-b border-border">
-            //               <th className="py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">User</th>
-            //               <th className="py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Email</th>
-            //               <th className="py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Role</th>
-            //               <th className="py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
-            //             </tr>
-            //           </thead>
-            //           <tbody className="divide-y divide-border">
-            //             {users.map(u => (
-            //               <tr key={u.id} className="hover:bg-muted/40 transition-colors">
-            //                 <td className="py-3">
-            //                   <div className="flex items-center gap-3">
-            //                     <Avatar name={u.name} size="sm" />
-            //                     <span className="text-sm font-medium text-foreground">{u.name}</span>
-            //                   </div>
-            //                 </td>
-            //                 <td className="py-3 text-sm text-muted-foreground">{u.email}</td>
-            //                 <td className="py-3 text-sm text-foreground">{u.role}</td>
-            //                 <td className="py-3">
-            //                   <Badge variant={statusToBadgeVariant(u.status)}>{u.status}</Badge>
-            //                 </td>
-            //               </tr>
-            //             ))}
-            //           </tbody>
-            //         </table>
-            //       </div>
-            //     </div>
-            //   );
-            // }
-
-            return null;
-          }}
-        </Tabs>
-      </div>
-    </div>
-  );
-}
+export default Settings;

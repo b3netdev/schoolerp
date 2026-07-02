@@ -79,7 +79,6 @@ function App() {
                     <ProtectedRoute allowedRoles={["teacher"]} />
                   }
                 >
-                  <Route path="students" element={<ComingSoon />} />
                   <Route path="classes" element={<ComingSoon />} />
                   <Route path="exams" element={<ComingSoon />} />
                   <Route path="attendance" element={<ComingSoon />} />
@@ -90,6 +89,7 @@ function App() {
                 <Route
                   element={<ProtectedRoute allowedRoles={["admin"]} />}
                 >
+                  <Route path="students" element={<ComingSoon />} />
                   <Route path="teachers" element={<ComingSoon />} />
                   <Route path="fees" element={<ComingSoon />} />
                   <Route path="section" element={<Section />} />

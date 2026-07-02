@@ -8,70 +8,122 @@ import { Pagination } from "@/components/common/Pagination";
 import { PageHeader } from "@/components/common/PageHeader";
 import { parents as initialParents } from "@/data/dummyData";
 
-
-type Parent = typeof initialParents[0];
+type Section = {
+  id: number;
+  name: string;
+  stream: string;
+};
 
 const columns: Column[] = [
-  { key: "parentName", label: "Parent Name", type: "avatar-text" },
-  { key: "studentName", label: "Student Name" },
-  { key: "phone", label: "Phone" },
-  { key: "email", label: "Email" },
-  { key: "relationship", label: "Relationship" },
-  { key: "actions", label: "Actions", type: "actions" },
+  { key: "name", label: "Section Name", type: "avatar-text" },
+  { key: "stream", label: "Stream Name" },
 ];
 
 const fields: FieldDef[] = [
-  { key: "parentName", label: "Parent Name", required: true, placeholder: "e.g. Robert Johnson" },
-  { key: "studentName", label: "Student Name", required: true, placeholder: "e.g. Alice Johnson" },
-  { key: "phone", label: "Phone", type: "tel", placeholder: "555-0000" },
-  { key: "email", label: "Email", type: "email", placeholder: "parent@example.com" },
   {
-    key: "relationship", label: "Relationship", type: "select",
-    options: ["Father", "Mother", "Guardian", "Sibling"],
+    key: "name",
+    label: "Section Name",
+    required: true,
+    placeholder: "Nursery",
+  },
+  {
+    key: "stream",
+    label: "Stream Name",
+    required: true,
+    placeholder: "A",
   },
 ];
 
+const initialSections: Section[] = (
+  initialParents as unknown as Array<Partial<Section>>
+).map((item, index) => ({
+  id: Number(item.id ?? index + 1),
+  name: String(item.name ?? ""),
+  stream: String(item.stream ?? ""),
+}));
+
 const Sections = () => {
-    const [data, setData] = useState<Parent[]>(initialParents);
-    const [search, setSearch] = useState("");
-    const [page, setPage] = useState(1);
+  const [data, setData] = useState<Section[]>(initialSections);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
-    const [editItem, setEditItem] = useState<Parent | null>(null);
-    const [deleteItem, setDeleteItem] = useState<Parent | null>(null);
-    const [addOpen, setAddOpen] = useState(false);
+  const [editItem, setEditItem] = useState<Section | null>(null);
+  const [deleteItem, setDeleteItem] = useState<Section | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
-    const filtered = data.filter(p =>
-    p.parentName.toLowerCase().includes(search.toLowerCase()) ||
-    p.studentName.toLowerCase().includes(search.toLowerCase())
+  const filtered = data.filter(
+    (section) =>
+      section.name.toLowerCase().includes(search.toLowerCase()) ||
+      section.stream.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const paginatedData = filtered.slice((page - 1) * 10, page * 10);
+
+  const handleDelete = () => {
+    if (!deleteItem) return;
+
+    setData((prev) => prev.filter((section) => section.id !== deleteItem.id));
+    setDeleteItem(null);
+  };
+
+  const handleEdit = (values: Record<string, string>) => {
+    if (!editItem) return;
+
+    setData((prev) =>
+      prev.map((section) =>
+        section.id === editItem.id
+          ? {
+              ...section,
+              name: values.name,
+              stream: values.stream,
+            }
+          : section
+      )
     );
 
-    const handleDelete = () => {
-        if (!deleteItem) return;
-        setData(prev => prev.filter(p => p.id !== deleteItem.id));
+    setEditItem(null);
+  };
+
+  const handleAdd = (values: Record<string, string>) => {
+    const newSection: Section = {
+      id: Date.now(),
+      name: values.name,
+      stream: values.stream,
     };
 
-        const handleEdit = (values: Record<string, string>) => {
-        if (!editItem) return;
-        setData(prev =>
-        prev.map(p => p.id === editItem.id ? { ...p, ...values } : p)
-        );
-    };
+    setData((prev) => [newSection, ...prev]);
+    setAddOpen(false);
+  };
 
-    const handleAdd = (values: Record<string, string>) => {
-    const newParent: Parent = {
-        id: Date.now(),
-        parentName: values.parentName,
-        studentName: values.studentName,
-        phone: values.phone,
-        email: values.email,
-        relationship: values.relationship || "Guardian",
-        };
-        setData(prev => [newParent, ...prev]);
-    };
+  const handleEditClick = (row: Record<string, unknown>) => {
+    const rowId = Number(row.id);
+    const selectedSection = data.find((section) => section.id === rowId);
+
+    if (selectedSection) {
+      setEditItem(selectedSection);
+    }
+  };
+
+  const handleDeleteClick = (row: Record<string, unknown>) => {
+    const rowId = Number(row.id);
+    const selectedSection = data.find((section) => section.id === rowId);
+
+    if (selectedSection) {
+      setDeleteItem(selectedSection);
+    }
+  };
+
+  const editInitialValues: Record<string, string> | undefined = editItem
+    ? {
+        name: editItem.name,
+        stream: editItem.stream,
+      }
+    : undefined;
 
   return (
     <div>
       <Breadcrumb items={[{ label: "Sections" }]} />
+
       <PageHeader
         title="Sections"
         description={`${data.length} section records`}
@@ -81,7 +133,8 @@ const Sections = () => {
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
             data-testid="add-section-btn"
           >
-            <Plus className="w-4 h-4" /> Add Section
+            <Plus className="w-4 h-4" />
+            Add Section
           </button>
         }
       />
@@ -90,13 +143,17 @@ const Sections = () => {
         <div className="p-5 border-b border-border">
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+
             <input
               type="search"
-              placeholder="Search parents..."
+              placeholder="Search sections..."
               value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1); }}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
               className="w-full h-9 pl-9 pr-4 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-              data-testid="parents-search"
+              data-testid="sections-search"
             />
           </div>
         </div>
@@ -104,49 +161,51 @@ const Sections = () => {
         <div className="px-6">
           <DataTable
             columns={columns}
-            data={filtered.map(p => ({ ...p, name: p.parentName })) as unknown as Record<string, unknown>[]}
-            onEdit={row => setEditItem(data.find(p => p.id === (row as unknown as Parent).id) ?? null)}
-            onDelete={row => setDeleteItem(data.find(p => p.id === (row as unknown as Parent).id) ?? null)}
+            data={paginatedData as unknown as Record<string, unknown>[]}
+            onEdit={handleEditClick}
+            onDelete={handleDeleteClick}
           />
         </div>
 
         <div className="px-6 py-4 border-t border-border flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            Showing {filtered.length} of {data.length} parents
+            Showing {paginatedData.length} of {filtered.length} sections
           </span>
-          <Pagination currentPage={page} totalPages={Math.max(1, Math.ceil(filtered.length / 10))} onPageChange={setPage} />
+
+          <Pagination
+            currentPage={page}
+            totalPages={Math.max(1, Math.ceil(filtered.length / 10))}
+            onPageChange={setPage}
+          />
         </div>
       </div>
 
-      {/* Add */}
       <FormModal
         isOpen={addOpen}
         onClose={() => setAddOpen(false)}
         onSubmit={handleAdd}
-        title="Add New Parent"
+        title="Add New Section"
         fields={fields}
-        submitLabel="Add Parent"
+        submitLabel="Add Section"
       />
 
-      {/* Edit */}
       <FormModal
         isOpen={!!editItem}
         onClose={() => setEditItem(null)}
         onSubmit={handleEdit}
-        title="Edit Parent"
+        title="Edit Section"
         fields={fields}
-        initialValues={editItem as unknown as Record<string, string>}
+        initialValues={editInitialValues}
         submitLabel="Save Changes"
       />
 
-      {/* Delete */}
       <ConfirmModal
         isOpen={!!deleteItem}
         onClose={() => setDeleteItem(null)}
         onConfirm={handleDelete}
-        title="Delete Parent"
-        description={`Are you sure you want to remove "${deleteItem?.parentName}" from the system? This action cannot be undone.`}
-        confirmLabel="Delete Parent"
+        title="Delete Section"
+        description={`Are you sure you want to remove "${deleteItem?.name}" from the system? This action cannot be undone.`}
+        confirmLabel="Delete Section"
       />
     </div>
   );

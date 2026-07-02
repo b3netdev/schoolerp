@@ -54,6 +54,12 @@ const mainNav: NavItem[] = [
     roles: ["admin"],
   },
   {
+    path: "section",
+    icon: BookOpen,
+    label: "Section",
+    roles: ["admin"],
+  },
+  {
     path: "classes",
     icon: BookOpen,
     label: "Classes",

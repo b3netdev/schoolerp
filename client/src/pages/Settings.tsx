@@ -7,6 +7,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { Breadcrumb } from "@/components/common/Breadcrumb";
+
 import {
   Settings as SettingsIcon,
   User,
@@ -540,6 +542,9 @@ const Settings = () => {
   };
 
   return (
+    <div>
+      <Breadcrumb items={[{ label: "Settings" }]} />
+    
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Settings</h1>
@@ -614,6 +619,7 @@ const Settings = () => {
         </div>
       </div>
     </form>
+    </div>
   );
 };
 

@@ -6,7 +6,7 @@ export interface FieldDef {
   key: string;
   label: string;
   type?: "text" | "email" | "tel" | "select";
-  options?: string[];
+  options?: any;
   required?: boolean;
   placeholder?: string;
 }

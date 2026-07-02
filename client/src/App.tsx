@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Students from "./pages/Students";
 import Teachers from "./pages/Teachers";
 import Parents from "./pages/Parents";
+import Section from "./pages/Section";
 import Classes from "./pages/Classes";
 import Attendance from "./pages/Attendance";
 import Fees from "./pages/Fees";
@@ -75,7 +76,7 @@ function App() {
 
                 <Route
                   element={
-                    <ProtectedRoute allowedRoles={["admin", "teacher"]} />
+                    <ProtectedRoute allowedRoles={["teacher"]} />
                   }
                 >
                   <Route path="students" element={<ComingSoon />} />
@@ -91,6 +92,7 @@ function App() {
                 >
                   <Route path="teachers" element={<ComingSoon />} />
                   <Route path="fees" element={<ComingSoon />} />
+                  <Route path="section" element={<Section />} />
                   <Route path="settings" element={<Settings />} />
                 </Route>
               </Route>

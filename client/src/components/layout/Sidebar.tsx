@@ -114,7 +114,7 @@ const adminNav: NavItem[] = [
     path: "notices",
     icon: Bell,
     label: "Notice Board",
-    roles: ["admin", "teacher", "student"],
+    roles: ["admin"],
   },
   {
     path: "settings",

@@ -19,7 +19,7 @@ export function Breadcrumb({ items }: BreadcrumbProps) {
           {i === items.length - 1 ? (
             <span className="text-foreground font-medium">{item.label}</span>
           ) : (
-            <span className="hover:text-foreground cursor-pointer transition-colors">{item.label}</span>
+            <a href={item.href} className="hover:text-foreground cursor-pointer transition-colors">{item.label}</a>
           )}
         </span>
       ))}

@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Modal } from "./Modal";
 import { Save } from "lucide-react";
-
+import useSection from "@/hooks/useSection";
 export interface FieldDef {
   key: string;
   label: string;
   type?: "text" | "email" | "tel" | "select";
-  options?: any;
+  options?: string[];
   required?: boolean;
   placeholder?: string;
 }
@@ -21,67 +21,84 @@ interface FormModalProps {
   submitLabel?: string;
 }
 
+const EMPTY_INITIAL_VALUES: Record<string, string> = {};
+
 export function FormModal({
   isOpen,
   onClose,
   onSubmit,
   title,
   fields,
-  initialValues = {},
+  initialValues = EMPTY_INITIAL_VALUES,
   submitLabel = "Save",
 }: FormModalProps) {
   const [values, setValues] = useState<Record<string, string>>({});
 
+
   useEffect(() => {
-    if (isOpen) {
-      const defaults: Record<string, string> = {};
-      fields.forEach(f => {
-        defaults[f.key] = initialValues[f.key] ?? "";
-      });
-      setValues(defaults);
-    }
-  }, [isOpen, initialValues]);
+    if (!isOpen) return;
+
+    const defaultValues: Record<string, string> = {};
+
+    fields.forEach((field) => {
+      defaultValues[field.key] = initialValues[field.key] ?? "";
+    });
+
+    setValues(defaultValues);
+  }, [isOpen, fields, initialValues]);
 
   const handleChange = (key: string, value: string) => {
-    setValues(prev => ({ ...prev, [key]: value }));
+    console.log(key)
+    console.log(value)
+    setValues((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     onSubmit(values);
-    onClose();
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} size="md">
       <form onSubmit={handleSubmit} data-testid="form-modal">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {fields.map(field => (
-            <div key={field.key} className={field.type === "select" ? "" : ""}>
+          {fields.map((field) => (
+            <div key={field.key}>
               <label className="block text-sm font-medium text-foreground mb-1.5">
                 {field.label}
-                {field.required && <span className="text-red-500 ml-0.5">*</span>}
+                {field.required && (
+                  <span className="text-red-500 ml-0.5">*</span>
+                )}
               </label>
+
               {field.type === "select" && field.options ? (
                 <select
                   value={values[field.key] ?? ""}
-                  onChange={e => handleChange(field.key, e.target.value)}
+                  onChange={(e) => handleChange(field.key, e.target.value)}
                   required={field.required}
                   className="w-full h-9 px-3 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                   data-testid={`field-${field.key}`}
                 >
                   <option value="">Select {field.label}</option>
-                  {field.options.map(opt => (
-                    <option key={opt} value={opt}>{opt}</option>
+
+                  {field.options.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
                   ))}
                 </select>
               ) : (
                 <input
-                  type={field.type || "text"}
+                  type={field.type ?? "text"}
                   value={values[field.key] ?? ""}
-                  onChange={e => handleChange(field.key, e.target.value)}
+                  onChange={(e) => handleChange(field.key, e.target.value)}
                   required={field.required}
-                  placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
+                  placeholder={
+                    field.placeholder ?? `Enter ${field.label.toLowerCase()}`
+                  }
                   className="w-full h-9 px-3 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                   data-testid={`field-${field.key}`}
                 />
@@ -99,6 +116,7 @@ export function FormModal({
           >
             Cancel
           </button>
+
           <button
             type="submit"
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"

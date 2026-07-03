@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { DataTable, Column } from "@/components/tables/DataTable";
 import { FormModal, FieldDef } from "@/components/common/FormModal";
@@ -7,9 +7,11 @@ import { Breadcrumb } from "@/components/common/Breadcrumb";
 import { Pagination } from "@/components/common/Pagination";
 import { PageHeader } from "@/components/common/PageHeader";
 import { parents as initialParents } from "@/data/dummyData";
+import useSection from "@/hooks/useSection";
+import { useAppSelector } from "../../redux/hooks";
 
 type Section = {
-  id: number;
+  id?: number;
   name: string;
   stream: string;
 };
@@ -24,13 +26,13 @@ const fields: FieldDef[] = [
     key: "name",
     label: "Section Name",
     required: true,
-    placeholder: "Nursery",
+    placeholder: "A",
   },
   {
     key: "stream",
     label: "Stream Name",
     required: true,
-    placeholder: "A",
+    placeholder: "Nursery",
   },
 ];
 
@@ -43,13 +45,35 @@ const initialSections: Section[] = (
 }));
 
 const Sections = () => {
+  const { getSection, addsection } = useSection();
+
   const [data, setData] = useState<Section[]>(initialSections);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
+  const { sections } = useAppSelector((state) => state.section);
+
   const [editItem, setEditItem] = useState<Section | null>(null);
   const [deleteItem, setDeleteItem] = useState<Section | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+
+  useEffect(() => {
+    getSection();
+  }, []);
+
+  useEffect(() => {
+    if (Array.isArray(sections) && sections.length > 0) {
+      const formattedSections: Section[] = sections.map(
+        (item: Partial<Section>, index: number) => ({
+          id: Number(item.id ?? index + 1),
+          name: String(item.name ?? ""),
+          stream: String(item.stream ?? ""),
+        })
+      );
+
+      setData(formattedSections);
+    }
+  }, [sections]);
 
   const filtered = data.filter(
     (section) =>
@@ -84,7 +108,11 @@ const Sections = () => {
     setEditItem(null);
   };
 
-  const handleAdd = (values: Record<string, string>) => {
+  const handleAdd = async (values: Record<string, string>) => {
+    const payload = {
+    name: values.name,
+    stream: values.stream,
+  };
     const newSection: Section = {
       id: Date.now(),
       name: values.name,
@@ -93,6 +121,8 @@ const Sections = () => {
 
     setData((prev) => [newSection, ...prev]);
     setAddOpen(false);
+
+    await addsection(payload);
   };
 
   const handleEditClick = (row: Record<string, unknown>) => {
@@ -161,7 +191,7 @@ const Sections = () => {
         <div className="px-6">
           <DataTable
             columns={columns}
-            data={paginatedData as unknown as Record<string, unknown>[]}
+            data={paginatedData as Record<string, unknown>[]}
             onEdit={handleEditClick}
             onDelete={handleDeleteClick}
           />
@@ -204,7 +234,9 @@ const Sections = () => {
         onClose={() => setDeleteItem(null)}
         onConfirm={handleDelete}
         title="Delete Section"
-        description={`Are you sure you want to remove "${deleteItem?.name}" from the system? This action cannot be undone.`}
+        description={`Are you sure you want to remove "${
+          deleteItem?.name ?? ""
+        }" from the system? This action cannot be undone.`}
         confirmLabel="Delete Section"
       />
     </div>

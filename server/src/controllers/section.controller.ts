@@ -1,12 +1,17 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import {
   SectionModel,
   SectionPayload,
   SectionUpdatePayload,
 } from "../models/section.model.js";
+import { AppError } from "../utils/AppError.js";
 
 export class SectionController {
-  static async findAll(req: Request, res: Response): Promise<void> {
+  static async findAll(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const sections = await SectionModel.findAll();
 
@@ -16,15 +21,15 @@ export class SectionController {
         data: sections,
       });
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: "Failed to fetch sections",
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
+      return next(new AppError("Failed to fetch section data", 500));
     }
   }
 
-  static async findById(req: Request, res: Response): Promise<void> {
+  static async findById(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const id = Number(req.params.id);
 
@@ -39,11 +44,7 @@ export class SectionController {
       const section = await SectionModel.findById(id);
 
       if (!section) {
-        res.status(404).json({
-          success: false,
-          message: "Section not found",
-        });
-        return;
+        return next(new AppError("Failed to fetch section data", 500));
       }
 
       res.status(200).json({
@@ -52,24 +53,20 @@ export class SectionController {
         data: section,
       });
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: "Failed to fetch section",
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
+      return next(new AppError("Failed to fetch section data", 500));
     }
   }
 
-  static async create(req: Request, res: Response): Promise<void> {
+  static async create(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const { name, stream } = req.body as SectionPayload;
 
       if (!name || !stream) {
-        res.status(400).json({
-          success: false,
-          message: "Name and stream are required",
-        });
-        return;
+        return next(new AppError("Failed to fetch section data", 500));
       }
 
       const section = await SectionModel.create({
@@ -83,17 +80,17 @@ export class SectionController {
         data: section,
       });
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: "Failed to create section",
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
+      return next(new AppError("Failed to create section", 500));
     }
   }
 
-  static async update(req: Request, res: Response): Promise<void> {
+  static async update(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
-      const id = req.body;
+      const id = req.body.id;
 
       if (!id || Number.isNaN(id)) {
         res.status(400).json({
@@ -106,24 +103,18 @@ export class SectionController {
       const { name, stream } = req.body as SectionUpdatePayload;
 
       if (!name && !stream) {
-        res.status(400).json({
-          success: false,
-          message: "At least one field is required to update",
-        });
-        return;
+        return next(
+          new AppError("Atlest one field is required to change", 500),
+        );
       }
 
       const section = await SectionModel.update(id, {
         name: name?.trim(),
         stream: stream?.trim(),
-      });   
+      });
 
       if (!section) {
-        res.status(404).json({
-          success: false,
-          message: "Section not found",
-        });
-        return;
+        return next(new AppError("Section not found", 500));
       }
 
       res.status(200).json({
@@ -132,15 +123,15 @@ export class SectionController {
         data: section,
       });
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: "Failed to update section",
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
+      return next(new AppError("Failed to update section", 500));
     }
   }
 
-  static async delete(req: Request, res: Response): Promise<void> {
+  static async delete(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
     try {
       const id = Number(req.params.id);
 
@@ -168,11 +159,7 @@ export class SectionController {
         data: section,
       });
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: "Failed to delete section",
-        error: error instanceof Error ? error.message : "Unknown error",
-      });
+      return next(new AppError("Failed to delete section", 500));
     }
   }
 }

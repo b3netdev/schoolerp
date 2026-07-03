@@ -5,10 +5,10 @@ import cors from "cors";
 import { corsOptions } from "./utils/cors.js";
 import { dbConnection } from "./config/database.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
-
 // import routers 
 import AuthRouter from "./routes/auth.route.js";
 import settingsRoutes from "./routes/settings.route.js"
+import SectionRouter from "./routes/section.route.js"
 
 import cookieParser from "cookie-parser";
 const app = express();
@@ -27,6 +27,7 @@ app.get("/", (req: Request, res: Response) => {
 // Routers
 app.use(`/${process.env.API_VERSION}/auth`,AuthRouter);
 app.use(`/${process.env.API_VERSION}/settings`,settingsRoutes);
+app.use(`/${process.env.API_VERSION}/section`,SectionRouter);
 
 
 app.use(errorHandler);

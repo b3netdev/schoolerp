@@ -4,8 +4,8 @@ export interface Section {
   id: number;
   name: string;
   stream: string;
-  createdAt: Date;
-  updatedAt: Date;
+  created_at: Date;
+  updated_at: Date;
   deleted_at?: Date | null;
 }
 
@@ -29,8 +29,8 @@ export class SectionModel {
         id,
         name,
         stream,
-        "createdAt",
-        "updatedAt",
+        "created_at",
+        "updated_at",
         deleted_at
       FROM ${tableName}
       WHERE deleted_at IS NULL
@@ -48,8 +48,8 @@ export class SectionModel {
         id,
         name,
         stream,
-        "createdAt",
-        "updatedAt",
+        "created_at",
+        "updated_at",
         deleted_at
       FROM ${tableName}
       WHERE id = $1
@@ -73,8 +73,8 @@ export class SectionModel {
         id,
         name,
         stream,
-        "createdAt",
-        "updatedAt",
+        "created_at",
+        "updated_at",
         deleted_at
       `,
       [data.name, data.stream]
@@ -93,15 +93,15 @@ export class SectionModel {
       SET
         name = COALESCE($1, name),
         stream = COALESCE($2, stream),
-        "updatedAt" = CURRENT_TIMESTAMP
+        "updated_at" = CURRENT_TIMESTAMP
       WHERE id = $3
       AND deleted_at IS NULL
       RETURNING 
         id,
         name,
         stream,
-        "createdAt",
-        "updatedAt",
+        "created_at",
+        "updated_at",
         deleted_at
       `,
       [data.name ?? null, data.stream ?? null, id]
@@ -116,15 +116,15 @@ export class SectionModel {
       UPDATE ${tableName}
       SET 
         deleted_at = CURRENT_TIMESTAMP,
-        "updatedAt" = CURRENT_TIMESTAMP
+        "updated_at" = CURRENT_TIMESTAMP
       WHERE id = $1
       AND deleted_at IS NULL
       RETURNING 
         id,
         name,
         stream,
-        "createdAt",
-        "updatedAt",
+        "created_at",
+        "updated_at",
         deleted_at
       `,
       [id]

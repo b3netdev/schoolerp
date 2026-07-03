@@ -61,6 +61,8 @@ const Sections = () => {
     getSection();
   }, []);
 
+  console.log(sections,"DATA FROM REDUX")
+
   useEffect(() => {
     if (Array.isArray(sections) && sections.length > 0) {
       const formattedSections: Section[] = sections.map(
@@ -98,18 +100,6 @@ const Sections = () => {
       stream:values.stream
     }
     await updatesection(payload)
-
-    setData((prev) =>
-      prev.map((section) =>
-        section.id === editItem.id
-          ? {
-              ...section,
-              name: values.name,
-              stream: values.stream,
-            }
-          : section
-      )
-    );
   
     setEditItem(null);
   };
@@ -119,13 +109,6 @@ const Sections = () => {
     name: values.name,
     stream: values.stream,
   };
-    const newSection: Section = {
-      id: Date.now(),
-      name: values.name,
-      stream: values.stream,
-    };
-
-    setData((prev) => [newSection, ...prev]);
     setAddOpen(false);
 
     await addsection(payload);

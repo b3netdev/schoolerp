@@ -48,8 +48,6 @@ export function FormModal({
   }, [isOpen, fields, initialValues]);
 
   const handleChange = (key: string, value: string) => {
-    console.log(key)
-    console.log(value)
     setValues((prev) => ({
       ...prev,
       [key]: value,

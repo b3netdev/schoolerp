@@ -31,7 +31,8 @@ const sectionSlice = createSlice({
     },
 
     updateSection: (state, action: PayloadAction<Section>) => {
-      const index = state.sections.findIndex(
+     console.log(action.payload,"Inside redux")
+        const index = state.sections.findIndex(
         (section) => section.id === action.payload.id
       );
 

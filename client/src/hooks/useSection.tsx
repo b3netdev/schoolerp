@@ -18,9 +18,7 @@ const useSection = () => {
     const getSection = async () => {
         try {
             const result = await api.get('/section/get-sections')
-            console.log(result)
             if (result?.data?.success) {
-                console.log(result.data)
                 dispath(setSections(result.data.data))
             }
         }
@@ -31,7 +29,7 @@ const useSection = () => {
     const addsection = async (payload:addsectionpayload) => {
         try {
             const result = await api.post('/section/add-section', payload)
-            if (result?.data?.succes) {
+            if (result?.data?.success) {
                 dispath(addSection(result.data.data))
             }
         }
@@ -43,7 +41,7 @@ const useSection = () => {
     const updatesection = async (payload:addsectionpayload)=>{
         try{
             const result = await api.post('/section/update-section', payload)
-             if (result?.data?.succes) {
+             if (result?.data?.success) {
                 dispath(updateSection(result.data.data))
             }
         }

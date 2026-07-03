@@ -45,7 +45,7 @@ const initialSections: Section[] = (
 }));
 
 const Sections = () => {
-  const { getSection, addsection } = useSection();
+  const { getSection, addsection,updatesection } = useSection();
 
   const [data, setData] = useState<Section[]>(initialSections);
   const [search, setSearch] = useState("");
@@ -90,8 +90,14 @@ const Sections = () => {
     setDeleteItem(null);
   };
 
-  const handleEdit = (values: Record<string, string>) => {
+  const handleEdit = async (values: Record<string, string>) => {
     if (!editItem) return;
+    const payload  ={
+      id:editItem.id,
+      name:values.name,
+      stream:values.stream
+    }
+    await updatesection(payload)
 
     setData((prev) =>
       prev.map((section) =>
@@ -104,7 +110,7 @@ const Sections = () => {
           : section
       )
     );
-
+  
     setEditItem(null);
   };
 

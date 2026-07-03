@@ -1,12 +1,13 @@
 import { useState } from "react";
 import api from "@/lib/api";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
-import { setSections,addSection } from "../../redux/slicers/sectionSlicer";
+import { setSections,addSection,updateSection } from "../../redux/slicers/sectionSlicer";
 
 
 
 
 interface addsectionpayload{
+    id?:number,
     name:string,
     stream:string
 }
@@ -39,8 +40,21 @@ const useSection = () => {
         }
     }
 
+    const updatesection = async (payload:addsectionpayload)=>{
+        try{
+            const result = await api.post('/section/update-section', payload)
+             if (result?.data?.succes) {
+                dispath(updateSection(result.data.data))
+            }
+        }
+        catch(error){
 
-    return { getSection,addsection }
+        }
+
+    }
+
+
+    return { getSection,addsection,updatesection }
 
 }
 

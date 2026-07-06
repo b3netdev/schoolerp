@@ -12,11 +12,13 @@ export interface Section {
 export interface SectionPayload {
   name: string;
   stream: string;
+  description: string
 }
 
 export interface SectionUpdatePayload {
   name?: string;
   stream?: string;
+  description?: string
 }
 
 const tableName = "section";
@@ -29,6 +31,7 @@ export class SectionModel {
         id,
         name,
         stream,
+        description,
         "created_at",
         "updated_at",
         deleted_at
@@ -68,7 +71,7 @@ export class SectionModel {
       INSERT INTO ${tableName} 
         (name, stream)
       VALUES 
-        ($1, $2)
+        ($1, $2,$3)
       RETURNING 
         id,
         name,
@@ -77,7 +80,7 @@ export class SectionModel {
         "updated_at",
         deleted_at
       `,
-      [data.name, data.stream]
+      [data.name, data.stream, data.description]
     );
 
     return result.rows[0];
@@ -93,8 +96,9 @@ export class SectionModel {
       SET
         name = COALESCE($1, name),
         stream = COALESCE($2, stream),
+        description= COALESCE($3 ,description),
         "updated_at" = CURRENT_TIMESTAMP
-      WHERE id = $3
+      WHERE id = $4
       AND deleted_at IS NULL
       RETURNING 
         id,
@@ -102,9 +106,10 @@ export class SectionModel {
         stream,
         "created_at",
         "updated_at",
+        description,
         deleted_at
       `,
-      [data.name ?? null, data.stream ?? null, id]
+      [data.name ?? null, data.stream ?? null, data?.description, id]
     );
 
     return result.rows[0] || null;

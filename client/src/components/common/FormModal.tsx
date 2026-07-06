@@ -5,7 +5,7 @@ import useSection from "@/hooks/useSection";
 export interface FieldDef {
   key: string;
   label: string;
-  type?: "text" | "email" | "tel" | "select";
+  type?: "text" | "email" | "tel" | "select" | "textarea";
   options?: string[];
   required?: boolean;
   placeholder?: string;
@@ -64,7 +64,10 @@ export function FormModal({
       <form onSubmit={handleSubmit} data-testid="form-modal">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {fields.map((field) => (
-            <div key={field.key}>
+            <div
+              key={field.key}
+              className={field.type === "textarea" ? "sm:col-span-2" : ""}
+            >
               <label className="block text-sm font-medium text-foreground mb-1.5">
                 {field.label}
                 {field.required && (
@@ -88,6 +91,18 @@ export function FormModal({
                     </option>
                   ))}
                 </select>
+              ) : field.type === "textarea" ? (
+                <textarea
+                  value={values[field.key] ?? ""}
+                  onChange={(e) => handleChange(field.key, e.target.value)}
+                  required={field.required}
+                  placeholder={
+                    field.placeholder ?? `Enter ${field.label.toLowerCase()}`
+                  }
+                  rows={4}
+                  className="block w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 resize-none"
+                  data-testid={`field-${field.key}`}
+                />
               ) : (
                 <input
                   type={field.type ?? "text"}

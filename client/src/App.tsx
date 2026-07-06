@@ -76,7 +76,7 @@ function App() {
 
                 <Route
                   element={
-                    <ProtectedRoute allowedRoles={["teacher"]} />
+                    <ProtectedRoute allowedRoles={["teacher", "admin"]} />
                   }
                 >
                   <Route path="classes" element={<ComingSoon />} />

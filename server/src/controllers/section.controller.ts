@@ -63,7 +63,7 @@ export class SectionController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const { name, stream } = req.body as SectionPayload;
+      const { name, stream, description } = req.body as SectionPayload;
 
       if (!name || !stream) {
         return next(new AppError("Failed to fetch section data", 500));
@@ -72,6 +72,7 @@ export class SectionController {
       const section = await SectionModel.create({
         name: name.trim(),
         stream: stream.trim(),
+        description: description.trim()
       });
 
       res.status(201).json({
@@ -100,9 +101,9 @@ export class SectionController {
         return;
       }
 
-      const { name, stream } = req.body as SectionUpdatePayload;
+      const { name, stream, description } = req.body as SectionUpdatePayload;
 
-      if (!name && !stream) {
+      if (!name && !stream && !description) {
         return next(
           new AppError("Atlest one field is required to change", 500),
         );
@@ -111,6 +112,7 @@ export class SectionController {
       const section = await SectionModel.update(id, {
         name: name?.trim(),
         stream: stream?.trim(),
+        description: description?.trim()
       });
 
       if (!section) {

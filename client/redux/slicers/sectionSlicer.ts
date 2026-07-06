@@ -4,6 +4,7 @@ export interface Section {
   id: number;
   name: string;
   stream: string;
+  description: string
 }
 
 interface SectionState {
@@ -12,7 +13,7 @@ interface SectionState {
 
 const initialState: SectionState = {
   sections: [
-    
+
   ],
 };
 
@@ -25,14 +26,15 @@ const sectionSlice = createSlice({
         id: Date.now(),
         name: action.payload.name,
         stream: action.payload.stream,
+        description: action.payload.description
       };
 
       state.sections.unshift(newSection);
     },
 
     updateSection: (state, action: PayloadAction<Section>) => {
-     console.log(action.payload,"Inside redux")
-        const index = state.sections.findIndex(
+      console.log(action.payload, "Inside redux")
+      const index = state.sections.findIndex(
         (section) => section.id === action.payload.id
       );
 

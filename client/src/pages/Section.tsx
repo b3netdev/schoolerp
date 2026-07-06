@@ -14,11 +14,13 @@ type Section = {
   id?: number;
   name: string;
   stream: string;
+  description: string
 };
 
 const columns: Column[] = [
   { key: "name", label: "Section Name", type: "avatar-text" },
   { key: "stream", label: "Stream Name" },
+  { key: "description", label: "Description" },
 ];
 
 const fields: FieldDef[] = [
@@ -31,8 +33,15 @@ const fields: FieldDef[] = [
   {
     key: "stream",
     label: "Stream Name",
-    required: true,
-    placeholder: "Nursery",
+    required: false,
+    placeholder: "Physics",
+  },
+  {
+    key: "description",
+    label: "Description",
+    required: false,
+    placeholder: "description",
+    type: "textarea"
   },
 ];
 
@@ -42,10 +51,11 @@ const initialSections: Section[] = (
   id: Number(item.id ?? index + 1),
   name: String(item.name ?? ""),
   stream: String(item.stream ?? ""),
+  description: String(item.description ?? ""),
 }));
 
 const Sections = () => {
-  const { getSection, addsection,updatesection } = useSection();
+  const { getSection, addsection, updatesection } = useSection();
 
   const [data, setData] = useState<Section[]>(initialSections);
   const [search, setSearch] = useState("");
@@ -61,7 +71,6 @@ const Sections = () => {
     getSection();
   }, []);
 
-  console.log(sections,"DATA FROM REDUX")
 
   useEffect(() => {
     if (Array.isArray(sections) && sections.length > 0) {
@@ -70,6 +79,7 @@ const Sections = () => {
           id: Number(item.id ?? index + 1),
           name: String(item.name ?? ""),
           stream: String(item.stream ?? ""),
+          description: String(item?.description ?? ""),
         })
       );
 
@@ -94,21 +104,23 @@ const Sections = () => {
 
   const handleEdit = async (values: Record<string, string>) => {
     if (!editItem) return;
-    const payload  ={
-      id:editItem.id,
-      name:values.name,
-      stream:values.stream
+    const payload = {
+      id: editItem.id,
+      name: values.name,
+      stream: values.stream,
+      description: values.description
     }
     await updatesection(payload)
-  
+
     setEditItem(null);
   };
 
   const handleAdd = async (values: Record<string, string>) => {
     const payload = {
-    name: values.name,
-    stream: values.stream,
-  };
+      name: values.name,
+      stream: values.stream,
+      description: values.description
+    };
     setAddOpen(false);
 
     await addsection(payload);
@@ -134,9 +146,9 @@ const Sections = () => {
 
   const editInitialValues: Record<string, string> | undefined = editItem
     ? {
-        name: editItem.name,
-        stream: editItem.stream,
-      }
+      name: editItem.name,
+      stream: editItem.stream,
+    }
     : undefined;
 
   return (
@@ -223,9 +235,8 @@ const Sections = () => {
         onClose={() => setDeleteItem(null)}
         onConfirm={handleDelete}
         title="Delete Section"
-        description={`Are you sure you want to remove "${
-          deleteItem?.name ?? ""
-        }" from the system? This action cannot be undone.`}
+        description={`Are you sure you want to remove "${deleteItem?.name ?? ""
+          }" from the system? This action cannot be undone.`}
         confirmLabel="Delete Section"
       />
     </div>

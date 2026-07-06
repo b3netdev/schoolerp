@@ -9,6 +9,7 @@ import { errorHandler } from "./middlewares/error.middleware.js";
 import AuthRouter from "./routes/auth.route.js";
 import settingsRoutes from "./routes/settings.route.js"
 import SectionRouter from "./routes/section.route.js"
+import ClassRouter from "./routes/classes.route.js"
 
 import cookieParser from "cookie-parser";
 const app = express();
@@ -25,9 +26,10 @@ app.get("/", (req: Request, res: Response) => {
 
 
 // Routers
-app.use(`/${process.env.API_VERSION}/auth`,AuthRouter);
-app.use(`/${process.env.API_VERSION}/settings`,settingsRoutes);
-app.use(`/${process.env.API_VERSION}/section`,SectionRouter);
+app.use(`/${process.env.API_VERSION}/auth`, AuthRouter);
+app.use(`/${process.env.API_VERSION}/settings`, settingsRoutes);
+app.use(`/${process.env.API_VERSION}/section`, SectionRouter);
+app.use(`/${process.env.API_VERSION}/class`, ClassRouter);
 
 
 app.use(errorHandler);

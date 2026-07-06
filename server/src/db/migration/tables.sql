@@ -37,3 +37,13 @@ create table section (
     deleted_at TIMESTAMP WITHOUT TIME ZONE DEFAULT
 
 )
+
+--class_section relation
+
+create table class_section_relation (
+id SERIAL PRIMARY KEY,
+class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE RESTRICT,
+section_id INTEGER NOT NULL REFERENCES sections(id) ON DELETE RESTRICT,
+created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);

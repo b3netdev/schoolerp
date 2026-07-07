@@ -503,7 +503,8 @@ export class TeacherModel {
       UPDATE ${tableName}
       SET
         deleted_at = CURRENT_TIMESTAMP,
-        updated_at = CURRENT_TIMESTAMP
+        updated_at = CURRENT_TIMESTAMP,
+        status='inactive',
       WHERE id = $1
       AND deleted_at IS NULL
       RETURNING

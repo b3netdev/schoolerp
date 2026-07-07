@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { DataTable, Column } from "@/components/tables/DataTable";
 import { Modal } from "@/components/common/Modal";
@@ -7,53 +7,9 @@ import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
 import { Pagination } from "@/components/common/Pagination";
 import { PageHeader } from "@/components/common/PageHeader";
-
-type Teacher = {
-  id?: number;
-
-  employee_code?: string;
-  first_name: string;
-  last_name?: string;
-  email?: string;
-  phone?: string;
-  alternate_phone?: string;
-
-  gender?: string;
-  date_of_birth?: string;
-  blood_group?: string;
-  marital_status?: string;
-
-  current_address?: string;
-  permanent_address?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  pincode?: string;
-
-  qualification?: string;
-  specialization?: string;
-  experience_years?: number;
-  joining_date?: string;
-  employment_type?: string;
-  status?: string;
-
-  basic_salary?: number;
-  bank_name?: string;
-  bank_account_number?: string;
-  ifsc_code?: string;
-  pan_number?: string;
-
-  emergency_contact_name?: string;
-  emergency_contact_phone?: string;
-  emergency_contact_relation?: string;
-
-  profile_image?: string;
-  remarks?: string;
-
-  created_at?: string;
-  updated_at?: string;
-  deleted_at?: string | null;
-};
+import { useAppSelector } from "../../redux/hooks";
+import useTeacher, { type AddTeacherPayload } from "@/hooks/useTeacher";
+import type { Teacher } from "../../redux/slicers/teacherSlice";
 
 type TeacherTableRow = Teacher & {
   full_name: string;
@@ -61,6 +17,7 @@ type TeacherTableRow = Teacher & {
 };
 
 const columns: Column[] = [
+  { key: "employee_code", label: "Employee Code" },
   { key: "full_name", label: "Teacher", type: "avatar-text" },
   { key: "email", label: "Email" },
   { key: "phone", label: "Phone" },
@@ -72,7 +29,6 @@ const columns: Column[] = [
 ];
 
 const fields: FieldDef[] = [
-  // Basic teacher details
   {
     key: "first_name",
     label: "First Name",
@@ -103,7 +59,6 @@ const fields: FieldDef[] = [
     placeholder: "9876543210",
   },
 
-  // Personal details
   {
     key: "gender",
     label: "Gender",
@@ -128,7 +83,6 @@ const fields: FieldDef[] = [
     options: ["single", "married", "divorced", "widowed"],
   },
 
-  // Address details
   {
     key: "current_address",
     label: "Current Address",
@@ -162,7 +116,6 @@ const fields: FieldDef[] = [
     placeholder: "e.g. 700001",
   },
 
-  // Professional details
   {
     key: "qualification",
     label: "Qualification",
@@ -197,7 +150,6 @@ const fields: FieldDef[] = [
     options: ["active", "inactive", "resigned"],
   },
 
-  // Salary / HR details
   {
     key: "basic_salary",
     label: "Basic Salary",
@@ -225,7 +177,6 @@ const fields: FieldDef[] = [
     placeholder: "e.g. ABCDE1234F",
   },
 
-  // Emergency contact
   {
     key: "emergency_contact_name",
     label: "Emergency Contact Name",
@@ -263,7 +214,6 @@ function makeInitials(firstName?: string, lastName?: string): string {
 
 function teacherToInitialValues(teacher: Teacher): Record<string, string> {
   return {
-    employee_code: teacher.employee_code || "",
     first_name: teacher.first_name || "",
     last_name: teacher.last_name || "",
     email: teacher.email || "",
@@ -304,54 +254,62 @@ function teacherToInitialValues(teacher: Teacher): Record<string, string> {
   };
 }
 
-function buildTeacherPayload(values: Record<string, string>): Omit<Teacher, "id"> {
+function buildTeacherPayload(values: Record<string, string>): AddTeacherPayload {
   return {
     first_name: values.first_name,
-    last_name: values.last_name,
-    email: values.email,
-    phone: values.phone,
-    alternate_phone: values.alternate_phone,
+    last_name: values.last_name || undefined,
+    email: values.email || undefined,
+    phone: values.phone || undefined,
+    alternate_phone: values.alternate_phone || undefined,
 
-    gender: values.gender,
-    date_of_birth: values.date_of_birth,
-    blood_group: values.blood_group,
-    marital_status: values.marital_status,
+    gender: values.gender || undefined,
+    date_of_birth: values.date_of_birth || undefined,
+    blood_group: values.blood_group || undefined,
+    marital_status: values.marital_status || undefined,
 
-    current_address: values.current_address,
-    permanent_address: values.permanent_address,
-    city: values.city,
-    state: values.state,
-    country: values.country,
-    pincode: values.pincode,
+    current_address: values.current_address || undefined,
+    permanent_address: values.permanent_address || undefined,
+    city: values.city || undefined,
+    state: values.state || undefined,
+    country: values.country || undefined,
+    pincode: values.pincode || undefined,
 
-    qualification: values.qualification,
-    specialization: values.specialization,
-    experience_years: Number(values.experience_years || 0),
-    joining_date: values.joining_date,
-    employment_type: values.employment_type,
+    qualification: values.qualification || undefined,
+    specialization: values.specialization || undefined,
+    experience_years: values.experience_years
+      ? Number(values.experience_years)
+      : 0,
+    joining_date: values.joining_date || undefined,
+    employment_type: values.employment_type || undefined,
     status: values.status || "active",
 
-    basic_salary: values.basic_salary ? Number(values.basic_salary) : undefined,
-    bank_name: values.bank_name,
-    bank_account_number: values.bank_account_number,
-    ifsc_code: values.ifsc_code,
-    pan_number: values.pan_number,
+    basic_salary: values.basic_salary
+      ? Number(values.basic_salary)
+      : undefined,
+    bank_name: values.bank_name || undefined,
+    bank_account_number: values.bank_account_number || undefined,
+    ifsc_code: values.ifsc_code || undefined,
+    pan_number: values.pan_number || undefined,
 
-    emergency_contact_name: values.emergency_contact_name,
-    emergency_contact_phone: values.emergency_contact_phone,
-    emergency_contact_relation: values.emergency_contact_relation,
+    emergency_contact_name: values.emergency_contact_name || undefined,
+    emergency_contact_phone: values.emergency_contact_phone || undefined,
+    emergency_contact_relation: values.emergency_contact_relation || undefined,
 
-    profile_image: values.profile_image,
-    remarks: values.remarks,
-
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    deleted_at: null,
+    profile_image: values.profile_image || undefined,
+    remarks: values.remarks || undefined,
   };
 }
 
 export default function Teachers() {
-  const [data, setData] = useState<Teacher[]>([]);
+  const teachers = useAppSelector((state) => state.teacher.teachers);
+
+  const {
+    getTeachers,
+    addteacher,
+    updateteacher,
+    deleteteacher,
+  } = useTeacher();
+
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
@@ -360,7 +318,13 @@ export default function Teachers() {
   const [deleteItem, setDeleteItem] = useState<Teacher | null>(null);
   const [addOpen, setAddOpen] = useState(false);
 
-  const tableData: TeacherTableRow[] = data.map((teacher) => ({
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    getTeachers();
+  }, []);
+
+  const tableData: TeacherTableRow[] = teachers.map((teacher) => ({
     ...teacher,
     full_name: getFullName(teacher),
     initials: makeInitials(teacher.first_name, teacher.last_name),
@@ -370,6 +334,7 @@ export default function Teachers() {
     const keyword = search.toLowerCase();
 
     return (
+      teacher.employee_code?.toLowerCase().includes(keyword) ||
       teacher.full_name.toLowerCase().includes(keyword) ||
       teacher.email?.toLowerCase().includes(keyword) ||
       teacher.phone?.toLowerCase().includes(keyword) ||
@@ -378,42 +343,40 @@ export default function Teachers() {
     );
   });
 
-  const handleAdd = (values: Record<string, string>) => {
-    const newTeacher: Teacher = {
-      ...buildTeacherPayload(values),
-    };
+  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
 
-    setData((prev) => [newTeacher, ...prev]);
-    console.log(newTeacher,"newTeacher")
-    setAddOpen(false);
+  const paginatedTeachers = filtered.slice(
+    (page - 1) * itemsPerPage,
+    page * itemsPerPage
+  );
+
+  const handleAdd = async (values: Record<string, string>) => {
+    const payload = buildTeacherPayload(values);
+
+    const data = await addteacher(payload);
+    if (data) {
+      setAddOpen(false);
+    }
+
   };
 
-  const handleEdit = (values: Record<string, string>) => {
-    if (!editItem) return;
+  const handleEdit = async (values: Record<string, string>) => {
+    if (!editItem?.id) return;
 
-    const updatedTeacher: Teacher = {
-      ...editItem,
-      ...buildTeacherPayload(values),
+    const payload = {
       id: editItem.id,
-      created_at: editItem.created_at,
-      updated_at: new Date().toISOString(),
+      ...buildTeacherPayload(values),
     };
 
-    setData((prev) =>
-      prev.map((teacher) =>
-        teacher.id === editItem.id ? updatedTeacher : teacher
-      )
-    );
+    await updateteacher(payload);
 
     setEditItem(null);
   };
 
-  const handleDelete = () => {
-    if (!deleteItem) return;
+  const handleDelete = async () => {
+    if (!deleteItem?.id) return;
 
-    setData((prev) =>
-      prev.filter((teacher) => teacher.id !== deleteItem.id)
-    );
+    await deleteteacher(deleteItem.id);
 
     setDeleteItem(null);
   };
@@ -424,7 +387,7 @@ export default function Teachers() {
 
       <PageHeader
         title="Teachers"
-        description={`${data.length} teaching staff members`}
+        description={`${teachers.length} teaching staff members`}
         action={
           <button
             onClick={() => setAddOpen(true)}
@@ -459,7 +422,7 @@ export default function Teachers() {
         <div className="px-6">
           <DataTable
             columns={columns}
-            data={filtered as unknown as Record<string, unknown>[]}
+            data={paginatedTeachers as unknown as Record<string, unknown>[]}
             onView={(row) => setViewItem(row as unknown as Teacher)}
             onEdit={(row) => setEditItem(row as unknown as Teacher)}
             onDelete={(row) => setDeleteItem(row as unknown as Teacher)}
@@ -468,18 +431,17 @@ export default function Teachers() {
 
         <div className="px-6 py-4 border-t border-border flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            Showing {filtered.length} of {data.length} teachers
+            Showing {paginatedTeachers.length} of {filtered.length} teachers
           </span>
 
           <Pagination
             currentPage={page}
-            totalPages={Math.max(1, Math.ceil(filtered.length / 10))}
+            totalPages={totalPages}
             onPageChange={setPage}
           />
         </div>
       </div>
 
-      {/* View Teacher */}
       <Modal
         isOpen={!!viewItem}
         onClose={() => setViewItem(null)}
@@ -487,60 +449,99 @@ export default function Teachers() {
         size="lg"
       >
         {viewItem && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <Info label="Employee Code" value={viewItem.employee_code} />
-            <Info label="Name" value={getFullName(viewItem)} />
-            <Info label="Email" value={viewItem.email} />
-            <Info label="Phone" value={viewItem.phone} />
-            <Info label="Alternate Phone" value={viewItem.alternate_phone} />
-            <Info label="Gender" value={viewItem.gender} />
-            <Info label="Date of Birth" value={viewItem.date_of_birth} />
-            <Info label="Blood Group" value={viewItem.blood_group} />
-            <Info label="Marital Status" value={viewItem.marital_status} />
-            <Info label="Current Address" value={viewItem.current_address} />
-            <Info label="Permanent Address" value={viewItem.permanent_address} />
-            <Info label="City" value={viewItem.city} />
-            <Info label="State" value={viewItem.state} />
-            <Info label="Country" value={viewItem.country} />
-            <Info label="Pincode" value={viewItem.pincode} />
-            <Info label="Qualification" value={viewItem.qualification} />
-            <Info label="Specialization" value={viewItem.specialization} />
-            <Info
-              label="Experience Years"
-              value={viewItem.experience_years?.toString()}
-            />
-            <Info label="Joining Date" value={viewItem.joining_date} />
-            <Info label="Employment Type" value={viewItem.employment_type} />
-            <Info label="Status" value={viewItem.status} />
-            <Info
-              label="Basic Salary"
-              value={viewItem.basic_salary?.toString()}
-            />
-            <Info label="Bank Name" value={viewItem.bank_name} />
-            <Info
-              label="Bank Account Number"
-              value={viewItem.bank_account_number}
-            />
-            <Info label="IFSC Code" value={viewItem.ifsc_code} />
-            <Info label="PAN Number" value={viewItem.pan_number} />
-            <Info
-              label="Emergency Contact Name"
-              value={viewItem.emergency_contact_name}
-            />
-            <Info
-              label="Emergency Contact Phone"
-              value={viewItem.emergency_contact_phone}
-            />
-            <Info
-              label="Emergency Contact Relation"
-              value={viewItem.emergency_contact_relation}
-            />
-            <Info label="Remarks" value={viewItem.remarks} />
+          <div className="max-h-[70vh] overflow-y-auto pr-2">
+            {/* Header */}
+            <div className="mb-5 rounded-xl border border-border bg-muted/40 p-4">
+              <div className="flex items-center gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
+                  {makeInitials(viewItem.first_name, viewItem.last_name)}
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {getFullName(viewItem)}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {viewItem.employee_code || "-"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-6 text-sm">
+              <InfoSection title="Basic Information">
+                <Info label="Employee Code" value={viewItem.employee_code} />
+                <Info label="Name" value={getFullName(viewItem)} />
+                <Info label="Email" value={viewItem.email} />
+                <Info label="Phone" value={viewItem.phone} />
+                <Info label="Alternate Phone" value={viewItem.alternate_phone} />
+                <Info label="Status" value={viewItem.status} />
+              </InfoSection>
+
+              <InfoSection title="Personal Details">
+                <Info label="Gender" value={viewItem.gender} />
+                <Info label="Date of Birth" value={viewItem.date_of_birth} />
+                <Info label="Blood Group" value={viewItem.blood_group} />
+                <Info label="Marital Status" value={viewItem.marital_status} />
+              </InfoSection>
+
+              <InfoSection title="Address Details">
+                <Info label="Current Address" value={viewItem.current_address} large />
+                <Info label="Permanent Address" value={viewItem.permanent_address} large />
+                <Info label="City" value={viewItem.city} />
+                <Info label="State" value={viewItem.state} />
+                <Info label="Country" value={viewItem.country} />
+                <Info label="Pincode" value={viewItem.pincode} />
+              </InfoSection>
+
+              <InfoSection title="Professional Details">
+                <Info label="Qualification" value={viewItem.qualification} />
+                <Info label="Specialization" value={viewItem.specialization} />
+                <Info
+                  label="Experience Years"
+                  value={viewItem.experience_years?.toString()}
+                />
+                <Info label="Joining Date" value={viewItem.joining_date} />
+                <Info label="Employment Type" value={viewItem.employment_type} />
+              </InfoSection>
+
+              <InfoSection title="Salary / Bank Details">
+                <Info
+                  label="Basic Salary"
+                  value={viewItem.basic_salary?.toString()}
+                />
+                <Info label="Bank Name" value={viewItem.bank_name} />
+                <Info
+                  label="Bank Account Number"
+                  value={viewItem.bank_account_number}
+                />
+                <Info label="IFSC Code" value={viewItem.ifsc_code} />
+                <Info label="PAN Number" value={viewItem.pan_number} />
+              </InfoSection>
+
+              <InfoSection title="Emergency Contact">
+                <Info
+                  label="Emergency Contact Name"
+                  value={viewItem.emergency_contact_name}
+                />
+                <Info
+                  label="Emergency Contact Phone"
+                  value={viewItem.emergency_contact_phone}
+                />
+                <Info
+                  label="Emergency Contact Relation"
+                  value={viewItem.emergency_contact_relation}
+                />
+              </InfoSection>
+
+              <InfoSection title="Remarks">
+                <Info label="Remarks" value={viewItem.remarks} large />
+              </InfoSection>
+            </div>
           </div>
         )}
       </Modal>
 
-      {/* Add Teacher */}
       <FormModal
         isOpen={addOpen}
         onClose={() => setAddOpen(false)}
@@ -550,43 +551,65 @@ export default function Teachers() {
         submitLabel="Add Teacher"
       />
 
-      {/* Edit Teacher */}
       <FormModal
         isOpen={!!editItem}
         onClose={() => setEditItem(null)}
         onSubmit={handleEdit}
         title="Edit Teacher"
         fields={fields}
-        initialValues={
-          editItem ? teacherToInitialValues(editItem) : undefined
-        }
+        initialValues={editItem ? teacherToInitialValues(editItem) : undefined}
         submitLabel="Save Changes"
       />
 
-      {/* Delete Teacher */}
       <ConfirmModal
         isOpen={!!deleteItem}
         onClose={() => setDeleteItem(null)}
         onConfirm={handleDelete}
         title="Delete Teacher"
-        description={`Are you sure you want to remove "${deleteItem ? getFullName(deleteItem) : ""}" from the system? This action cannot be undone.`}
+        description={`Are you sure you want to remove "${deleteItem ? getFullName(deleteItem) : ""
+          }" from the system? This action cannot be undone.`}
         confirmLabel="Delete Teacher"
       />
     </div>
   );
 }
 
+function InfoSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-xl border border-border bg-card p-4">
+      <h4 className="mb-4 text-sm font-semibold text-foreground">
+        {title}
+      </h4>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {children}
+      </div>
+    </section>
+  );
+}
+
 function Info({
   label,
   value,
+  large = false,
 }: {
   label: string;
   value?: string | null;
+  large?: boolean;
 }) {
   return (
-    <div>
-      <p className="text-muted-foreground">{label}</p>
-      <p className="font-medium text-foreground break-words">
+    <div className={large ? "md:col-span-2" : ""}>
+      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+
+      <p className="rounded-lg bg-muted/40 px-3 py-2 font-medium text-foreground break-words min-h-[38px]">
         {value || "-"}
       </p>
     </div>

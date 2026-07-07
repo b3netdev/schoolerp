@@ -3,12 +3,14 @@ import authReducer from "./slicers/authslicer";
 import settingsReducer from "./slicers/settingsSlicer";
 import sectionReducer from "./slicers/sectionSlicer";
 import classReducer from "./slicers/classesSlicer";
+import teacherReducer from "./slicers/teacherSlice"
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     settings: settingsReducer,
     section: sectionReducer,
-    class: classReducer
+    class: classReducer,
+    teacher:teacherReducer
   },
 });
 

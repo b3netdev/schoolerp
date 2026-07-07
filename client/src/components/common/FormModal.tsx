@@ -5,7 +5,17 @@ import useSection from "@/hooks/useSection";
 export interface FieldDef {
   key: string;
   label: string;
-  type?: "text" | "email" | "tel" | "select" | "textarea";
+  type?:
+    | "text"
+    | "email"
+    | "tel"
+    | "select"
+    | "textarea"
+    | "number"
+    | "date"
+    | "password"
+    | "file"
+    | "url";
   options?: string[];
   required?: boolean;
   placeholder?: string;
@@ -60,8 +70,14 @@ export function FormModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} size="md">
-      <form onSubmit={handleSubmit} data-testid="form-modal">
+  <Modal isOpen={isOpen} onClose={onClose} title={title} size="lg">
+    <form
+      onSubmit={handleSubmit}
+      data-testid="form-modal"
+      className="flex max-h-[75vh] flex-col"
+    >
+      {/* Scrollable form body */}
+      <div className="overflow-y-auto pr-2">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {fields.map((field) => (
             <div
@@ -119,27 +135,29 @@ export function FormModal({
             </div>
           ))}
         </div>
+      </div>
 
-        <div className="flex items-center justify-end gap-2 mt-6 pt-5 border-t border-border">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-muted text-foreground text-sm font-medium rounded-lg hover:bg-muted/80 transition-colors"
-            data-testid="form-cancel"
-          >
-            Cancel
-          </button>
+      {/* Fixed footer */}
+      <div className="flex items-center justify-end gap-2 mt-6 pt-5 border-t border-border bg-card">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 bg-muted text-foreground text-sm font-medium rounded-lg hover:bg-muted/80 transition-colors"
+          data-testid="form-cancel"
+        >
+          Cancel
+        </button>
 
-          <button
-            type="submit"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
-            data-testid="form-submit"
-          >
-            <Save className="w-4 h-4" />
-            {submitLabel}
-          </button>
-        </div>
-      </form>
-    </Modal>
-  );
+        <button
+          type="submit"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+          data-testid="form-submit"
+        >
+          <Save className="w-4 h-4" />
+          {submitLabel}
+        </button>
+      </div>
+    </form>
+  </Modal>
+);
 }

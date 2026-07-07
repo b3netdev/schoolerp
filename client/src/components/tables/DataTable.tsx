@@ -2,7 +2,7 @@ import { Badge, statusToBadgeVariant } from "@/components/common/Badge";
 import { Avatar } from "@/components/common/Avatar";
 import { Eye, Pencil, Trash2 } from "lucide-react";
 
-export type ColumnType = "text" | "avatar-text" | "badge" | "status";
+export type ColumnType = "text" | "avatar-text" | "badge" | "status" | "actions";
 
 export interface Column {
   key: string;

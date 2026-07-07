@@ -47,3 +47,89 @@ section_id INTEGER NOT NULL REFERENCES sections(id) ON DELETE RESTRICT,
 created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+
+-- academic_year table
+create table academic_year (
+id SERIAL PRIMARY KEY,
+name VARCHAR(10),
+status VARCHAR(10),
+remarks VARCHAR(20),
+created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+
+
+-- teacher table
+
+-- sequence generate function
+CREATE SEQUENCE IF NOT EXISTS teacher_employee_code_seq
+START WITH 1
+INCREMENT BY 1;
+
+-- employe code auto generate function
+CREATE OR REPLACE FUNCTION generate_teacher_employee_code()
+RETURNS TEXT AS $$
+DECLARE
+    next_code BIGINT;
+BEGIN
+    next_code := nextval('teacher_employee_code_seq');
+
+    RETURN 'TCH-' || TO_CHAR(CURRENT_DATE, 'YYYY') || '-' || LPAD(next_code::TEXT, 5, '0');
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TABLE teachers (
+ id SERIAL PRIMARY KEY,
+    -- Basic teacher details
+    employee_code VARCHAR(50) UNIQUE NOT NULL DEFAULT generate_teacher_employee_code(),
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100),
+    email VARCHAR(255) UNIQUE,
+    phone VARCHAR(20),
+    alternate_phone VARCHAR(20),
+
+    -- Personal details
+    gender VARCHAR(20),
+    date_of_birth DATE,
+    blood_group VARCHAR(10),
+    marital_status VARCHAR(30),
+
+    -- Address details
+    current_address TEXT,
+    permanent_address TEXT,
+    city VARCHAR(100),
+    state VARCHAR(100),
+    country VARCHAR(100),
+    pincode VARCHAR(20),
+
+    -- Professional details
+    qualification VARCHAR(255),
+    specialization VARCHAR(255),
+    experience_years INTEGER DEFAULT 0,
+    joining_date DATE,
+    employment_type VARCHAR(50), -- Full Time, Part Time, Contract
+    status VARCHAR(20) DEFAULT 'active', -- active, inactive, resigned
+
+    -- Salary / HR details
+    basic_salary NUMERIC(12,2),
+    bank_name VARCHAR(150),
+    bank_account_number VARCHAR(100),
+    ifsc_code VARCHAR(50),
+    pan_number VARCHAR(50),
+
+    -- Emergency contact
+    emergency_contact_name VARCHAR(150),
+    emergency_contact_phone VARCHAR(20),
+    emergency_contact_relation VARCHAR(50),
+
+    -- Profile
+    profile_image TEXT,
+    remarks TEXT,
+
+    -- Timestamps
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITHOUT TIME ZONE
+);

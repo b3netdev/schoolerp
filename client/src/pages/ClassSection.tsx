@@ -6,6 +6,7 @@ import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
 import { Pagination } from "@/components/common/Pagination";
 import { PageHeader } from "@/components/common/PageHeader";
+import { useAppSelector } from "../../redux/hooks";
 
 type ClassSectionRelationItem = {
   id?: number;
@@ -22,30 +23,6 @@ type OptionItem = {
   label: string;
 };
 
-const demoClasses: OptionItem[] = [
-  { id: 1, label: "Class One" },
-  { id: 2, label: "Class Two" },
-  { id: 3, label: "Class Three" },
-  { id: 4, label: "Class Four" },
-  { id: 5, label: "Class Five" },
-];
-
-const demoSections: OptionItem[] = [
-  { id: 1, label: "Section A" },
-  { id: 2, label: "Section B" },
-  { id: 3, label: "Section C" },
-  { id: 4, label: "Science" },
-  { id: 5, label: "Commerce" },
-];
-
-const demoTeachers: OptionItem[] = [
-  { id: 1, label: "Tuhin Roy" },
-  { id: 2, label: "Ananya Sen" },
-  { id: 3, label: "Rahul Sharma" },
-  { id: 4, label: "Moumita Das" },
-  { id: 5, label: "Amit Mukherjee" },
-];
-
 const columns: Column[] = [
   { key: "class_name", label: "Class", type: "avatar-text" },
   { key: "section_name", label: "Section" },
@@ -53,52 +30,11 @@ const columns: Column[] = [
   { key: "actions", label: "Actions", type: "actions" },
 ];
 
-const fields: FieldDef[] = [
-  {
-    key: "class_id",
-    label: "Class",
-    type: "select",
-    required: true,
-    options: demoClasses.map((item) => `${item.id} - ${item.label}`),
-  },
-  {
-    key: "section_id",
-    label: "Section",
-    type: "select",
-    required: true,
-    options: demoSections.map((item) => `${item.id} - ${item.label}`),
-  },
-  {
-    key: "teacher_id",
-    label: "Teacher",
-    type: "select",
-    required: true,
-    options: demoTeachers.map((item) => `${item.id} - ${item.label}`),
-  },
-];
-
-const initialRelations: ClassSectionRelationItem[] = [
-  {
-    id: 1,
-    class_id: 1,
-    class_name: "Class One",
-    section_id: 1,
-    section_name: "Section A",
-    teacher_id: 1,
-    teacher_name: "Tuhin Roy",
-  },
-  {
-    id: 2,
-    class_id: 2,
-    class_name: "Class Two",
-    section_id: 2,
-    section_name: "Section B",
-    teacher_id: 2,
-    teacher_name: "Ananya Sen",
-  },
-];
+const initialRelations: ClassSectionRelationItem[] = [];
 
 function parseOptionId(value: string): number {
+  if (!value) return 0;
+
   return Number(value.split(" - ")[0]);
 }
 
@@ -110,28 +46,13 @@ function makeOptionValue(id: number, label: string): string {
   return `${id} - ${label}`;
 }
 
-function buildRelationPayload(
-  values: Record<string, string>
-): Omit<ClassSectionRelationItem, "id"> {
-  const classId = parseOptionId(values.class_id);
-  const sectionId = parseOptionId(values.section_id);
-  const teacherId = parseOptionId(values.teacher_id);
-
-  return {
-    class_id: classId,
-    class_name: findOptionLabel(demoClasses, classId),
-
-    section_id: sectionId,
-    section_name: findOptionLabel(demoSections, sectionId),
-
-    teacher_id: teacherId,
-    teacher_name: findOptionLabel(demoTeachers, teacherId),
-  };
-}
-
 export default function ClassSectionRelation() {
   const [data, setData] =
     useState<ClassSectionRelationItem[]>(initialRelations);
+
+  const { teachers } = useAppSelector((state) => state.teacher);
+  const { sections } = useAppSelector((state) => state.section);
+  const { classes } = useAppSelector((state) => state.class);
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -145,6 +66,70 @@ export default function ClassSectionRelation() {
   const [addOpen, setAddOpen] = useState(false);
 
   const itemsPerPage = 10;
+
+  const classOptions: OptionItem[] = classes.map((item) => ({
+    id: Number(item.id),
+    label: item.class_name,
+  }));
+
+  const sectionOptions: OptionItem[] = sections.map((item) => ({
+    id: Number(item.id),
+    label: item.stream ? `${item.name} (${item.stream})` : item.name,
+  }));
+
+  const teacherOptions: OptionItem[] = teachers.map((item) => ({
+    id: Number(item.id),
+    label: `${item.first_name} ${item.last_name || ""}${
+      item.employee_code ? ` (${item.employee_code})` : ""
+    }`.trim(),
+  }));
+
+  const fields: FieldDef[] = [
+    {
+      key: "class_id",
+      label: "Class",
+      type: "select",
+      required: true,
+      options: classOptions.map((item) => makeOptionValue(item.id,  item.label)),
+    },
+    {
+      key: "section_id",
+      label: "Section",
+      type: "select",
+      required: true,
+      options: sectionOptions.map((item) =>
+        makeOptionValue(item.id, item.label)
+      ),
+    },
+    {
+      key: "teacher_id",
+      label: "Teacher",
+      type: "select",
+      required: true,
+      options: teacherOptions.map((item) =>
+        makeOptionValue(item.id, item.label)
+      ),
+    },
+  ];
+
+  const buildRelationPayload = (
+    values: Record<string, string>
+  ): Omit<ClassSectionRelationItem, "id"> => {
+    const classId = parseOptionId(values.class_id);
+    const sectionId = parseOptionId(values.section_id);
+    const teacherId = parseOptionId(values.teacher_id);
+
+    return {
+      class_id: classId,
+      class_name: findOptionLabel(classOptions, classId),
+
+      section_id: sectionId,
+      section_name: findOptionLabel(sectionOptions, sectionId),
+
+      teacher_id: teacherId,
+      teacher_name: findOptionLabel(teacherOptions, teacherId),
+    };
+  };
 
   const filtered = data.filter((item) => {
     const keyword = search.toLowerCase();
@@ -167,11 +152,11 @@ export default function ClassSectionRelation() {
     const payload = buildRelationPayload(values);
 
     const newRelation: ClassSectionRelationItem = {
-      id: Date.now(),
       ...payload,
     };
 
     setData((prev) => [newRelation, ...prev]);
+    console.log(newRelation,"New")
     setAddOpen(false);
   };
 

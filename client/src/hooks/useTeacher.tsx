@@ -58,6 +58,7 @@ const useTeacher = () => {
   const getTeachers = async () => {
     try {
       const result = await api.get("/teacher/get-teachers");
+      console.log(result,"RESULT")
 
       if (result?.data?.success) {
         dispatch(setTeachers(result.data.data));

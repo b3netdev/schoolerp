@@ -54,7 +54,7 @@ export class ClassSectionRelationModel {
         csr.updated_at
       FROM ${tableName} csr
       INNER JOIN classes c ON c.id = csr.class_id
-      INNER JOIN sections s ON s.id = csr.section_id
+      INNER JOIN section s ON s.id = csr.section_id
       LEFT JOIN teachers t ON t.id = csr.teacher_id
       ORDER BY csr.id DESC
       `
@@ -84,7 +84,7 @@ export class ClassSectionRelationModel {
         csr.updated_at
       FROM ${tableName} csr
       INNER JOIN classes c ON c.id = csr.class_id
-      INNER JOIN sections s ON s.id = csr.section_id
+      INNER JOIN section s ON s.id = csr.section_id
       LEFT JOIN teachers t ON t.id = csr.teacher_id
       WHERE csr.id = $1
       LIMIT 1

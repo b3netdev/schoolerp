@@ -15,6 +15,7 @@ import {
   Shield,
   Bell,
   Save,
+  MonitorCog,
 } from "lucide-react";
 
 import {
@@ -27,7 +28,7 @@ import {
 
 import useSettings from "@/hooks/useSettngs";
 
-type SettingGroup = "general" | "users" | "security" | "notifications";
+type SettingGroup = "general" | "users" | "security" | "notifications" | "system";
 
 type SettingFieldType =
   | "text"
@@ -167,6 +168,11 @@ const tabs: TabItem[] = [
     id: "notifications",
     label: "Notifications",
     icon: <Bell className="h-4 w-4" />,
+  },
+  {
+    id: "system",
+    label: "System",
+    icon: <MonitorCog className="h-4 w-4" />,
   },
 ];
 
@@ -544,81 +550,81 @@ const Settings = () => {
   return (
     <div>
       <Breadcrumb items={[{ label: "Settings" }]} />
-    
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage school, user, security, and notification settings.
-        </p>
-      </div>
 
-      <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
-        <div className="rounded-xl border border-border bg-card p-3">
-          <div className="space-y-1">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${activeTab === tab.id
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-              >
-                {tab.icon}
-                {tab.label}
-              </button>
-            ))}
-          </div>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Manage school, user, security, and notification settings.
+          </p>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="mb-5 flex items-start justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold capitalize text-foreground">
-                {activeTab} Settings
-              </h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Update {activeTab} related settings from here.
-              </p>
+        <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
+          <div className="rounded-xl border border-border bg-card p-3">
+            <div className="space-y-1">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${activeTab === tab.id
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                >
+                  {tab.icon}
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold capitalize text-foreground">
+                  {activeTab} Settings
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Update {activeTab} related settings from here.
+                </p>
+              </div>
+
+              {getLoading && (
+                <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                  Loading...
+                </span>
+              )}
             </div>
 
-            {getLoading && (
-              <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                Loading...
-              </span>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {activeFields.map((field) => renderField(field))}
+            </div>
+
+            {hasChanges && (
+              <div className="mt-6 flex gap-2">
+                <button
+                  type="submit"
+                  disabled={updateLoading}
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Save className="h-4 w-4" />
+                  {updateLoading ? "Saving..." : "Save Changes"}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={updateLoading}
+                  onClick={handleCancel}
+                  className="rounded-lg bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+              </div>
             )}
           </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {activeFields.map((field) => renderField(field))}
-          </div>
-
-          {hasChanges && (
-            <div className="mt-6 flex gap-2">
-              <button
-                type="submit"
-                disabled={updateLoading}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Save className="h-4 w-4" />
-                {updateLoading ? "Saving..." : "Save Changes"}
-              </button>
-
-              <button
-                type="button"
-                disabled={updateLoading}
-                onClick={handleCancel}
-                className="rounded-lg bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Cancel
-              </button>
-            </div>
-          )}
         </div>
-      </div>
-    </form>
+      </form>
     </div>
   );
 };

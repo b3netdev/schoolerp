@@ -22,18 +22,38 @@ const cleanNumber = (value?: number | string): number | undefined => {
 
   return Number.isNaN(numberValue) ? undefined : numberValue;
 };
-
+type TeacherStatusFilter = "all" | "active" | "inactive";
 export class TeacherController {
   static findAll = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
-      const teachers = await TeacherModel.findAll();
+      const statusParam = req.query.status;
+
+      let status: TeacherStatusFilter = "all";
+
+      if (typeof statusParam === "string" && statusParam.trim() !== "") {
+        const normalizedStatus = statusParam.trim().toLowerCase();
+
+        const allowedStatuses: TeacherStatusFilter[] = [
+          "all",
+          "active",
+          "inactive",
+        ];
+
+        if (!allowedStatuses.includes(normalizedStatus as TeacherStatusFilter)) {
+          return next(new AppError("Invalid teacher status filter", 400));
+        }
+
+        status = normalizedStatus as TeacherStatusFilter;
+      }
+
+      const teachers = await TeacherModel.findAll(status);
 
       res.status(200).json({
         success: true,
         message: "Teachers fetched successfully",
         data: teachers,
       });
-    },
+    }
   );
 
   static findById = catchAsync(

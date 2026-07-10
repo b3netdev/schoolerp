@@ -10,6 +10,8 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { useAppSelector } from "../../redux/hooks";
 import useTeacher, { type AddTeacherPayload } from "@/hooks/useTeacher";
 import type { Teacher } from "../../redux/slicers/teacherSlice";
+import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 
 type TeacherTableRow = Teacher & {
   full_name: string;
@@ -212,6 +214,12 @@ function makeInitials(firstName?: string, lastName?: string): string {
   return `${first}${last}`.toUpperCase();
 }
 
+type StatusFilter = "all" | "active" | "inactive"
+type StatusFilterOption = {
+  value: StatusFilter;
+  label: string;
+};
+
 function teacherToInitialValues(teacher: Teacher): Record<string, string> {
   return {
     first_name: teacher.first_name || "",
@@ -317,11 +325,31 @@ export default function Teachers() {
   const [editItem, setEditItem] = useState<Teacher | null>(null);
   const [deleteItem, setDeleteItem] = useState<Teacher | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [buttonGroup, setButtonGroup] = useState<StatusFilterOption[]>(
+    [
+      {
+        value: "all",
+        label: "All",
+      },
+
+      {
+        value: "active",
+        label: "Active",
+      },
+
+      {
+        value: "inactive",
+        label: "In Active",
+      },
+    ]
+
+  )
 
   const itemsPerPage = 10;
 
   useEffect(() => {
-    getTeachers();
+    getTeachers("all");
   }, []);
 
   const tableData: TeacherTableRow[] = teachers.map((teacher) => ({
@@ -381,6 +409,11 @@ export default function Teachers() {
     setDeleteItem(null);
   };
 
+  const selectTabe = async (item: StatusFilterOption) => {
+    setStatusFilter(item.value);
+    await getTeachers(item.value);
+  }
+
   return (
     <div>
       <Breadcrumb items={[{ label: "Teachers" }]} />
@@ -401,7 +434,7 @@ export default function Teachers() {
       />
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="p-5 border-b border-border">
+        <div className="p-5 border-b border-border flex gap-6">
           <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 
@@ -417,6 +450,18 @@ export default function Teachers() {
               data-testid="teachers-search"
             />
           </div>
+          <ButtonGroup>
+            {buttonGroup.map((item) => (
+              <Button key={item.value}
+                className="cursor-pointer"
+                variant={statusFilter == item.value ? "default" : "outline"}
+                size="sm" type="button"
+                onClick={() => selectTabe(item)}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </ButtonGroup>
         </div>
 
         <div className="px-6">

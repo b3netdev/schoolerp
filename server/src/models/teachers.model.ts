@@ -135,9 +135,16 @@ export interface TeacherUpdatePayload {
 }
 
 const tableName = "teachers";
-
+type TeacherStatusFilter = "all" | "active" | "inactive";
 export class TeacherModel {
-  static async findAll(): Promise<Teacher[]> {
+  static async findAll(status: TeacherStatusFilter = "all"): Promise<Teacher[]> {
+    const values: unknown[] = [];
+    const conditions: string[] = ["deleted_at IS NULL"];
+
+    if (status !== "all") {
+      values.push(status);
+      conditions.push(`status = $${values.length}`);
+    }
     const result = await query<Teacher>(
       `
       SELECT
@@ -178,9 +185,10 @@ export class TeacherModel {
         updated_at,
         deleted_at
       FROM ${tableName}
-      WHERE deleted_at IS NULL
+    WHERE ${conditions.join(" AND ")}
       ORDER BY id DESC
-      `
+      `,
+      values
     );
 
     return result.rows;

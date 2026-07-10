@@ -51,14 +51,19 @@ export interface AddTeacherPayload {
 export interface UpdateTeacherPayload extends AddTeacherPayload {
   id: number;
 }
-
+type TeacherStatusFilter = "all" | "active" | "inactive";
 const useTeacher = () => {
   const dispatch = useAppDispatch();
 
-  const getTeachers = async () => {
+  const getTeachers = async (status: TeacherStatusFilter = "all") => {
     try {
-      const result = await api.get("/teacher/get-teachers");
-      console.log(result,"RESULT")
+      const result = await api.get("/teacher/get-teachers", {
+        params: {
+          status,
+        },
+      });
+
+      console.log(result, "RESULT");
 
       if (result?.data?.success) {
         dispatch(setTeachers(result.data.data));
@@ -67,7 +72,6 @@ const useTeacher = () => {
       console.log(error);
     }
   };
-
   const addteacher = async (payload: AddTeacherPayload) => {
     try {
       const result = await api.post("/teacher/add-teacher", payload);

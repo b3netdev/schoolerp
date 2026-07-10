@@ -271,6 +271,12 @@ const settingsFields: SettingField[] = [
       { label: "Disabled", value: "false" },
     ],
   },
+  {
+    name: "Employee Code Prefix",
+    field_key: "employee_code_prefix",
+    setting_group: "system",
+    type: "text",
+  }
 ];
 
 const createEmptyFormData = (): FormDataState => {

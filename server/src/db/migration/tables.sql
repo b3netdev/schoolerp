@@ -65,21 +65,39 @@ updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 -- teacher table
 
 -- sequence generate function
+
 CREATE SEQUENCE IF NOT EXISTS teacher_employee_code_seq
 START WITH 1
 INCREMENT BY 1;
 
 -- employe code auto generate function
+
+
 CREATE OR REPLACE FUNCTION generate_teacher_employee_code()
 RETURNS TEXT AS $$
 DECLARE
     next_code BIGINT;
+    employee_prefix TEXT;
 BEGIN
     next_code := nextval('teacher_employee_code_seq');
 
-    RETURN 'TCH-' || TO_CHAR(CURRENT_DATE, 'YYYY') || '-' || LPAD(next_code::TEXT, 5, '0');
+    SELECT value
+    INTO employee_prefix
+    FROM settings
+    WHERE key = 'employee_code_prefix'
+      AND deleted_at IS NULL
+    LIMIT 1;
+
+    employee_prefix := COALESCE(NULLIF(TRIM(employee_prefix), ''), 'BWU');
+
+    RETURN employee_prefix
+      || '-TCH-'
+      || TO_CHAR(CURRENT_DATE, 'YYYY')
+      || '-'
+      || LPAD(next_code::TEXT, 4, '0');
 END;
 $$ LANGUAGE plpgsql;
+
 
 CREATE TABLE teachers (
  id SERIAL PRIMARY KEY,

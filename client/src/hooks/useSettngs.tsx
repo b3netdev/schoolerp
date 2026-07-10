@@ -73,6 +73,23 @@ const useSettings = () => {
         }
     };
 
+
+    const searchSettingsOptions = async (key: string) => {
+        setLoading(true);
+        setUpdateLoading(true);
+        setError(null);
+        try {
+            const response = await api.post("/settings/getBykey", { key });
+            if (response?.data?.success === true) {
+
+                return response?.data?.data
+            }
+        }
+        catch (error) {
+
+        }
+    }
+
     return {
         settings,
         loading,
@@ -81,6 +98,7 @@ const useSettings = () => {
         error,
         getSettings,
         updateSettingsData,
+        searchSettingsOptions
     };
 };
 

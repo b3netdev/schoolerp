@@ -66,7 +66,7 @@ export default function ClassSectionRelation() {
   const {
     getTeachers,
   } = useTeacher();
-  const { getSection} = useSection();
+  const { getSection } = useSection();
   const { getClasses } = useClass();
 
   const { teachers } = useAppSelector((state) => state.teacher);
@@ -95,7 +95,7 @@ export default function ClassSectionRelation() {
 
   useEffect(() => {
     getClassSections();
-    getTeachers();
+    getTeachers("active");
     getSection();
     getClasses()
   }, []);
@@ -145,17 +145,17 @@ export default function ClassSectionRelation() {
       ),
     },
   ];
-const buildRelationPayload = (values: Record<string, string>) => {
-  const classId = findOptionIdByLabel(classOptions, values.class_id);
-  const sectionId = findOptionIdByLabel(sectionOptions, values.section_id);
-  const teacherId = findOptionIdByLabel(teacherOptions, values.teacher_id);
+  const buildRelationPayload = (values: Record<string, string>) => {
+    const classId = findOptionIdByLabel(classOptions, values.class_id);
+    const sectionId = findOptionIdByLabel(sectionOptions, values.section_id);
+    const teacherId = findOptionIdByLabel(teacherOptions, values.teacher_id);
 
-  return {
-    class_id: classId,
-    section_id: sectionId,
-    teacher_id: teacherId,
+    return {
+      class_id: classId,
+      section_id: sectionId,
+      teacher_id: teacherId,
+    };
   };
-};
   const filtered = classSectionRelations.filter((item) => {
     const keyword = search.toLowerCase();
 
@@ -175,7 +175,7 @@ const buildRelationPayload = (values: Record<string, string>) => {
 
   const handleAdd = async (values: Record<string, string>) => {
     const payload = buildRelationPayload(values);
-    console.log(payload,"PAYLOAD")
+    console.log(payload, "PAYLOAD")
 
     const result = await addClassSection(payload);
 

@@ -39,7 +39,6 @@ const columns: Column[] = [
   { key: "class_name", label: "Class", type: "avatar-text" },
   { key: "section_name", label: "Section" },
   { key: "teacher_name", label: "Teacher" },
-  { key: "actions", label: "Actions", type: "actions" },
 ];
 
 function findOptionIdByLabel(list: OptionItem[], label: string): number {

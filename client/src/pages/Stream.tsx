@@ -6,7 +6,7 @@ import useStream, { type StreamPayload } from "@/hooks/useStream";
 import type { Stream, StreamStatus } from "../../redux/slicers/stream.Slicer";
 
 import { Breadcrumb } from "@/components/common/Breadcrumb";
-
+import { ButtonGroup } from "@/components/ui/button-group";
 import { Button } from "@/components/ui/button";
 import {
     Card,
@@ -74,6 +74,29 @@ const formatDate = (value?: string | null): string => {
     return date.toLocaleDateString();
 };
 
+
+type StreamStatusFilter = "all" | "active" | "inactive";
+
+type StreamStatusFilterOption = {
+    value: StreamStatusFilter;
+    label: string;
+};
+
+const statusFilterOptions: StreamStatusFilterOption[] = [
+    {
+        value: "all",
+        label: "All",
+    },
+    {
+        value: "active",
+        label: "Active",
+    },
+    {
+        value: "inactive",
+        label: "Inactive",
+    },
+];
+
 export default function Streams() {
     const { streams } = useAppSelector((state) => state.stream);
 
@@ -85,11 +108,18 @@ export default function Streams() {
     const [deleteItem, setDeleteItem] = useState<Stream | null>(null);
     const [formData, setFormData] = useState<StreamFormState>(defaultFormState);
     const [submitLoading, setSubmitLoading] = useState(false);
+    const [statusFilter, setStatusFilter] = useState<StreamStatusFilter>("all");
 
     useEffect(() => {
         getStreams();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+
     }, []);
+    useEffect(() => {
+        getStreams(statusFilter);
+    }, [statusFilter]);
+    const selectStatusTab = (item: StreamStatusFilterOption) => {
+        setStatusFilter(item.value);
+    };
 
     const filteredStreams = useMemo<Stream[]>(() => {
         const keyword = search.trim().toLowerCase();
@@ -225,16 +255,33 @@ export default function Streams() {
                             </CardDescription>
                         </div>
 
-                        <div className="relative w-full md:max-w-sm">
-                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-center">
+                            <div className="relative w-full md:w-64">
+                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
-                            <Input
-                                type="search"
-                                placeholder="Search stream..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="pl-9"
-                            />
+                                <Input
+                                    type="search"
+                                    placeholder="Search stream..."
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    className="pl-9"
+                                />
+                            </div>
+
+                            <ButtonGroup>
+                                {statusFilterOptions.map((item) => (
+                                    <Button
+                                        key={item.value}
+                                        type="button"
+                                        size="sm"
+                                        variant={statusFilter === item.value ? "default" : "outline"}
+                                        className="cursor-pointer"
+                                        onClick={() => selectStatusTab(item)}
+                                    >
+                                        {item.label}
+                                    </Button>
+                                ))}
+                            </ButtonGroup>
                         </div>
                     </div>
                 </CardHeader>

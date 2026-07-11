@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, Search } from "lucide-react";
+
 import { DataTable, Column } from "@/components/tables/DataTable";
 import { Modal } from "@/components/common/Modal";
 import { FormModal, FieldDef } from "@/components/common/FormModal";
@@ -7,15 +8,35 @@ import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
 import { Pagination } from "@/components/common/Pagination";
 import { PageHeader } from "@/components/common/PageHeader";
+
 import { useAppSelector } from "../../redux/hooks";
+
 import useTeacher, { type AddTeacherPayload } from "@/hooks/useTeacher";
+import useClass from "@/hooks/useClass";
+
 import type { Teacher } from "../../redux/slicers/teacherSlice";
+
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type TeacherTableRow = Teacher & {
   full_name: string;
   initials: string;
+};
+
+type StatusFilter = "all" | "active" | "inactive";
+
+type StatusFilterOption = {
+  value: StatusFilter;
+  label: string;
 };
 
 const columns: Column[] = [
@@ -27,7 +48,21 @@ const columns: Column[] = [
   { key: "specialization", label: "Specialization" },
   { key: "employment_type", label: "Employment Type" },
   { key: "status", label: "Status", type: "badge" },
-  { key: "actions", label: "Actions", type: "actions" },
+];
+
+const buttonGroup: StatusFilterOption[] = [
+  {
+    value: "all",
+    label: "All",
+  },
+  {
+    value: "active",
+    label: "Active",
+  },
+  {
+    value: "inactive",
+    label: "Inactive",
+  },
 ];
 
 const fields: FieldDef[] = [
@@ -60,7 +95,6 @@ const fields: FieldDef[] = [
     type: "tel",
     placeholder: "9876543210",
   },
-
   {
     key: "gender",
     label: "Gender",
@@ -84,7 +118,6 @@ const fields: FieldDef[] = [
     type: "select",
     options: ["single", "married", "divorced", "widowed"],
   },
-
   {
     key: "current_address",
     label: "Current Address",
@@ -117,7 +150,6 @@ const fields: FieldDef[] = [
     label: "Pincode",
     placeholder: "e.g. 700001",
   },
-
   {
     key: "qualification",
     label: "Qualification",
@@ -151,7 +183,6 @@ const fields: FieldDef[] = [
     type: "select",
     options: ["active", "inactive", "resigned"],
   },
-
   {
     key: "basic_salary",
     label: "Basic Salary",
@@ -178,7 +209,6 @@ const fields: FieldDef[] = [
     label: "PAN Number",
     placeholder: "e.g. ABCDE1234F",
   },
-
   {
     key: "emergency_contact_name",
     label: "Emergency Contact Name",
@@ -214,51 +244,55 @@ function makeInitials(firstName?: string, lastName?: string): string {
   return `${first}${last}`.toUpperCase();
 }
 
-type StatusFilter = "all" | "active" | "inactive"
-type StatusFilterOption = {
-  value: StatusFilter;
-  label: string;
-};
+function safeValue(value: unknown): string {
+  if (value === undefined || value === null) return "";
+
+  if (value instanceof Date) {
+    return value.toISOString().split("T")[0];
+  }
+
+  return String(value);
+}
 
 function teacherToInitialValues(teacher: Teacher): Record<string, string> {
   return {
-    first_name: teacher.first_name || "",
-    last_name: teacher.last_name || "",
-    email: teacher.email || "",
-    phone: teacher.phone || "",
-    alternate_phone: teacher.alternate_phone || "",
+    first_name: safeValue(teacher.first_name),
+    last_name: safeValue(teacher.last_name),
+    email: safeValue(teacher.email),
+    phone: safeValue(teacher.phone),
+    alternate_phone: safeValue(teacher.alternate_phone),
 
-    gender: teacher.gender || "",
-    date_of_birth: teacher.date_of_birth || "",
-    blood_group: teacher.blood_group || "",
-    marital_status: teacher.marital_status || "",
+    gender: safeValue(teacher.gender),
+    date_of_birth: safeValue(teacher.date_of_birth),
+    blood_group: safeValue(teacher.blood_group),
+    marital_status: safeValue(teacher.marital_status),
 
-    current_address: teacher.current_address || "",
-    permanent_address: teacher.permanent_address || "",
-    city: teacher.city || "",
-    state: teacher.state || "",
-    country: teacher.country || "",
-    pincode: teacher.pincode || "",
+    current_address: safeValue(teacher.current_address),
+    permanent_address: safeValue(teacher.permanent_address),
+    city: safeValue(teacher.city),
+    state: safeValue(teacher.state),
+    country: safeValue(teacher.country),
+    pincode: safeValue(teacher.pincode),
 
-    qualification: teacher.qualification || "",
-    specialization: teacher.specialization || "",
-    experience_years: teacher.experience_years?.toString() || "",
-    joining_date: teacher.joining_date || "",
-    employment_type: teacher.employment_type || "",
-    status: teacher.status || "active",
+    qualification: safeValue(teacher.qualification),
+    specialization: safeValue(teacher.specialization),
+    experience_years: safeValue(teacher.experience_years),
+    joining_date: safeValue(teacher.joining_date),
+    employment_type: safeValue(teacher.employment_type),
+    status: safeValue(teacher.status) || "active",
 
-    basic_salary: teacher.basic_salary?.toString() || "",
-    bank_name: teacher.bank_name || "",
-    bank_account_number: teacher.bank_account_number || "",
-    ifsc_code: teacher.ifsc_code || "",
-    pan_number: teacher.pan_number || "",
+    basic_salary: safeValue(teacher.basic_salary),
+    bank_name: safeValue(teacher.bank_name),
+    bank_account_number: safeValue(teacher.bank_account_number),
+    ifsc_code: safeValue(teacher.ifsc_code),
+    pan_number: safeValue(teacher.pan_number),
 
-    emergency_contact_name: teacher.emergency_contact_name || "",
-    emergency_contact_phone: teacher.emergency_contact_phone || "",
-    emergency_contact_relation: teacher.emergency_contact_relation || "",
+    emergency_contact_name: safeValue(teacher.emergency_contact_name),
+    emergency_contact_phone: safeValue(teacher.emergency_contact_phone),
+    emergency_contact_relation: safeValue(teacher.emergency_contact_relation),
 
-    profile_image: teacher.profile_image || "",
-    remarks: teacher.remarks || "",
+    profile_image: safeValue(teacher.profile_image),
+    remarks: safeValue(teacher.remarks),
   };
 }
 
@@ -310,13 +344,12 @@ function buildTeacherPayload(values: Record<string, string>): AddTeacherPayload 
 
 export default function Teachers() {
   const teachers = useAppSelector((state) => state.teacher.teachers);
+  const { classes } = useAppSelector((state) => state.class);
 
-  const {
-    getTeachers,
-    addteacher,
-    updateteacher,
-    deleteteacher,
-  } = useTeacher();
+  const { getTeachers, addteacher, updateteacher, deleteteacher } =
+    useTeacher();
+
+  const { getClasses } = useClass();
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -325,31 +358,17 @@ export default function Teachers() {
   const [editItem, setEditItem] = useState<Teacher | null>(null);
   const [deleteItem, setDeleteItem] = useState<Teacher | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [buttonGroup, setButtonGroup] = useState<StatusFilterOption[]>(
-    [
-      {
-        value: "all",
-        label: "All",
-      },
-
-      {
-        value: "active",
-        label: "Active",
-      },
-
-      {
-        value: "inactive",
-        label: "In Active",
-      },
-    ]
-
-  )
+  const [selectedClassId, setSelectedClassId] = useState<string>("all");
 
   const itemsPerPage = 10;
 
   useEffect(() => {
     getTeachers("all");
+    getClasses();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const tableData: TeacherTableRow[] = teachers.map((teacher) => ({
@@ -382,10 +401,10 @@ export default function Teachers() {
     const payload = buildTeacherPayload(values);
 
     const data = await addteacher(payload);
+
     if (data) {
       setAddOpen(false);
     }
-
   };
 
   const handleEdit = async (values: Record<string, string>) => {
@@ -411,8 +430,15 @@ export default function Teachers() {
 
   const selectTabe = async (item: StatusFilterOption) => {
     setStatusFilter(item.value);
+    setPage(1);
+
     await getTeachers(item.value);
-  }
+  };
+
+  const handleClassChange = (value: string) => {
+    setSelectedClassId(value);
+    setPage(1);
+  };
 
   return (
     <div>
@@ -426,6 +452,7 @@ export default function Teachers() {
             onClick={() => setAddOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
             data-testid="add-teacher-btn"
+            type="button"
           >
             <Plus className="w-4 h-4" />
             Add Teacher
@@ -434,8 +461,8 @@ export default function Teachers() {
       />
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="p-5 border-b border-border flex gap-6">
-          <div className="relative max-w-sm">
+        <div className="p-5 border-b border-border flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
+          <div className="relative w-full lg:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 
             <input
@@ -450,12 +477,33 @@ export default function Teachers() {
               data-testid="teachers-search"
             />
           </div>
+
+          <div className="w-full lg:w-[220px]">
+            <Select value={selectedClassId} onValueChange={handleClassChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select Class" />
+              </SelectTrigger>
+
+              <SelectContent>
+                <SelectItem value="all">All Classes</SelectItem>
+
+                {classes.map((item) => (
+                  <SelectItem key={String(item.id)} value={String(item.id)}>
+                    {String(item.class_name ?? "")}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <ButtonGroup>
             {buttonGroup.map((item) => (
-              <Button key={item.value}
+              <Button
+                key={item.value}
                 className="cursor-pointer"
-                variant={statusFilter == item.value ? "default" : "outline"}
-                size="sm" type="button"
+                variant={statusFilter === item.value ? "default" : "outline"}
+                size="sm"
+                type="button"
                 onClick={() => selectTabe(item)}
               >
                 {item.label}
@@ -495,7 +543,6 @@ export default function Teachers() {
       >
         {viewItem && (
           <div className="max-h-[70vh] overflow-y-auto pr-2">
-            {/* Header */}
             <div className="mb-5 rounded-xl border border-border bg-muted/40 p-4">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold">
@@ -519,20 +566,34 @@ export default function Teachers() {
                 <Info label="Name" value={getFullName(viewItem)} />
                 <Info label="Email" value={viewItem.email} />
                 <Info label="Phone" value={viewItem.phone} />
-                <Info label="Alternate Phone" value={viewItem.alternate_phone} />
+                <Info
+                  label="Alternate Phone"
+                  value={viewItem.alternate_phone}
+                />
                 <Info label="Status" value={viewItem.status} />
               </InfoSection>
 
               <InfoSection title="Personal Details">
                 <Info label="Gender" value={viewItem.gender} />
-                <Info label="Date of Birth" value={viewItem.date_of_birth} />
+                <Info
+                  label="Date of Birth"
+                  value={safeValue(viewItem.date_of_birth)}
+                />
                 <Info label="Blood Group" value={viewItem.blood_group} />
                 <Info label="Marital Status" value={viewItem.marital_status} />
               </InfoSection>
 
               <InfoSection title="Address Details">
-                <Info label="Current Address" value={viewItem.current_address} large />
-                <Info label="Permanent Address" value={viewItem.permanent_address} large />
+                <Info
+                  label="Current Address"
+                  value={viewItem.current_address}
+                  large
+                />
+                <Info
+                  label="Permanent Address"
+                  value={viewItem.permanent_address}
+                  large
+                />
                 <Info label="City" value={viewItem.city} />
                 <Info label="State" value={viewItem.state} />
                 <Info label="Country" value={viewItem.country} />
@@ -541,19 +602,28 @@ export default function Teachers() {
 
               <InfoSection title="Professional Details">
                 <Info label="Qualification" value={viewItem.qualification} />
-                <Info label="Specialization" value={viewItem.specialization} />
+                <Info
+                  label="Specialization"
+                  value={viewItem.specialization}
+                />
                 <Info
                   label="Experience Years"
-                  value={viewItem.experience_years?.toString()}
+                  value={safeValue(viewItem.experience_years)}
                 />
-                <Info label="Joining Date" value={viewItem.joining_date} />
-                <Info label="Employment Type" value={viewItem.employment_type} />
+                <Info
+                  label="Joining Date"
+                  value={safeValue(viewItem.joining_date)}
+                />
+                <Info
+                  label="Employment Type"
+                  value={viewItem.employment_type}
+                />
               </InfoSection>
 
               <InfoSection title="Salary / Bank Details">
                 <Info
                   label="Basic Salary"
-                  value={viewItem.basic_salary?.toString()}
+                  value={safeValue(viewItem.basic_salary)}
                 />
                 <Info label="Bank Name" value={viewItem.bank_name} />
                 <Info
@@ -628,9 +698,7 @@ function InfoSection({
 }) {
   return (
     <section className="rounded-xl border border-border bg-card p-4">
-      <h4 className="mb-4 text-sm font-semibold text-foreground">
-        {title}
-      </h4>
+      <h4 className="mb-4 text-sm font-semibold text-foreground">{title}</h4>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {children}

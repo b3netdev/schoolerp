@@ -12,6 +12,7 @@ import SectionRouter from "./routes/section.route.js"
 import ClassRouter from "./routes/classes.route.js"
 import TeachersRouter from "./routes/teachers.route.js"
 import ClassSectionRelationRouter from "./routes/classs-section-relation.route.js"
+import StreamRouter from "./routes/stream.route.js"
 
 import cookieParser from "cookie-parser";
 const app = express();
@@ -34,6 +35,7 @@ app.use(`/${process.env.API_VERSION}/section`, SectionRouter);
 app.use(`/${process.env.API_VERSION}/class`, ClassRouter);
 app.use(`/${process.env.API_VERSION}/teacher`, TeachersRouter);
 app.use(`/${process.env.API_VERSION}/class-section`, ClassSectionRelationRouter);
+app.use(`/${process.env.API_VERSION}/stream`, StreamRouter);
 
 
 app.use(errorHandler);

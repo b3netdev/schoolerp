@@ -28,6 +28,7 @@ import { store } from "../redux/store";
 import AuthInitializer from "./components/common/AuthInitializer";
 import ComingSoon from "./components/common/ommingSoon";
 import ClassSectionRelation from "./pages/ClassSection";
+import Streams from "./pages/Stream";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +97,7 @@ function App() {
                   <Route path="section" element={<Section />} />
                   <Route path="class-section" element={<ClassSectionRelation />} />
                   <Route path="settings" element={<Settings />} />
+                  <Route path="streams" element={<Streams />} />
                 </Route>
               </Route>
 

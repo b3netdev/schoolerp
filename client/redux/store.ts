@@ -5,14 +5,16 @@ import sectionReducer from "./slicers/sectionSlicer";
 import classReducer from "./slicers/classesSlicer";
 import teacherReducer from "./slicers/teacherSlice"
 import classSectionRelationReducer from "./slicers/classSectionRelationSlicer"
+import StreamReducer from "./slicers/stream.Slicer"
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     settings: settingsReducer,
     section: sectionReducer,
     class: classReducer,
-    teacher:teacherReducer,
-    classSection:classSectionRelationReducer
+    teacher: teacherReducer,
+    classSection: classSectionRelationReducer,
+    stream: StreamReducer
   },
 });
 

@@ -30,6 +30,7 @@ import AuthInitializer from "./components/common/AuthInitializer";
 import ComingSoon from "./components/common/ommingSoon";
 import ClassSectionRelation from "./pages/ClassSection";
 import Streams from "./pages/Stream";
+import { Toaster } from "./components/ui/sonner";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ function App() {
       <QueryClientProvider
         client={queryClient}
       >
+        <Toaster richColors closeButton position="top-right" />
         <AuthInitializer>
 
           <BrowserRouter>

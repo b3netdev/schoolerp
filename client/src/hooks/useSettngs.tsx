@@ -79,7 +79,11 @@ const useSettings = () => {
         setUpdateLoading(true);
         setError(null);
         try {
-            const response = await api.post("/settings/getBykey", { key });
+            const response = await api.post(
+                "/settings/getBykey",
+                { key },
+                { skipSuccessToast: true }
+            );
             if (response?.data?.success === true) {
 
                 return response?.data?.data

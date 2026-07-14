@@ -42,7 +42,7 @@ const useAuth = () => {
     const checkAuth = async () => {
         try {
             setCheckAUthLoading(true)
-            const data = await api.get(`/auth/check-auth`)
+            const data = await api.get(`/auth/check-auth`, { skipErrorToast: true })
             if (data?.data?.success == true) {
                 dispatch(setAuth(data.data.data))
                 return true

@@ -21,6 +21,7 @@ import Subjects from "./pages/Subjects";
 import Timetable from "./pages/Timetable";
 import NoticeBoard from "./pages/NoticeBoard";
 import Settings from "./pages/Settings";
+import Profile from "./pages/Profile";
 import { MainLayout } from "./components/layout/MainLayout";
 import NotFound from "./pages/NotFound";
 import { Provider } from "react-redux";
@@ -74,6 +75,7 @@ function App() {
                   <Route path="subjects" element={<ComingSoon />} />
                   <Route path="timetable" element={<ComingSoon />} />
                   <Route path="marksheet" element={<ComingSoon />} />
+                  <Route path="profile" element={<Profile />} />
                 </Route>
 
                 <Route

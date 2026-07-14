@@ -91,6 +91,45 @@ export class UserModel {
     return result.rows[0] || null;
   }
 
+  static async updateProfile(
+    id: number,
+    data: { name: string; email: string }
+  ): Promise<User | null> {
+    const result = await query<User>(
+      `
+      UPDATE users
+      SET name = $1,
+          email = $2,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3
+      AND deleted_at IS NULL
+      RETURNING *
+      `,
+      [data.name, data.email, id]
+    );
+
+    return result.rows[0] || null;
+  }
+
+  static async updatePassword(
+    id: number,
+    hashedPassword: string
+  ): Promise<User | null> {
+    const result = await query<User>(
+      `
+      UPDATE users
+      SET password = $1,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      AND deleted_at IS NULL
+      RETURNING *
+      `,
+      [hashedPassword, id]
+    );
+
+    return result.rows[0] || null;
+  }
+
   static async softDelete(id: number): Promise<User | null> {
     const result = await query<User>(
       `

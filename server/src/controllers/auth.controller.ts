@@ -88,6 +88,78 @@ export const signOut = catchAsync(
   },
 );
 
+export const updateProfile = catchAsync(
+  async (req: any, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return next(new AppError("Unable to get user", 401));
+    }
+    const { name, email } = req.body;
+    if (!name || !email) {
+      return next(new AppError("Name and email are required", 400));
+    }
+
+    const existingUser = await UserModel.findByEmail(email);
+    if (existingUser && existingUser.id !== req.user.id) {
+      return next(new AppError("Email is already in use", 409));
+    }
+
+    const updatedUser = await UserModel.updateProfile(req.user.id, {
+      name,
+      email,
+    });
+    if (!updatedUser) return next(new AppError("User not found", 404));
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      data: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+      },
+    });
+  },
+);
+
+export const changePassword = catchAsync(
+  async (req: any, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return next(new AppError("Unable to get user", 401));
+    }
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return next(
+        new AppError("Current and new password are required", 400),
+      );
+    }
+    if (newPassword.length < 6) {
+      return next(
+        new AppError("New password must be at least 6 characters", 400),
+      );
+    }
+
+    const user = await UserModel.findById(req.user.id);
+    if (!user) return next(new AppError("User not found", 404));
+
+    const isPasswordMatch = await bcrypt.compare(
+      currentPassword,
+      user.password,
+    );
+    if (!isPasswordMatch) {
+      return next(new AppError("Current password is incorrect", 401));
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await UserModel.updatePassword(user.id, hashedPassword);
+
+    res.status(200).json({
+      success: true,
+      message: "Password changed successfully",
+    });
+  },
+);
+
 export const checkAuth = catchAsync(
   async (req: any, res: Response, next: NextFunction) => {
     if (!req.user) {

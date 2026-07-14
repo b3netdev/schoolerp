@@ -1,15 +1,34 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Menu, Search, Bell, ChevronDown, LogOut, User, Settings } from "lucide-react";
 import { Avatar } from "@/components/common/Avatar";
+
+interface NavbarUser {
+  name?: string;
+  email?: string;
+  role?: string;
+}
 
 interface NavbarProps {
   onMenuClick: () => void;
   pageTitle: string;
   onLogout: () => void;
+  user?: NavbarUser | null;
 }
 
-export function Navbar({ onMenuClick, pageTitle, onLogout }: NavbarProps) {
+export function Navbar({ onMenuClick, pageTitle, onLogout, user }: NavbarProps) {
   const [profileOpen, setProfileOpen] = useState(false);
+  const navigate = useNavigate();
+  const portal = user?.role || "admin";
+
+  const displayName = user?.name || "Admin";
+  const initials = displayName
+    .split(" ")
+    .map((part) => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   return (
     <header className="h-14 bg-card border-b border-border flex items-center px-4 gap-4 sticky top-0 z-10">
@@ -52,8 +71,8 @@ export function Navbar({ onMenuClick, pageTitle, onLogout }: NavbarProps) {
             className="flex items-center gap-2 h-9 px-2 rounded-lg hover:bg-muted transition-colors"
             data-testid="navbar-profile"
           >
-            <Avatar initials="JA" name="John Admin" size="sm" />
-            <span className="hidden sm:block text-sm font-medium text-foreground">John Admin</span>
+            <Avatar initials={initials} name={displayName} size="sm" />
+            <span className="hidden sm:block text-sm font-medium text-foreground">{displayName}</span>
             <ChevronDown className="w-4 h-4 text-muted-foreground" />
           </button>
 
@@ -62,16 +81,26 @@ export function Navbar({ onMenuClick, pageTitle, onLogout }: NavbarProps) {
               <div className="fixed inset-0 z-10" onClick={() => setProfileOpen(false)} />
               <div className="absolute right-0 top-full mt-2 w-52 bg-card border border-border rounded-xl shadow-lg z-20 py-1">
                 <div className="px-4 py-3 border-b border-border">
-                  <p className="text-sm font-medium text-foreground">John Admin</p>
-                  <p className="text-xs text-muted-foreground">john@school.edu</p>
+                  <p className="text-sm font-medium text-foreground">{displayName}</p>
+                  <p className="text-xs text-muted-foreground">{user?.email || ""}</p>
                 </div>
                 <div className="py-1">
-                  <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors">
+                  <button
+                    onClick={() => { setProfileOpen(false); navigate(`/${portal}/profile`); }}
+                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                    data-testid="navbar-profile-link"
+                  >
                     <User className="w-4 h-4 text-muted-foreground" /> My Profile
                   </button>
-                  <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors">
-                    <Settings className="w-4 h-4 text-muted-foreground" /> Settings
-                  </button>
+                  {portal === "admin" && (
+                    <button
+                      onClick={() => { setProfileOpen(false); navigate(`/${portal}/settings`); }}
+                      className="w-full flex items-center gap-3 px-4 py-2 text-sm text-foreground hover:bg-muted transition-colors"
+                      data-testid="navbar-settings-link"
+                    >
+                      <Settings className="w-4 h-4 text-muted-foreground" /> Settings
+                    </button>
+                  )}
                 </div>
                 <div className="border-t border-border py-1">
                   <button

@@ -13,6 +13,14 @@ const useAuth = () => {
         email: string,
         password: string
     }
+    type updateProfilePayload = {
+        name: string,
+        email: string
+    }
+    type changePasswordPayload = {
+        currentPassword: string,
+        newPassword: string
+    }
     const adminLogin = async (payload: logInpayload) => {
         setLoading(true)
         try {
@@ -48,6 +56,42 @@ const useAuth = () => {
         }
     }
 
+    const updateProfile = async (payload: updateProfilePayload) => {
+        setLoading(true)
+        try {
+            const data = await api.put(`/auth/update-profile`, payload)
+            if (data?.data?.success == true) {
+                dispatch(setAuth(data.data.data))
+                return data.data.data
+            }
+        }
+        catch (error) {
+            setError(error)
+            throw error
+        }
+        finally {
+            setLoading(false)
+        }
+    }
+
+    const changePassword = async (payload: changePasswordPayload) => {
+        setLoading(true)
+        try {
+            const data = await api.post(`/auth/change-password`, payload)
+            if (data?.data?.success == true) {
+                return true
+            }
+            return false
+        }
+        catch (error) {
+            setError(error)
+            throw error
+        }
+        finally {
+            setLoading(false)
+        }
+    }
+
     const logOut = async () => {
         try {
             const response = await api.post("/auth/logout")
@@ -70,7 +114,9 @@ const useAuth = () => {
         loading,
         checkAuth,
         checkAuthLoading,
-        logOut
+        logOut,
+        updateProfile,
+        changePassword
     }
 
 

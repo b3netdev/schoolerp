@@ -81,6 +81,8 @@ const fields: FieldDef[] = [
     key: "employee_code",
     label: "Employee Code",
     placeholder: "e.g. E12345",
+    checkExistAt:[{at:"teacher"}]
+
   },
   {
     key: "email",

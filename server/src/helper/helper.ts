@@ -9,10 +9,7 @@ const alreadyExistsBy = catchAsync(
     const { field, value, label, at } = req.body;
 
 
-    const modelMap = {
-      teacher: TeacherModel,
-      // Add other models here as needed
-    };
+  
 
     if(at === undefined || at === null || at === "") {
       return next(new AppError("The 'at' field is required.", 400));
@@ -39,13 +36,16 @@ const alreadyExistsBy = catchAsync(
     if (exists) {
       return next(
         new AppError(
-          `${label} already exists.`,
+         `${label} already exists.`,
           400
         )
       );
     }
 
-    next();
+    return res.status(200).json({
+       success: true,
+        message: "valid",
+    });
   }
 );
 

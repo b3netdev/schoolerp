@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState,useRef } from "react";
 import { Plus, Search } from "lucide-react";
 
 import { DataTable, Column } from "@/components/tables/DataTable";

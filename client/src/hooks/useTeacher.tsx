@@ -11,6 +11,7 @@ import {
 export interface AddTeacherPayload {
   first_name: string;
   last_name?: string;
+  employee_code?: string;
   email?: string;
   phone?: string;
   alternate_phone?: string;

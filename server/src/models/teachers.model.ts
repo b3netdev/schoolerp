@@ -57,6 +57,7 @@ export interface Teacher {
 export interface TeacherPayload {
   first_name: string;
   last_name?: string;
+  employee_code?: string;
   email?: string;
   phone?: string;
   alternate_phone?: string;
@@ -97,6 +98,7 @@ export interface TeacherPayload {
 export interface TeacherUpdatePayload {
   first_name?: string;
   last_name?: string;
+  employee_code?: string;
   email?: string;
   phone?: string;
   alternate_phone?: string;
@@ -147,43 +149,7 @@ export class TeacherModel {
     }
     const result = await query<Teacher>(
       `
-      SELECT
-        id,
-        employee_code,
-        first_name,
-        last_name,
-        email,
-        phone,
-        alternate_phone,
-        gender,
-        date_of_birth,
-        blood_group,
-        marital_status,
-        current_address,
-        permanent_address,
-        city,
-        state,
-        country,
-        pincode,
-        qualification,
-        specialization,
-        experience_years,
-        joining_date,
-        employment_type,
-        status,
-        basic_salary,
-        bank_name,
-        bank_account_number,
-        ifsc_code,
-        pan_number,
-        emergency_contact_name,
-        emergency_contact_phone,
-        emergency_contact_relation,
-        profile_image,
-        remarks,
-        created_at,
-        updated_at,
-        deleted_at
+      SELECT *
       FROM ${tableName}
     WHERE ${conditions.join(" AND ")}
       ORDER BY id DESC
@@ -197,43 +163,7 @@ export class TeacherModel {
   static async findById(id: number): Promise<Teacher | null> {
     const result = await query<Teacher>(
       `
-      SELECT
-        id,
-        employee_code,
-        first_name,
-        last_name,
-        email,
-        phone,
-        alternate_phone,
-        gender,
-        date_of_birth,
-        blood_group,
-        marital_status,
-        current_address,
-        permanent_address,
-        city,
-        state,
-        country,
-        pincode,
-        qualification,
-        specialization,
-        experience_years,
-        joining_date,
-        employment_type,
-        status,
-        basic_salary,
-        bank_name,
-        bank_account_number,
-        ifsc_code,
-        pan_number,
-        emergency_contact_name,
-        emergency_contact_phone,
-        emergency_contact_relation,
-        profile_image,
-        remarks,
-        created_at,
-        updated_at,
-        deleted_at
+      SELECT *
       FROM ${tableName}
       WHERE id = $1
       AND deleted_at IS NULL
@@ -243,6 +173,21 @@ export class TeacherModel {
     );
 
     return result.rows[0] || null;
+  }
+
+  static async alreadyExists(field: string, value: string): Promise<boolean> {
+    const result = await query<Teacher>(
+      `
+      SELECT 1
+      FROM ${tableName}
+      WHERE ${field} = $1
+      AND deleted_at IS NULL
+      LIMIT 1
+      `,
+      [value]
+    );
+
+    return result.rows.length > 0;
   }
 
   static async create(data: TeacherPayload): Promise<Teacher> {
@@ -382,50 +327,51 @@ export class TeacherModel {
       SET
         first_name = COALESCE($1, first_name),
         last_name = COALESCE($2, last_name),
-        email = COALESCE($3, email),
-        phone = COALESCE($4, phone),
-        alternate_phone = COALESCE($5, alternate_phone),
+        employee_code = COALESCE($3, employee_code),
+        email = COALESCE($4, email),
+        phone = COALESCE($5, phone),
+        alternate_phone = COALESCE($6, alternate_phone),
 
-        gender = COALESCE($6, gender),
-        date_of_birth = COALESCE($7, date_of_birth),
-        blood_group = COALESCE($8, blood_group),
-        marital_status = COALESCE($9, marital_status),
+        gender = COALESCE($7, gender),
+        date_of_birth = COALESCE($8, date_of_birth),
+        blood_group = COALESCE($9, blood_group),
+        marital_status = COALESCE($10, marital_status),
 
-        current_address = COALESCE($10, current_address),
-        permanent_address = COALESCE($11, permanent_address),
-        city = COALESCE($12, city),
-        state = COALESCE($13, state),
-        country = COALESCE($14, country),
-        pincode = COALESCE($15, pincode),
+        current_address = COALESCE($11, current_address),
+        permanent_address = COALESCE($12, permanent_address),
+        city = COALESCE($13, city),
+        state = COALESCE($14, state),
+        country = COALESCE($15, country),
+        pincode = COALESCE($16, pincode),
 
-        qualification = COALESCE($16, qualification),
-        specialization = COALESCE($17, specialization),
-        experience_years = COALESCE($18, experience_years),
-        joining_date = COALESCE($19, joining_date),
-        employment_type = COALESCE($20, employment_type),
-        status = COALESCE($21, status),
+        qualification = COALESCE($17, qualification),
+        specialization = COALESCE($18, specialization),
+        experience_years = COALESCE($19, experience_years),
+        joining_date = COALESCE($20, joining_date),
+        employment_type = COALESCE($21, employment_type),
+        status = COALESCE($22, status),
 
-        basic_salary = COALESCE($22, basic_salary),
-        bank_name = COALESCE($23, bank_name),
-        bank_account_number = COALESCE($24, bank_account_number),
-        ifsc_code = COALESCE($25, ifsc_code),
-        pan_number = COALESCE($26, pan_number),
+        basic_salary = COALESCE($23, basic_salary),
+        bank_name = COALESCE($24, bank_name),
+        bank_account_number = COALESCE($25, bank_account_number),
+        ifsc_code = COALESCE($26, ifsc_code),
+        pan_number = COALESCE($27, pan_number),
 
-        emergency_contact_name = COALESCE($27, emergency_contact_name),
-        emergency_contact_phone = COALESCE($28, emergency_contact_phone),
-        emergency_contact_relation = COALESCE($29, emergency_contact_relation),
+        emergency_contact_name = COALESCE($28, emergency_contact_name),
+        emergency_contact_phone = COALESCE($29, emergency_contact_phone),
+        emergency_contact_relation = COALESCE($30, emergency_contact_relation),
 
-        profile_image = COALESCE($30, profile_image),
-        remarks = COALESCE($31, remarks),
+        profile_image = COALESCE($31, profile_image),
+        remarks = COALESCE($32, remarks),
 
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $32
+      WHERE id = $33
       AND deleted_at IS NULL
       RETURNING
         id,
-        employee_code,
         first_name,
         last_name,
+        employee_code,
         email,
         phone,
         alternate_phone,
@@ -462,6 +408,7 @@ export class TeacherModel {
       [
         data.first_name ?? null,
         data.last_name ?? null,
+        data.employee_code ?? null,
         data.email ?? null,
         data.phone ?? null,
         data.alternate_phone ?? null,

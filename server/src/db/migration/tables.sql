@@ -70,39 +70,12 @@ CREATE SEQUENCE IF NOT EXISTS teacher_employee_code_seq
 START WITH 1
 INCREMENT BY 1;
 
--- employe code auto generate function
-
-
-CREATE OR REPLACE FUNCTION generate_teacher_employee_code()
-RETURNS TEXT AS $$
-DECLARE
-    next_code BIGINT;
-    employee_prefix TEXT;
-BEGIN
-    next_code := nextval('teacher_employee_code_seq');
-
-    SELECT value
-    INTO employee_prefix
-    FROM settings
-    WHERE key = 'employee_code_prefix'
-      AND deleted_at IS NULL
-    LIMIT 1;
-
-    employee_prefix := COALESCE(NULLIF(TRIM(employee_prefix), ''), 'BWU');
-
-    RETURN employee_prefix
-      || '-TCH-'
-      || TO_CHAR(CURRENT_DATE, 'YYYY')
-      || '-'
-      || LPAD(next_code::TEXT, 4, '0');
-END;
-$$ LANGUAGE plpgsql;
 
 
 CREATE TABLE teachers (
  id SERIAL PRIMARY KEY,
     -- Basic teacher details
-    employee_code VARCHAR(50) UNIQUE NOT NULL DEFAULT generate_teacher_employee_code(),
+    employee_code VARCHAR(50) UNIQUE DEFAULT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100),
     email VARCHAR(255) UNIQUE,

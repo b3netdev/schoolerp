@@ -78,11 +78,14 @@ export class TeacherController {
     },
   );
 
+  // Create a new teacher
+
   static create = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const {
         first_name,
         last_name,
+        employee_code,
         email,
         phone,
         alternate_phone,
@@ -121,6 +124,7 @@ export class TeacherController {
       const teacher = await TeacherModel.create({
         first_name: cleanString(first_name) as string,
         last_name: cleanString(last_name),
+        employee_code: cleanString(employee_code),
         email: cleanString(email),
         phone: cleanString(phone),
         alternate_phone: cleanString(alternate_phone),
@@ -177,6 +181,7 @@ export class TeacherController {
       const {
         first_name,
         last_name,
+        employee_code,
         email,
         phone,
         alternate_phone,
@@ -249,6 +254,7 @@ export class TeacherController {
       const teacher = await TeacherModel.update(id, {
         first_name: cleanString(first_name),
         last_name: cleanString(last_name),
+        employee_code: cleanString(employee_code),
         email: cleanString(email),
         phone: cleanString(phone),
         alternate_phone: cleanString(alternate_phone),

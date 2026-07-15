@@ -78,6 +78,11 @@ const fields: FieldDef[] = [
     placeholder: "e.g. Turing",
   },
   {
+    key: "employee_code",
+    label: "Employee Code",
+    placeholder: "e.g. E12345",
+  },
+  {
     key: "email",
     label: "Email",
     type: "email",
@@ -258,6 +263,7 @@ function teacherToInitialValues(teacher: Teacher): Record<string, string> {
   return {
     first_name: safeValue(teacher.first_name),
     last_name: safeValue(teacher.last_name),
+    employee_code: safeValue(teacher.employee_code),
     email: safeValue(teacher.email),
     phone: safeValue(teacher.phone),
     alternate_phone: safeValue(teacher.alternate_phone),
@@ -300,6 +306,7 @@ function buildTeacherPayload(values: Record<string, string>): AddTeacherPayload 
   return {
     first_name: values.first_name,
     last_name: values.last_name || undefined,
+    employee_code: values.employee_code || undefined,
     email: values.email || undefined,
     phone: values.phone || undefined,
     alternate_phone: values.alternate_phone || undefined,

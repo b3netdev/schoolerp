@@ -27,6 +27,7 @@ export const errorHandler = (
 
   // PostgreSQL duplicate key error
   if ((error as any).code === "23505") {
+    console.info(error, "Duplicate key error");
     statusCode = 409;
     status = "fail";
     message = "Duplicate value already exists";

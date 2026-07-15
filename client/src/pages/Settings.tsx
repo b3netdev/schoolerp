@@ -211,27 +211,17 @@ const settingsFields: SettingField[] = [
 
   // Users
   {
-    name: "Default User Role",
-    field_key: "default_user_role",
+    name: "Employee Code Prefix",
+    field_key: "employee_code_prefix",
     setting_group: "users",
-    type: "select",
-    options: [
-      { label: "Admin", value: "admin" },
-      { label: "Teacher", value: "teacher" },
-      { label: "Student", value: "student" },
-    ],
+    type: "text",
   },
   {
-    name: "Allow User Registration",
-    field_key: "allow_user_registration",
+    name: "Employee Code length",
+    field_key: "employee_code_length",
     setting_group: "users",
-    type: "select",
-    options: [
-      { label: "Yes", value: "true" },
-      { label: "No", value: "false" },
-    ],
+    type: "number",
   },
-
   // Security
   {
     name: "Two Factor Authentication",
@@ -271,12 +261,6 @@ const settingsFields: SettingField[] = [
       { label: "Disabled", value: "false" },
     ],
   },
-  {
-    name: "Employee Code Prefix",
-    field_key: "employee_code_prefix",
-    setting_group: "system",
-    type: "text",
-  }
 ];
 
 const createEmptyFormData = (): FormDataState => {

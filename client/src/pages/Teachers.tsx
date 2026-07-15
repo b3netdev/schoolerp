@@ -13,7 +13,6 @@ import { useAppSelector } from "../../redux/hooks";
 
 import useTeacher, { type AddTeacherPayload } from "@/hooks/useTeacher";
 import useClass from "@/hooks/useClass";
-
 import type { Teacher } from "../../redux/slicers/teacherSlice";
 
 import { Button } from "@/components/ui/button";

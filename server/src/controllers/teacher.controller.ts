@@ -12,16 +12,15 @@ import { catchAsync } from "../utils/catchAsync.js";
 
 type TeacherStatusFilter = "all" | "active" | "inactive" | "resigned";
 
-type EmployeeCodeGenerationType = "auto" | "manual";
-
-interface EmployeeCodeRules {
-  generationType: EmployeeCodeGenerationType;
-
-
-  requiredLength: number;
-
-  prefix: string;
-}
+type EmployeeCodeRules =
+  | {
+      generationType: "auto";
+    }
+  | {
+      generationType: "manual";
+      requiredLength: number;
+      prefix: string;
+    };
 
 const cleanString = (value?: string | null): string | undefined => {
   if (typeof value !== "string") {
@@ -50,25 +49,26 @@ const cleanNumber = (
   return numberValue;
 };
 
-
+/**
+ * Read employee-code settings.
+ *
+ * Auto mode:
+ * - The controller does not validate, create, or change employee_code.
+ * - The model/database must generate it automatically.
+ *
+ * Manual mode:
+ * - The user sends only the numeric part, for example: "123456".
+ * - The controller validates the numeric length.
+ * - The controller adds the configured prefix.
+ */
 const getEmployeeCodeRules = async (): Promise<EmployeeCodeRules> => {
   const [userSettings, systemSettings] = await Promise.all([
     SettingsModel.findByGroup("users"),
     SettingsModel.findByGroup("system"),
   ]);
 
-  const settingsData = [...userSettings, ...systemSettings];
-
-  const generationSetting = settingsData.find(
+  const generationSetting = userSettings.find(
     (setting) => setting.key === "employee_code_generated_by",
-  );
-
-  const lengthSetting = settingsData.find(
-    (setting) => setting.key === "employee_code_length",
-  );
-
-  const prefixSetting = settingsData.find(
-    (setting) => setting.key === "employee_code_prefix",
   );
 
   if (!generationSetting) {
@@ -76,14 +76,6 @@ const getEmployeeCodeRules = async (): Promise<EmployeeCodeRules> => {
       "Employee code generation setting is not configured",
       500,
     );
-  }
-
-  if (!lengthSetting) {
-    throw new AppError("Employee code length setting is not configured", 500);
-  }
-
-  if (!prefixSetting) {
-    throw new AppError("Employee code prefix setting is not configured", 500);
   }
 
   const generationType = String(generationSetting.value ?? "")
@@ -95,6 +87,30 @@ const getEmployeeCodeRules = async (): Promise<EmployeeCodeRules> => {
       "Employee code generation setting must be auto or manual",
       500,
     );
+  }
+
+  
+  if (generationType === "auto") {
+    return {
+      generationType: "auto",
+    };
+  }
+
+  const lengthSetting = userSettings.find(
+    (setting) => setting.key === "employee_code_length",
+  );
+
+  const prefixSetting = systemSettings.find(
+    (setting) => setting.key === "employee_code_prefix",
+  );
+  console.log(prefixSetting)
+
+  if (!lengthSetting) {
+    throw new AppError("Employee code length setting is not configured", 500);
+  }
+
+  if (!prefixSetting) {
+    throw new AppError("Employee code prefix setting is not configured", 500);
   }
 
   const requiredLength = Number(lengthSetting.value);
@@ -115,59 +131,47 @@ const getEmployeeCodeRules = async (): Promise<EmployeeCodeRules> => {
   }
 
   return {
-    generationType,
+    generationType: "manual",
     requiredLength,
     prefix,
   };
 };
 
 /**
- * Validate manually entered employee code.
+ * Validate the manually entered employee-code number.
  *
- * employee_code_length only checks the numeric
- * portion after the prefix.
+ * The frontend sends only the numeric part:
+ * "123456"
  *
- * Example:
- * prefix = GHSH
- * requiredLength = 6
- * valid code = GHSH000001
+ * The controller returns:
+ * "GHSH123456"
  */
-const validateEmployeeCode = (
+const buildManualEmployeeCode = (
   employeeCode: string | undefined,
-  rules: EmployeeCodeRules,
+  rules: Extract<EmployeeCodeRules, { generationType: "manual" }>,
 ): string => {
-  const cleanedEmployeeCode = cleanString(employeeCode)?.toUpperCase();
+  const numericCode = cleanString(employeeCode);
 
-  if (!cleanedEmployeeCode) {
+  if (!numericCode) {
     throw new AppError(
       "Employee code is required when manual generation is enabled",
       400,
     );
   }
 
-  if (!cleanedEmployeeCode.startsWith(rules.prefix)) {
-    throw new AppError(`Employee code must start with ${rules.prefix}`, 400);
+  if (!/^\d+$/.test(numericCode)) {
+    throw new AppError("Employee code must contain numbers only", 400);
   }
 
-  const numericPart = cleanedEmployeeCode.slice(rules.prefix.length);
-
-  if (!/^\d+$/.test(numericPart)) {
+  if (numericCode.length !== rules.requiredLength) {
     throw new AppError(
-      `Employee code must contain only numbers after ${rules.prefix}`,
+      `Employee code must contain exactly ${rules.requiredLength} digits`,
       400,
     );
   }
 
-  if (numericPart.length !== rules.requiredLength) {
-    throw new AppError(
-      `Employee code must contain exactly ${rules.requiredLength} digits after ${rules.prefix}`,
-      400,
-    );
-  }
-
-  return cleanedEmployeeCode;
+  return `${rules.prefix}${numericCode}`;
 };
-
 
 const validateTeacherStatus = (status?: string): string | undefined => {
   const cleanedStatus = cleanString(status)?.toLowerCase();
@@ -189,9 +193,6 @@ const validateTeacherStatus = (status?: string): string | undefined => {
 };
 
 export class TeacherController {
-  /**
-   * Get all teachers.
-   */
   static findAll = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const statusParam = req.query.status;
@@ -300,22 +301,24 @@ export class TeacherController {
 
       const employeeCodeRules = await getEmployeeCodeRules();
 
-      let finalEmployeeCode: string;
+      let finalEmployeeCode: string | undefined;
 
       if (employeeCodeRules.generationType === "manual") {
-        finalEmployeeCode = validateEmployeeCode(
+        /**
+         * The user sends only the numeric part.
+         * The controller attaches the prefix.
+         */
+        finalEmployeeCode = buildManualEmployeeCode(
           employee_code,
           employeeCodeRules,
         );
       } else {
-        /*
-         * requiredLength represents the number
-         * of digits after the prefix.
+        /**
+         * Auto mode:
+         * Do not use an employee code from the request.
+         * The model/database must generate the code.
          */
-        finalEmployeeCode = await TeacherModel.generateEmployeeCode(
-          employeeCodeRules.prefix,
-          employeeCodeRules.requiredLength,
-        );
+        finalEmployeeCode = undefined;
       }
 
       const cleanedEmail = cleanString(email)?.toLowerCase();
@@ -340,6 +343,10 @@ export class TeacherController {
 
         last_name: cleanString(last_name),
 
+        /**
+         * Undefined in auto mode.
+         * The model/database must generate it.
+         */
         employee_code: finalEmployeeCode,
 
         email: cleanedEmail,
@@ -409,9 +416,6 @@ export class TeacherController {
     },
   );
 
-  /**
-   * Update teacher.
-   */
   static update = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const id = Number(req.body.id);
@@ -479,33 +483,24 @@ export class TeacherController {
       if (employeeCodeWasProvided) {
         const employeeCodeRules = await getEmployeeCodeRules();
 
-        const cleanedIncomingCode = cleanString(employee_code)?.toUpperCase();
-
-        const existingEmployeeCode = cleanString(
-          existingTeacher.employee_code,
-        )?.toUpperCase();
-
-        if (employeeCodeRules.generationType === "auto") {
-          
-          if (
-            !cleanedIncomingCode ||
-            cleanedIncomingCode !== existingEmployeeCode
-          ) {
-            return next(
-              new AppError(
-                "Employee code cannot be changed when automatic generation is enabled",
-                400,
-              ),
-            );
-          }
-
-         
-          finalEmployeeCode = undefined;
-        } else {
-          finalEmployeeCode = validateEmployeeCode(
+        if (employeeCodeRules.generationType === "manual") {
+          /**
+           * Manual mode:
+           * Validate only the numeric part and
+           * attach the prefix before update.
+           */
+          finalEmployeeCode = buildManualEmployeeCode(
             employee_code,
             employeeCodeRules,
           );
+        } else {
+          /**
+           * Auto mode:
+           * Ignore employee_code from the request.
+           * Never regenerate or change an existing
+           * teacher code during a normal update.
+           */
+          finalEmployeeCode = undefined;
         }
       }
 
@@ -532,6 +527,10 @@ export class TeacherController {
 
         last_name: cleanString(last_name),
 
+        /**
+         * Undefined in auto mode, so the model
+         * keeps the existing employee code.
+         */
         employee_code: finalEmployeeCode,
 
         email: cleanedEmail,
@@ -620,7 +619,6 @@ export class TeacherController {
     },
   );
 
- 
   static delete = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const id = Number(req.params.id);

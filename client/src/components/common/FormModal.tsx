@@ -83,18 +83,12 @@ export function FormModal({
 
   const { checkExists } = useCheck();
 
-  /*
-   * Separate debounce timer for each field.
-   * Typing in one field will not cancel another field's timer.
-   */
+  
   const debounceTimers = useRef<
     Record<string, ReturnType<typeof setTimeout>>
   >({});
 
-  /*
-   * Used to prevent an older API response from replacing
-   * the result of a newer request.
-   */
+
   const requestVersions = useRef<Record<string, number>>({});
 
   useEffect(() => {
@@ -135,9 +129,7 @@ export function FormModal({
       delete debounceTimers.current[fieldKey];
     }
 
-    /*
-     * Increase version so any previous API response is ignored.
-     */
+ 
     requestVersions.current[fieldKey] =
       (requestVersions.current[fieldKey] ?? 0) + 1;
   };
@@ -225,16 +217,10 @@ export function FormModal({
       [field.key]: value,
     }));
 
-    /*
-     * Normal fields do not trigger duplicate checking.
-     */
     if (!field.checkExistAt?.length) {
       return;
     }
 
-    /*
-     * Cancel the timer and remove the message when empty.
-     */
     if (!value.trim()) {
       cancelFieldCheck(field.key);
 

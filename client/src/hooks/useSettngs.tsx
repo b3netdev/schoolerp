@@ -94,6 +94,16 @@ const useSettings = () => {
         }
     }
 
+    const getSettingsbyKey = async(key:string)=>{
+        try{
+
+        }
+        catch(error){
+            
+        }
+
+    }
+
     return {
         settings,
         loading,

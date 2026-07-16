@@ -110,6 +110,17 @@ const useTeacher = () => {
       console.log(error);
     }
   };
+  const getemployeCodelength = async (id: number) => {
+    try {
+      const result = await api.delete(`/teacher/delete-teacher/${id}`);
+
+      if (result?.data?.success) {
+        dispatch(deleteTeacher(id));
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   return {
     getTeachers,

@@ -9,6 +9,7 @@ import useAuth from "@/hooks/useAuth";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
+  "/academic-session": "Academic Session",
   "/students": "Students",
   "/teachers": "Teachers",
   "/parents": "Parents",

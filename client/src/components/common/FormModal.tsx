@@ -42,7 +42,7 @@ export interface FieldDef {
     | "file"
     | "url";
 
-  options?: string[];
+  options?: { label: string; value: string }[];
   required?: boolean;
   placeholder?: string;
 
@@ -357,10 +357,10 @@ export function FormModal({
 
                       {field.options.map((option) => (
                         <option
-                          key={option}
-                          value={option}
+                          key={option.value}
+                          value={option.value}
                         >
-                          {option}
+                          {option.label}
                         </option>
                       ))}
                     </select>

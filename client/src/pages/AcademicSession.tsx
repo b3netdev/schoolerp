@@ -6,28 +6,28 @@ import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
 import { Pagination } from "@/components/common/Pagination";
 import { PageHeader } from "@/components/common/PageHeader";
-import useClass from "@/hooks/useClass";
+import useAcademicSession from "@/hooks/useAcademicSession";
 import { useAppSelector } from "../../redux/hooks";
 
-type ClassItem = {
+type AcademicSessionItem = {
   id?: number;
-  class_name: string;
+  session_name: string;
   status: string;
   description: string;
 };
 
 const columns: Column[] = [
-  { key: "class_name", label: "Class Name", type: "avatar-text" },
+  { key: "session_name", label: "Session Name", type: "avatar-text" },
   { key: "status", label: "Status" },
   { key: "description", label: "Description" },
 ];
 
 const fields: FieldDef[] = [
   {
-    key: "class_name",
-    label: "Class Name",
+    key: "session_name",
+    label: "Session Name",
     required: true,
-    placeholder: "Class One",
+    placeholder: "2023-2024",
   },
   {
     key: "status",
@@ -48,43 +48,55 @@ const fields: FieldDef[] = [
   },
 ];
 
-const Classes = () => {
-  const { getClasses, addclass, updateclass } = useClass();
+const AcademicSession = () => {
+  const { getAcademicSessions, addAcademicSession, updateAcademicSession } = useAcademicSession();
 
-  const [data, setData] = useState<ClassItem[]>([]);
+  const [data, setData] = useState<AcademicSessionItem[]>([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
-  const { classes } = useAppSelector((state) => state.class);
+  const academicSessions = useAppSelector(
+  (state) => (state as any).academicSessions?.data
+);
 
-  const [editItem, setEditItem] = useState<ClassItem | null>(null);
-  const [deleteItem, setDeleteItem] = useState<ClassItem | null>(null);
+  const [editItem, setEditItem] = useState<AcademicSessionItem | null>(null);
+  const [deleteItem, setDeleteItem] = useState<AcademicSessionItem | null>(null);
   const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
-    getClasses();
+    getAcademicSessions();
   }, []);
 
-  useEffect(() => {
-    if (Array.isArray(classes)) {
-      const formattedClasses: ClassItem[] = classes.map(
-        (item: Partial<ClassItem>, index: number) => ({
-          id: Number(item.id ?? index + 1),
-          class_name: String(item.class_name ?? ""),
-          status: String(item.status ?? "active"),
-          description: String(item.description ?? ""),
-        })
-      );
+   useEffect(() => {
+  const sessions = Array.isArray(academicSessions)
+    ? academicSessions
+    : [];
 
-      setData(formattedClasses);
-    }
-  }, [classes]);
+  const formattedSessions: AcademicSessionItem[] =
+    sessions.map(
+      (
+        item: Partial<AcademicSessionItem>,
+        index: number
+      ) => ({
+        id: Number(item.id ?? index + 1),
+        session_name: String(
+          item.session_name ?? ""
+        ),
+        status: String(item.status ?? "active"),
+        description: String(
+          item.description ?? ""
+        ),
+      })
+    );
+
+  setData(formattedSessions);
+}, [academicSessions]);
 
   const filtered = data.filter(
-    (classItem) =>
-      classItem.class_name.toLowerCase().includes(search.toLowerCase()) ||
-      classItem.status.toLowerCase().includes(search.toLowerCase()) ||
-      classItem.description.toLowerCase().includes(search.toLowerCase())
+    (sessionItem) =>
+      sessionItem.session_name.toLowerCase().includes(search.toLowerCase()) ||
+      sessionItem.status.toLowerCase().includes(search.toLowerCase()) ||
+      sessionItem.description.toLowerCase().includes(search.toLowerCase())
   );
 
   const paginatedData = filtered.slice((page - 1) * 10, page * 10);
@@ -93,7 +105,7 @@ const Classes = () => {
     if (!deleteItem) return;
 
     setData((prev) =>
-      prev.filter((classItem) => classItem.id !== deleteItem.id)
+      prev.filter((sessionItem) => sessionItem.id !== deleteItem.id)
     );
 
     setDeleteItem(null);
@@ -104,49 +116,49 @@ const Classes = () => {
 
     const payload = {
       id: editItem.id,
-      class_name: values.class_name,
+      session_name: values.session_name,
       status: values.status || "active",
       description: values.description,
     };
 
-    await updateclass(payload);
+    await updateAcademicSession(payload);
 
     setEditItem(null);
   };
 
   const handleAdd = async (values: Record<string, string>) => {
     const payload = {
-      class_name: values.class_name,
+      session_name: values.session_name,
       status: values.status || "active",
       description: values.description,
     };
 
     setAddOpen(false);
 
-    await addclass(payload);
+    await addAcademicSession(payload);
   };
 
   const handleEditClick = (row: Record<string, unknown>) => {
     const rowId = Number(row.id);
-    const selectedClass = data.find((classItem) => classItem.id === rowId);
+    const selectedSession = data.find((sessionItem) => sessionItem.id === rowId);
 
-    if (selectedClass) {
-      setEditItem(selectedClass);
+    if (selectedSession) {
+      setEditItem(selectedSession);
     }
   };
 
   const handleDeleteClick = (row: Record<string, unknown>) => {
     const rowId = Number(row.id);
-    const selectedClass = data.find((classItem) => classItem.id === rowId);
+    const selectedSession = data.find((sessionItem) => sessionItem.id === rowId);
 
-    if (selectedClass) {
-      setDeleteItem(selectedClass);
+    if (selectedSession) {
+      setDeleteItem(selectedSession);
     }
   };
 
   const editInitialValues: Record<string, string> | undefined = editItem
     ? {
-      class_name: editItem.class_name,
+      session_name: editItem.session_name,
       status: editItem.status,
       description: editItem.description,
     }
@@ -154,11 +166,11 @@ const Classes = () => {
 
   return (
     <div>
-      <Breadcrumb items={[{ label: "Classes" }]} />
+      <Breadcrumb items={[{ label: "Academic Sessions" }]} />
 
       <PageHeader
-        title="Classes"
-        description={`${data.length} class records`}
+        title="Academic Sessions"
+        description={`${data.length} academic session records`}
         action={
           <button
             onClick={() => setAddOpen(true)}
@@ -166,7 +178,7 @@ const Classes = () => {
             data-testid="add-class-btn"
           >
             <Plus className="w-4 h-4" />
-            Add Class
+            Add Academic Session
           </button>
         }
       />
@@ -178,7 +190,7 @@ const Classes = () => {
 
             <input
               type="search"
-              placeholder="Search classes..."
+              placeholder="Search academic sessions..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -201,7 +213,7 @@ const Classes = () => {
 
         <div className="px-6 py-4 border-t border-border flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            Showing {paginatedData.length} of {filtered.length} classes
+            Showing {paginatedData.length} of {filtered.length} academic sessions
           </span>
 
           <Pagination
@@ -216,16 +228,16 @@ const Classes = () => {
         isOpen={addOpen}
         onClose={() => setAddOpen(false)}
         onSubmit={handleAdd}
-        title="Add New Class"
+        title="Add New Academic Session"
         fields={fields}
-        submitLabel="Add Class"
+        submitLabel="Add Academic Session"
       />
 
       <FormModal
         isOpen={!!editItem}
         onClose={() => setEditItem(null)}
         onSubmit={handleEdit}
-        title="Edit Class"
+        title="Edit Academic Session"
         fields={fields}
         initialValues={editInitialValues}
         submitLabel="Save Changes"
@@ -235,13 +247,13 @@ const Classes = () => {
         isOpen={!!deleteItem}
         onClose={() => setDeleteItem(null)}
         onConfirm={handleDelete}
-        title="Delete Class"
-        description={`Are you sure you want to remove "${deleteItem?.class_name ?? ""
+        title="Delete Academic Session"
+        description={`Are you sure you want to remove "${deleteItem?.session_name ?? ""
           }" from the system? This action cannot be undone.`}
-        confirmLabel="Delete Class"
+        confirmLabel="Delete Academic Session"
       />
     </div>
   );
 };
 
-export default Classes;
+export default AcademicSession;

@@ -42,6 +42,12 @@ const mainNav: NavItem[] = [
     roles: ["admin", "teacher", "student"],
   },
   {
+    path: "academic-sessions",
+    icon: BookOpen,
+    label: "Academic Session",
+    roles: ["admin", "teacher"],
+  },
+  {
     path: "students",
     icon: GraduationCap,
     label: "Students",

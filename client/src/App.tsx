@@ -7,6 +7,7 @@ import Home from "./pages/home/Home";
 import AdminSignin from "./pages/admin/AdminSignin";
 
 import Dashboard from "./pages/Dashboard";
+import AcademicSession from "./pages/AcademicSession";
 import Students from "./pages/Students";
 import Teachers from "./pages/Teachers";
 import Parents from "./pages/Parents";
@@ -74,6 +75,7 @@ function App() {
                   }
                 >
                   <Route path="dashboard" element={<Dashboard />} />
+                  <Route path="academic-sessions" element={<AcademicSession />} />
                   <Route path="subjects" element={<ComingSoon />} />
                   <Route path="timetable" element={<ComingSoon />} />
                   <Route path="marksheet" element={<ComingSoon />} />
@@ -86,6 +88,7 @@ function App() {
                   }
                 >
                   <Route path="classes" element={<Classes />} />
+                   <Route path="academic-sessions" element={<AcademicSession />} />
                   <Route path="exams" element={<ComingSoon />} />
                   <Route path="attendance" element={<ComingSoon />} />
                   <Route path="marks-entry" element={<ComingSoon />} />
@@ -96,6 +99,7 @@ function App() {
                   element={<ProtectedRoute allowedRoles={["admin"]} />}
                 >
                   <Route path="students" element={<ComingSoon />} />
+                   <Route path="academic-sessions" element={<AcademicSession />} />
                   <Route path="teachers" element={<Teachers />} />
                   <Route path="fees" element={<ComingSoon />} />
                   <Route path="section" element={<Section />} />

@@ -3,6 +3,7 @@ import { AppError } from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import { Request, Response, NextFunction } from "express";
 import { TeacherModel, TeacherPayload, TeacherUpdatePayload } from "../models/teachers.model.js";
+import { AcademicSessionModel } from "../models/AcademicSession.model.js";
 
 const alreadyExistsBy = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -49,4 +50,14 @@ const alreadyExistsBy = catchAsync(
   }
 );
 
-export { alreadyExistsBy };
+const getAcademicSessionList = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const sessions = await AcademicSessionModel.findAll();
+    res.status(200).json({
+      success: true,
+      data: sessions,
+    });
+  }
+);
+
+export { alreadyExistsBy, getAcademicSessionList };

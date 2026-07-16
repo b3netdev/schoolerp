@@ -136,3 +136,33 @@ CREATE TABLE stream (
   created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+
+--create session table
+
+CREATE TABLE academic_session (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    name VARCHAR(50) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+
+    status VARCHAR(20) NOT NULL DEFAULT 'inactive'
+        CHECK (status IN ('active', 'inactive')),
+
+    description TEXT,
+
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITHOUT TIME ZONE,
+
+    CONSTRAINT valid_academic_session_date_range
+        CHECK (end_date > start_date)
+);
+
+CREATE UNIQUE INDEX unique_active_academic_session
+ON academic_session (status)
+WHERE status = 'active'
+AND deleted_at IS NULL;
+
+

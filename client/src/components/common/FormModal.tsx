@@ -1,12 +1,9 @@
 import {
   useEffect,
-  useMemo,
   useRef,
   useState,
+  type FormEvent,
 } from "react";
-
-import { useFormik } from "formik";
-import type { AnyObjectSchema } from "yup";
 
 import {
   CircleCheck,
@@ -22,11 +19,7 @@ type CheckExistConfig = {
   at: string;
 };
 
-type CheckState =
-  | "idle"
-  | "checking"
-  | "valid"
-  | "invalid";
+type CheckState = "idle" | "checking" | "valid" | "invalid";
 
 type FieldCheckStatus = {
   state: CheckState;
@@ -49,39 +42,21 @@ export interface FieldDef {
     | "file"
     | "url";
 
-  options?: string[];
+  options?: { label: string; value: string }[];
   required?: boolean;
   placeholder?: string;
 
-  /**
-   * Optional asynchronous availability check.
-   */
   checkExistAt?: CheckExistConfig[];
-
-  /**
-   * Do not run the asynchronous check until the
-   * field contains at least this many characters.
-   */
-  checkExistMinLength?: number;
 }
 
 export interface FormModalProps {
   isOpen: boolean;
   onClose: () => void;
-
-  onSubmit: (
-    data: Record<string, string>,
-  ) => void | Promise<void>;
-
+  onSubmit: (data: Record<string, string>) => void;
   title: string;
   fields: FieldDef[];
   initialValues?: Record<string, string>;
   submitLabel?: string;
-
-  /**
-   * Each module can provide its own Yup schema.
-   */
-  validationSchema?: AnyObjectSchema;
 }
 
 const EMPTY_INITIAL_VALUES: Record<string, string> = {};
@@ -99,149 +74,78 @@ export function FormModal({
   fields,
   initialValues = EMPTY_INITIAL_VALUES,
   submitLabel = "Save",
-  validationSchema,
 }: FormModalProps) {
+  const [values, setValues] = useState<Record<string, string>>({});
+
   const [fieldStatuses, setFieldStatuses] = useState<
     Record<string, FieldCheckStatus>
   >({});
 
   const { checkExists } = useCheck();
 
+  /*
+   * Separate debounce timer for each field.
+   * Typing in one field will not cancel another field's timer.
+   */
   const debounceTimers = useRef<
     Record<string, ReturnType<typeof setTimeout>>
   >({});
 
-  /**
-   * Used to ignore old API responses after
-   * the user types a newer value.
+  /*
+   * Used to prevent an older API response from replacing
+   * the result of a newer request.
    */
-  const requestVersions = useRef<
-    Record<string, number>
-  >({});
-
-  const computedInitialValues = useMemo<
-    Record<string, string>
-  >(() => {
-    return fields.reduce<Record<string, string>>(
-      (result, field) => {
-        result[field.key] =
-          initialValues[field.key] ?? "";
-
-        return result;
-      },
-      {},
-    );
-  }, [fields, initialValues]);
-
-  const formik = useFormik<Record<string, string>>({
-    initialValues: computedInitialValues,
-    validationSchema,
-    enableReinitialize: true,
-
-    validateOnChange: true,
-    validateOnBlur: true,
-    validateOnMount: true,
-
-    onSubmit: async (formValues) => {
-      const hasInvalidField =
-        Object.values(fieldStatuses).some(
-          (status) =>
-            status.state === "invalid",
-        );
-
-      const hasCheckingField =
-        Object.values(fieldStatuses).some(
-          (status) =>
-            status.state === "checking",
-        );
-
-      if (
-        hasInvalidField ||
-        hasCheckingField
-      ) {
-        return;
-      }
-
-      await onSubmit(formValues);
-    },
-  });
-
-  const updateFieldStatus = (
-    fieldKey: string,
-    status: FieldCheckStatus,
-  ) => {
-    setFieldStatuses(
-      (previousStatuses) => ({
-        ...previousStatuses,
-        [fieldKey]: status,
-      }),
-    );
-  };
-
-  const cancelFieldCheck = (
-    fieldKey: string,
-  ) => {
-    const timer =
-      debounceTimers.current[fieldKey];
-
-    if (timer) {
-      clearTimeout(timer);
-
-      delete debounceTimers.current[
-        fieldKey
-      ];
-    }
-
-    requestVersions.current[fieldKey] =
-      (requestVersions.current[fieldKey] ??
-        0) + 1;
-  };
-
-  const clearAllChecks = () => {
-    Object.values(
-      debounceTimers.current,
-    ).forEach((timer) => {
-      clearTimeout(timer);
-    });
-
-    debounceTimers.current = {};
-
-    Object.keys(
-      requestVersions.current,
-    ).forEach((fieldKey) => {
-      requestVersions.current[fieldKey] =
-        (requestVersions.current[
-          fieldKey
-        ] ?? 0) + 1;
-    });
-  };
+  const requestVersions = useRef<Record<string, number>>({});
 
   useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
+    if (!isOpen) return;
 
-    clearAllChecks();
+    const defaultValues: Record<string, string> = {};
 
-    formik.resetForm({
-      values: computedInitialValues,
+    fields.forEach((field) => {
+      defaultValues[field.key] =
+        initialValues[field.key] ?? "";
     });
 
+    setValues(defaultValues);
     setFieldStatuses({});
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, computedInitialValues]);
+  }, [isOpen, fields, initialValues]);
 
   useEffect(() => {
     return () => {
-      clearAllChecks();
+      Object.values(debounceTimers.current).forEach((timer) => {
+        clearTimeout(timer);
+      });
     };
   }, []);
+
+  const updateFieldStatus = (
+    fieldKey: string,
+    status: FieldCheckStatus
+  ) => {
+    setFieldStatuses((previousStatuses) => ({
+      ...previousStatuses,
+      [fieldKey]: status,
+    }));
+  };
+
+  const cancelFieldCheck = (fieldKey: string) => {
+    if (debounceTimers.current[fieldKey]) {
+      clearTimeout(debounceTimers.current[fieldKey]);
+      delete debounceTimers.current[fieldKey];
+    }
+
+    /*
+     * Increase version so any previous API response is ignored.
+     */
+    requestVersions.current[fieldKey] =
+      (requestVersions.current[fieldKey] ?? 0) + 1;
+  };
 
   const debounceCheckExists = (
     field: FieldDef,
     value: string,
-    delay: number = 500,
+    delay: number = 500
   ) => {
     if (!field.checkExistAt?.length) {
       return;
@@ -257,190 +161,136 @@ export function FormModal({
     const currentRequestVersion =
       requestVersions.current[field.key];
 
-    debounceTimers.current[field.key] =
-      setTimeout(async () => {
-        try {
-          const result =
-            await checkExists({
-              field: field.key,
-              value,
-              label: field.label,
-              at: field.checkExistAt![0].at,
-            });
+    debounceTimers.current[field.key] = setTimeout(async () => {
+      try {
+        const result = await checkExists({
+          field: field.key,
+          value,
+          label: field.label,
+          at: field.checkExistAt![0].at,
+        });
 
-          /**
-           * Ignore old responses when the user
-           * has already typed a new value.
-           */
-          if (
-            requestVersions.current[
-              field.key
-            ] !== currentRequestVersion
-          ) {
-            return;
-          }
+        /*
+         * Ignore response when the user typed something newer.
+         */
+        if (
+          requestVersions.current[field.key] !==
+          currentRequestVersion
+        ) {
+          return;
+        }
 
-          /**
-           * Existing useCheck contract:
-           * success=true means available.
-           */
-          if (result?.success) {
-            updateFieldStatus(
-              field.key,
-              {
-                state: "valid",
-                message:
-                  result.message ||
-                  `${field.label} is available.`,
-              },
-            );
-          } else {
-            updateFieldStatus(
-              field.key,
-              {
-                state: "invalid",
-                message:
-                  result?.message ||
-                  `${field.label} already exists.`,
-              },
-            );
-          }
-        } catch {
-          if (
-            requestVersions.current[
-              field.key
-            ] !== currentRequestVersion
-          ) {
-            return;
-          }
-
+        /*
+         * This assumes success: true means the value is available.
+         */
+        if (result?.success) {
+          updateFieldStatus(field.key, {
+            state: "valid",
+            message:
+              result.message ||
+              `${field.label} is available.`,
+          });
+        } else {
           updateFieldStatus(field.key, {
             state: "invalid",
-            message: `Unable to check ${field.label.toLowerCase()}.`,
+            message:
+              result?.message ||
+              `${field.label} already exists.`,
           });
-        } finally {
-          delete debounceTimers.current[
-            field.key
-          ];
         }
-      }, delay);
+      } catch (error) {
+        if (
+          requestVersions.current[field.key] !==
+          currentRequestVersion
+        ) {
+          return;
+        }
+
+        updateFieldStatus(field.key, {
+          state: "invalid",
+          message: `Unable to check ${field.label.toLowerCase()}.`,
+        });
+      } finally {
+        delete debounceTimers.current[field.key];
+      }
+    }, delay);
   };
 
-  const handleChange = async (
+  const handleChange = (
     field: FieldDef,
-    value: string,
+    value: string
   ) => {
-    await formik.setFieldValue(
-      field.key,
-      value,
-      true,
-    );
+    setValues((previousValues) => ({
+      ...previousValues,
+      [field.key]: value,
+    }));
 
+    /*
+     * Normal fields do not trigger duplicate checking.
+     */
     if (!field.checkExistAt?.length) {
       return;
     }
 
-    cancelFieldCheck(field.key);
+    /*
+     * Cancel the timer and remove the message when empty.
+     */
+    if (!value.trim()) {
+      cancelFieldCheck(field.key);
 
-    updateFieldStatus(field.key, {
-      state: "idle",
-      message: "",
-    });
+      updateFieldStatus(field.key, {
+        state: "idle",
+        message: "",
+      });
 
-    const cleanedValue = value.trim();
-
-    if (!cleanedValue) {
       return;
     }
 
-    const minimumCheckLength =
-      field.checkExistMinLength ?? 1;
+    debounceCheckExists(field, value);
+  };
 
-    /**
-     * Example:
-     * checkExistMinLength = 6
-     *
-     * 1–5 characters:
-     * Yup error shows, API is not called.
-     *
-     * 6 characters:
-     * Yup passes and debounce starts.
-     */
-    if (
-      cleanedValue.length <
-      minimumCheckLength
-    ) {
-      return;
-    }
+  const handleSubmit = (
+    event: FormEvent<HTMLFormElement>
+  ) => {
+    event.preventDefault();
 
-    /**
-     * Do not check an unchanged value
-     * while editing.
-     */
-    const originalValue = String(
-      initialValues[field.key] ?? "",
-    ).trim();
-
-    if (
-      cleanedValue === originalValue
-    ) {
-      return;
-    }
-
-    /**
-     * Do not call the API when the field
-     * currently fails its Yup validation.
-     */
-    if (validationSchema) {
-      try {
-        await validationSchema.validateAt(
-          field.key,
-          {
-            ...formik.values,
-            [field.key]: value,
-          },
-        );
-      } catch {
-        return;
-      }
-    }
-
-    debounceCheckExists(
-      field,
-      cleanedValue,
-      500,
+    const hasInvalidField = Object.values(fieldStatuses).some(
+      (status) => status.state === "invalid"
     );
+
+    const hasCheckingField = Object.values(fieldStatuses).some(
+      (status) => status.state === "checking"
+    );
+
+    if (hasInvalidField || hasCheckingField) {
+      return;
+    }
+
+    onSubmit(values);
   };
 
   const handleClose = () => {
-    clearAllChecks();
-
-    setFieldStatuses({});
-
-    formik.resetForm({
-      values: computedInitialValues,
+    Object.values(debounceTimers.current).forEach((timer) => {
+      clearTimeout(timer);
     });
 
+    debounceTimers.current = {};
+    requestVersions.current = {};
+
+    setFieldStatuses({});
     onClose();
   };
 
-  const hasInvalidField =
-    Object.values(fieldStatuses).some(
-      (status) =>
-        status.state === "invalid",
-    );
+  const hasInvalidField = Object.values(fieldStatuses).some(
+    (status) => status.state === "invalid"
+  );
 
-  const hasCheckingField =
-    Object.values(fieldStatuses).some(
-      (status) =>
-        status.state === "checking",
-    );
+  const hasCheckingField = Object.values(fieldStatuses).some(
+    (status) => status.state === "checking"
+  );
 
   const isSubmitDisabled =
-    !formik.isValid ||
-    formik.isSubmitting ||
-    hasInvalidField ||
-    hasCheckingField;
+    hasInvalidField || hasCheckingField;
 
   return (
     <Modal
@@ -450,8 +300,7 @@ export function FormModal({
       size="lg"
     >
       <form
-        onSubmit={formik.handleSubmit}
-        noValidate
+        onSubmit={handleSubmit}
         data-testid="form-modal"
         className="flex max-h-[75vh] flex-col"
       >
@@ -462,78 +311,18 @@ export function FormModal({
                 fieldStatuses[field.key] ??
                 EMPTY_CHECK_STATUS;
 
-              const fieldValue =
-                formik.values[field.key] ??
-                "";
-
-              /**
-               * Show Yup errors immediately when:
-               * - the user has entered any value,
-               * - the field has been touched, or
-               * - the form has been submitted.
-               */
-              const shouldShowFormikError =
-                Boolean(
-                  formik.errors[field.key],
-                ) &&
-                (
-                  Boolean(
-                    formik.touched[
-                      field.key
-                    ],
-                  ) ||
-                  fieldValue.trim().length >
-                    0 ||
-                  formik.submitCount > 0
-                );
-
-              const formikError =
-                shouldShowFormikError
-                  ? String(
-                      formik.errors[
-                        field.key
-                      ],
-                    )
-                  : "";
-
-              const hasFieldError =
-                Boolean(formikError) ||
-                fieldStatus.state ===
-                  "invalid";
-
               const inputBorderClass =
-                fieldStatus.state ===
-                  "valid" &&
-                !formikError
+                fieldStatus.state === "valid"
                   ? "border-green-500 focus:ring-green-500/30"
-                  : hasFieldError
+                  : fieldStatus.state === "invalid"
                     ? "border-red-500 focus:ring-red-500/30"
                     : "border-border focus:ring-primary/30";
-
-              const commonFieldProps = {
-                name: field.key,
-
-                value:
-                  formik.values[
-                    field.key
-                  ] ?? "",
-
-                onBlur:
-                  formik.handleBlur,
-
-                "aria-invalid":
-                  hasFieldError,
-
-                "data-testid":
-                  `field-${field.key}`,
-              };
 
               return (
                 <div
                   key={field.key}
                   className={
-                    field.type ===
-                    "textarea"
+                    field.type === "textarea"
                       ? "sm:col-span-2"
                       : ""
                   }
@@ -548,136 +337,94 @@ export function FormModal({
                     )}
                   </label>
 
-                  {field.type ===
-                    "select" &&
+                  {field.type === "select" &&
                   field.options ? (
                     <select
-                      {...commonFieldProps}
+                      value={values[field.key] ?? ""}
                       onChange={(event) =>
-                        void handleChange(
+                        handleChange(
                           field,
-                          event.target
-                            .value,
+                          event.target.value
                         )
                       }
-                      required={
-                        field.required
-                      }
+                      required={field.required}
                       className={`h-9 w-full rounded-lg border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 ${inputBorderClass}`}
+                      data-testid={`field-${field.key}`}
                     >
                       <option value="">
-                        Select{" "}
-                        {field.label}
+                        Select {field.label}
                       </option>
 
-                      {field.options.map(
-                        (option) => (
-                          <option
-                            key={option}
-                            value={option}
-                          >
-                            {option}
-                          </option>
-                        ),
-                      )}
+                      {field.options.map((option) => (
+                        <option
+                          key={option.value}
+                          value={option.value}
+                        >
+                          {option.label}
+                        </option>
+                      ))}
                     </select>
-                  ) : field.type ===
-                    "textarea" ? (
+                  ) : field.type === "textarea" ? (
                     <textarea
-                      {...commonFieldProps}
+                      value={values[field.key] ?? ""}
                       onChange={(event) =>
-                        void handleChange(
+                        handleChange(
                           field,
-                          event.target
-                            .value,
+                          event.target.value
                         )
                       }
-                      required={
-                        field.required
-                      }
+                      required={field.required}
                       placeholder={
                         field.placeholder ??
                         `Enter ${field.label.toLowerCase()}`
                       }
                       rows={4}
                       className={`block w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${inputBorderClass}`}
+                      data-testid={`field-${field.key}`}
                     />
                   ) : (
                     <input
-                      {...commonFieldProps}
-                      type={
-                        field.type ??
-                        "text"
-                      }
+                      type={field.type ?? "text"}
+                      value={values[field.key] ?? ""}
                       onChange={(event) =>
-                        void handleChange(
+                        handleChange(
                           field,
-                          event.target
-                            .value,
+                          event.target.value
                         )
                       }
-                      required={
-                        field.required
-                      }
+                      required={field.required}
                       placeholder={
                         field.placeholder ??
                         `Enter ${field.label.toLowerCase()}`
                       }
                       className={`h-9 w-full rounded-lg border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${inputBorderClass}`}
+                      data-testid={`field-${field.key}`}
                     />
                   )}
 
-                  {formikError && (
-                    <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-red-600">
-                      <CircleX className="h-3.5 w-3.5" />
+                  {fieldStatus.state === "checking" && (
+                    <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-blue-600">
+                      <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
 
-                      <span>
-                        {formikError}
-                      </span>
+                      <span>{fieldStatus.message}</span>
                     </div>
                   )}
 
-                  {!formikError &&
-                    fieldStatus.state ===
-                      "checking" && (
-                      <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-blue-600">
-                        <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  {fieldStatus.state === "valid" && (
+                    <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-green-600">
+                      <CircleCheck className="h-3.5 w-3.5" />
 
-                        <span>
-                          {
-                            fieldStatus.message
-                          }
-                        </span>
-                      </div>
-                    )}
+                      <span>{fieldStatus.message}</span>
+                    </div>
+                  )}
 
-                  {!formikError &&
-                    fieldStatus.state ===
-                      "valid" && (
-                      <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-green-600">
-                        <CircleCheck className="h-3.5 w-3.5" />
+                  {fieldStatus.state === "invalid" && (
+                    <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-red-600">
+                      <CircleX className="h-3.5 w-3.5" />
 
-                        <span>
-                          {
-                            fieldStatus.message
-                          }
-                        </span>
-                      </div>
-                    )}
-
-                  {!formikError &&
-                    fieldStatus.state ===
-                      "invalid" && (
-                      <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-red-600">
-                        <CircleX className="h-3.5 w-3.5" />
-
-                        <span>
-                          {
-                            fieldStatus.message
-                          }
-                        </span>
-                      </div>
-                    )}
+                      <span>{fieldStatus.message}</span>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -688,10 +435,7 @@ export function FormModal({
           <button
             type="button"
             onClick={handleClose}
-            disabled={
-              formik.isSubmitting
-            }
-            className="rounded-lg bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-lg bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80"
             data-testid="form-cancel"
           >
             Cancel
@@ -699,19 +443,15 @@ export function FormModal({
 
           <button
             type="submit"
-            disabled={
-              isSubmitDisabled
-            }
+            disabled={isSubmitDisabled}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             data-testid="form-submit"
           >
             <Save className="h-4 w-4" />
 
-            {formik.isSubmitting
-              ? "Saving..."
-              : hasCheckingField
-                ? "Checking..."
-                : submitLabel}
+            {hasCheckingField
+              ? "Checking..."
+              : submitLabel}
           </button>
         </div>
       </form>

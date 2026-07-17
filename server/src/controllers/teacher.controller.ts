@@ -49,23 +49,10 @@ const cleanNumber = (
   return numberValue;
 };
 
-/**
- * Read employee-code settings.
- *
- * Auto mode:
- * - The controller does not validate, create, or change employee_code.
- * - The model/database must generate it automatically.
- *
- * Manual mode:
- * - The user sends only the numeric part, for example: "123456".
- * - The controller validates the numeric length.
- * - The controller adds the configured prefix.
- */
+
 const getEmployeeCodeRules = async (): Promise<EmployeeCodeRules> => {
-  const [userSettings, systemSettings] = await Promise.all([
-    SettingsModel.findByGroup("users"),
-    SettingsModel.findByGroup("system"),
-  ]);
+  const userSettings = await
+    SettingsModel.findByGroup("users")
 
   const generationSetting = userSettings.find(
     (setting) => setting.key === "employee_code_generated_by",
@@ -100,7 +87,7 @@ const getEmployeeCodeRules = async (): Promise<EmployeeCodeRules> => {
     (setting) => setting.key === "employee_code_length",
   );
 
-  const prefixSetting = systemSettings.find(
+  const prefixSetting = userSettings.find(
     (setting) => setting.key === "employee_code_prefix",
   );
   console.log(prefixSetting)

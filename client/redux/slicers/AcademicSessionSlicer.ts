@@ -1,7 +1,9 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 export interface AcademicSession {
   id: number;
-  session_name: string;
+  name: string;
+  start_date: string;
+  end_date: string;
   status: string;
   description: string;
 }
@@ -33,8 +35,23 @@ const academicSessionSlice = createSlice({
         setAcademicSessions: (state, action: PayloadAction<AcademicSession[]>) => {
             state.academicSessions = action.payload;
         },
+        AcademicSessionDelete: (state, action: PayloadAction<number>) => {
+            state.academicSessions = state.academicSessions.filter(
+                (session) => session.id !== action.payload
+            );
+        },
+        AcademicSessionRestore: (state, action: PayloadAction<number>) => {
+            state.academicSessions = state.academicSessions.filter(
+                (session) => session.id !== action.payload
+            );
+        },
+        AcademicSessionPermanentDelete: (state, action: PayloadAction<number>) => {
+            state.academicSessions = state.academicSessions.filter(
+                (session) => session.id !== action.payload
+            );
+        }
     },
 });
 
-export const { addAcademicSession, updateAcademicSession, setAcademicSessions } = academicSessionSlice.actions;
+export const { addAcademicSession, updateAcademicSession, setAcademicSessions, AcademicSessionDelete, AcademicSessionRestore, AcademicSessionPermanentDelete } = academicSessionSlice.actions;
 export default academicSessionSlice.reducer;

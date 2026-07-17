@@ -3,31 +3,50 @@ import { Plus, Search } from "lucide-react";
 import { DataTable, Column } from "@/components/tables/DataTable";
 import { FormModal, FieldDef } from "@/components/common/FormModal";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { Modal } from "@/components/common/Modal";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
 import { Pagination } from "@/components/common/Pagination";
 import { PageHeader } from "@/components/common/PageHeader";
+import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import useAcademicSession from "@/hooks/useAcademicSession";
 import { useAppSelector } from "../../redux/hooks";
 
 type AcademicSessionItem = {
   id?: number;
-  session_name: string;
+  name: string;
+  start_date: Date;
+  end_date: Date;
   status: string;
   description: string;
 };
 
 const columns: Column[] = [
-  { key: "session_name", label: "Session Name", type: "avatar-text" },
-  { key: "status", label: "Status" },
+  { key: "name", label: "Session Name", type: "avatar-text" },
+  { key: "start_date", label: "Start Date" },
+  { key: "end_date", label: "End Date" },
   { key: "description", label: "Description" },
+  { key: "status", label: "Status" },
 ];
 
 const fields: FieldDef[] = [
   {
-    key: "session_name",
+    key: "name",
     label: "Session Name",
     required: true,
-    placeholder: "2023-2024",
+    placeholder: "Enter session name",
+  },
+  {
+    key: "start_date",
+    label: "Start Date",
+    required: true,
+    type: "date",
+  },
+  {
+    key: "end_date",
+    label: "End Date",
+    required: true,
+    type: "date",
   },
   {
     key: "status",
@@ -43,28 +62,59 @@ const fields: FieldDef[] = [
     key: "description",
     label: "Description",
     required: false,
-    placeholder: "Enter class description",
+    placeholder: "Enter session description",
     type: "textarea",
   },
 ];
 
+type StatusFilter = "all" | "active" | "inactive" | "trash";
+
+type StatusFilterOption = {
+  value: StatusFilter;
+  label: string;
+};
+
+const buttonGroup: StatusFilterOption[] = [
+  {
+    value: "all",
+    label: "All",
+  },
+  {
+    value: "active",
+    label: "Active",
+  },
+  {
+    value: "inactive",
+    label: "Inactive",
+  },
+  {
+    value: "trash",
+    label: "Trash",
+  },
+];
+
 const AcademicSession = () => {
-  const { getAcademicSessions, addAcademicSession, updateAcademicSession } = useAcademicSession();
+  const { getAcademicSessions, addAcademicSession, updateAcademicSession, deleteAcademicSession, restoreAcademicSession, permanentDeleteAcademicSession } = useAcademicSession();
 
   const [data, setData] = useState<AcademicSessionItem[]>([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const academicSessions = useAppSelector(
-  (state) => (state as any).academicSessions?.data
+  (state) => (state as any).academicSession?.academicSessions
 );
 
   const [editItem, setEditItem] = useState<AcademicSessionItem | null>(null);
   const [deleteItem, setDeleteItem] = useState<AcademicSessionItem | null>(null);
+  const [restoreItem, setRestoreItem] = useState<AcademicSessionItem | null>(null);
+  const [permanentDeleteItem, setPermanentDeleteItem] = useState<AcademicSessionItem | null>(null);
+  const [viewItem, setViewItem] = useState<AcademicSessionItem | null>(null);
   const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
-    getAcademicSessions();
+    getAcademicSessions("all");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
    useEffect(() => {
@@ -79,36 +129,88 @@ const AcademicSession = () => {
         index: number
       ) => ({
         id: Number(item.id ?? index + 1),
-        session_name: String(
-          item.session_name ?? ""
-        ),
+        name: String(item.name ?? ""),
+        start_date: item.start_date ? new Date(item.start_date) : new Date(),
+        end_date: item.end_date ? new Date(item.end_date) : new Date(),
         status: String(item.status ?? "active"),
-        description: String(
-          item.description ?? ""
-        ),
+        description: String(item.description ?? ""),
       })
     );
 
   setData(formattedSessions);
 }, [academicSessions]);
 
+  const selectTabe = async (item: StatusFilterOption) => {
+    setStatusFilter(item.value);
+    setPage(1);
+
+    await getAcademicSessions(item.value);
+  };
+
   const filtered = data.filter(
-    (sessionItem) =>
-      sessionItem.session_name.toLowerCase().includes(search.toLowerCase()) ||
-      sessionItem.status.toLowerCase().includes(search.toLowerCase()) ||
-      sessionItem.description.toLowerCase().includes(search.toLowerCase())
+    (sessionItem) => {
+      const keyword = search.toLowerCase();
+      
+      return (
+        sessionItem.name.toLowerCase().includes(keyword) ||
+        sessionItem.status.toLowerCase().includes(keyword) ||
+        sessionItem.description.toLowerCase().includes(keyword)
+      );
+    }
   );
 
-  const paginatedData = filtered.slice((page - 1) * 10, page * 10);
+  const itemsPerPage = 10;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
 
-  const handleDelete = () => {
-    if (!deleteItem) return;
+  const paginatedData = filtered.slice((page - 1) * itemsPerPage, page * itemsPerPage).map(item => ({
+    ...item,
+    start_date: item.start_date instanceof Date ? item.start_date.toLocaleDateString() : item.start_date,
+    end_date: item.end_date instanceof Date ? item.end_date.toLocaleDateString() : item.end_date,
+  }));
 
-    setData((prev) =>
-      prev.filter((sessionItem) => sessionItem.id !== deleteItem.id)
-    );
+  const handleDelete = async () => {
+    if (deleteItem) {
+      // Call the delete function from the hook
+      await deleteAcademicSession(deleteItem.id!);
+      setDeleteItem(null);
+    }
+  };
 
-    setDeleteItem(null);
+  const handleRestore = async () => {
+    if (restoreItem) {
+      const result = await restoreAcademicSession(restoreItem.id!);
+      setRestoreItem(null);
+      
+      // If restore was successful, refresh the list
+      if (result) {
+        await getAcademicSessions(statusFilter);
+      }
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (permanentDeleteItem) {
+      await permanentDeleteAcademicSession(permanentDeleteItem.id!);
+      setPermanentDeleteItem(null);
+    }
+  };
+
+  const handleRestoreClick = (row: Record<string, unknown>) => {
+    const rowId = Number(row.id);
+    const selectedSession = data.find((sessionItem) => sessionItem.id === rowId);
+
+    if (selectedSession) {
+      setRestoreItem(selectedSession);
+    }
+  };
+
+  const handlePermanentDeleteClick = (row: Record<string, unknown>) => {
+    const rowId = Number(row.id);
+    const selectedSession = data.find((sessionItem) => sessionItem.id === rowId);
+
+    if (selectedSession) {
+      setPermanentDeleteItem(selectedSession);
+    }
   };
 
   const handleEdit = async (values: Record<string, string>) => {
@@ -116,7 +218,9 @@ const AcademicSession = () => {
 
     const payload = {
       id: editItem.id,
-      session_name: values.session_name,
+      name: values.name,
+      start_date: values.start_date,
+      end_date: values.end_date,
       status: values.status || "active",
       description: values.description,
     };
@@ -128,7 +232,9 @@ const AcademicSession = () => {
 
   const handleAdd = async (values: Record<string, string>) => {
     const payload = {
-      session_name: values.session_name,
+      name: values.name,
+      start_date: values.start_date,
+      end_date: values.end_date,
       status: values.status || "active",
       description: values.description,
     };
@@ -147,6 +253,15 @@ const AcademicSession = () => {
     }
   };
 
+  const handleViewClick = (row: Record<string, unknown>) => {
+    const rowId = Number(row.id);
+    const selectedSession = data.find((sessionItem) => sessionItem.id === rowId);
+
+    if (selectedSession) {
+      setViewItem(selectedSession);
+    }
+  };
+
   const handleDeleteClick = (row: Record<string, unknown>) => {
     const rowId = Number(row.id);
     const selectedSession = data.find((sessionItem) => sessionItem.id === rowId);
@@ -158,7 +273,9 @@ const AcademicSession = () => {
 
   const editInitialValues: Record<string, string> | undefined = editItem
     ? {
-      session_name: editItem.session_name,
+      name: editItem.name,
+      start_date: editItem.start_date instanceof Date ? editItem.start_date.toISOString().split('T')[0] : '',
+      end_date: editItem.end_date instanceof Date ? editItem.end_date.toISOString().split('T')[0] : '',
       status: editItem.status,
       description: editItem.description,
     }
@@ -175,7 +292,8 @@ const AcademicSession = () => {
           <button
             onClick={() => setAddOpen(true)}
             className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
-            data-testid="add-class-btn"
+            data-testid="add-academic-session-btn"
+            type="button"
           >
             <Plus className="w-4 h-4" />
             Add Academic Session
@@ -184,8 +302,8 @@ const AcademicSession = () => {
       />
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="p-5 border-b border-border">
-          <div className="relative max-w-sm">
+        <div className="p-5 border-b border-border flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-6">
+          <div className="relative w-full lg:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 
             <input
@@ -197,17 +315,35 @@ const AcademicSession = () => {
                 setPage(1);
               }}
               className="w-full h-9 pl-9 pr-4 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-              data-testid="classes-search"
+              data-testid="academic-sessions-search"
             />
           </div>
+
+          <ButtonGroup className="lg:ml-auto">
+            {buttonGroup.map((item) => (
+              <Button
+                key={item.value}
+                className="cursor-pointer"
+                variant={statusFilter === item.value ? "default" : "outline"}
+                size="sm"
+                type="button"
+                onClick={() => selectTabe(item)}
+              >
+                {item.label}
+              </Button>
+            ))}
+          </ButtonGroup>
         </div>
 
         <div className="px-6">
           <DataTable
             columns={columns}
             data={paginatedData as Record<string, unknown>[]}
+            onView={handleViewClick}
             onEdit={handleEditClick}
-            onDelete={handleDeleteClick}
+            onDelete={statusFilter !== "trash" ? handleDeleteClick : undefined}
+            onRestore={statusFilter === "trash" ? handleRestoreClick : undefined}
+            onPermanentDelete={statusFilter === "trash" ? handlePermanentDeleteClick : undefined}
           />
         </div>
 
@@ -218,7 +354,7 @@ const AcademicSession = () => {
 
           <Pagination
             currentPage={page}
-            totalPages={Math.max(1, Math.ceil(filtered.length / 10))}
+            totalPages={totalPages}
             onPageChange={setPage}
           />
         </div>
@@ -232,6 +368,64 @@ const AcademicSession = () => {
         fields={fields}
         submitLabel="Add Academic Session"
       />
+
+      <Modal
+        isOpen={!!viewItem}
+        onClose={() => setViewItem(null)}
+        title="Academic Session Details"
+        size="lg"
+      >
+        {viewItem && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Session Name
+                </label>
+                <p className="mt-1 text-sm text-foreground">{viewItem.name}</p>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Status
+                </label>
+                <p className="mt-1 text-sm text-foreground capitalize">{viewItem.status}</p>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Start Date
+                </label>
+                <p className="mt-1 text-sm text-foreground">
+                  {viewItem.start_date instanceof Date
+                    ? viewItem.start_date.toLocaleDateString()
+                    : viewItem.start_date}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  End Date
+                </label>
+                <p className="mt-1 text-sm text-foreground">
+                  {viewItem.end_date instanceof Date
+                    ? viewItem.end_date.toLocaleDateString()
+                    : viewItem.end_date}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                Description
+              </label>
+              <p className="mt-1 text-sm text-foreground">
+                {viewItem.description || "No description provided"}
+              </p>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <FormModal
         isOpen={!!editItem}
@@ -248,9 +442,29 @@ const AcademicSession = () => {
         onClose={() => setDeleteItem(null)}
         onConfirm={handleDelete}
         title="Delete Academic Session"
-        description={`Are you sure you want to remove "${deleteItem?.session_name ?? ""
+        description={`Are you sure you want to remove "${deleteItem?.name ?? ""
           }" from the system? This action cannot be undone.`}
         confirmLabel="Delete Academic Session"
+      />
+
+      <ConfirmModal
+        isOpen={!!restoreItem}
+        onClose={() => setRestoreItem(null)}
+        onConfirm={handleRestore}
+        title="Restore Academic Session"
+        description={`Are you sure you want to restore "${restoreItem?.name ?? ""
+          }"? This will move it back to active sessions.`}
+        confirmLabel="Restore Academic Session"
+      />
+
+      <ConfirmModal
+        isOpen={!!permanentDeleteItem}
+        onClose={() => setPermanentDeleteItem(null)}
+        onConfirm={handlePermanentDelete}
+        title="Permanently Delete Academic Session"
+        description={`Are you sure you want to permanently delete "${permanentDeleteItem?.name ?? ""
+          }"? This action cannot be undone and will remove all data permanently.`}
+        confirmLabel="Permanently Delete"
       />
     </div>
   );

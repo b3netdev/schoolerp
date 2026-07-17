@@ -7,7 +7,7 @@ import { AcademicSessionModel } from "../models/AcademicSession.model.js";
 
 const alreadyExistsBy = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
-    const { field, value, label, at } = req.body;
+    const { field, value, label, at, excludeId } = req.body;
 
 
   
@@ -16,23 +16,27 @@ const alreadyExistsBy = catchAsync(
       return next(new AppError("The 'at' field is required.", 400));
     }else if (typeof at !== "string") {
       return next(new AppError("The 'at' field must be a string.", 400));
-    }else{
-      const normalizedAt = at.trim().toLowerCase();
-      switch (normalizedAt) {
-        case "teacher":
-          var selectedModel = TeacherModel;
-          break;
-        default:
-          return next(new AppError(`Invalid model: ${at}`, 400));
-      }
-      
+    }
+    
+    let selectedModel: typeof TeacherModel | typeof AcademicSessionModel;
+    const normalizedAt = at.trim().toLowerCase();
+    
+    switch (normalizedAt) {
+      case "teacher":
+        selectedModel = TeacherModel;
+        break;
+      case "academic_session":
+        selectedModel = AcademicSessionModel;
+        break;
+      default:
+        return next(new AppError(`Invalid model: ${at}`, 400));
     }
 
     if (!selectedModel) {
       return next(new AppError(`Invalid model: ${at}`, 400));
     }
 
-    const exists = await selectedModel.alreadyExists(field, value);
+    const exists = await selectedModel.alreadyExists(field, value, excludeId);
 
     if (exists) {
       return next(

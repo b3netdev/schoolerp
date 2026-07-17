@@ -1,6 +1,6 @@
 import { Badge, statusToBadgeVariant } from "@/components/common/Badge";
 import { Avatar } from "@/components/common/Avatar";
-import { Eye, Pencil, Trash2 } from "lucide-react";
+import { Eye, Pencil, Trash2, RotateCcw, X } from "lucide-react";
 
 export type ColumnType = "text" | "avatar-text" | "badge" | "status" | "actions";
 
@@ -17,6 +17,8 @@ interface DataTableProps {
   onView?: (row: Record<string, unknown>) => void;
   onEdit?: (row: Record<string, unknown>) => void;
   onDelete?: (row: Record<string, unknown>) => void;
+  onRestore?: (row: Record<string, unknown>) => void;
+  onPermanentDelete?: (row: Record<string, unknown>) => void;
   emptyMessage?: string;
 }
 
@@ -26,9 +28,11 @@ export function DataTable({
   onView,
   onEdit,
   onDelete,
+  onRestore,
+  onPermanentDelete,
   emptyMessage = "No records found.",
 }: DataTableProps) {
-  const hasActions = Boolean(onView || onEdit || onDelete);
+  const hasActions = Boolean(onView || onEdit || onDelete || onRestore || onPermanentDelete);
 
   if (data.length === 0) {
     return (
@@ -140,6 +144,30 @@ export function DataTable({
                         type="button"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
+                    {onRestore && (
+                      <button
+                        onClick={() => onRestore(row)}
+                        className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-green-600 hover:bg-green-50 transition-colors"
+                        title="Restore"
+                        data-testid={`action-restore-${rowIndex}`}
+                        type="button"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
+                    {onPermanentDelete && (
+                      <button
+                        onClick={() => onPermanentDelete(row)}
+                        className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-red-700 hover:bg-red-100 transition-colors"
+                        title="Permanently Delete"
+                        data-testid={`action-permanent-delete-${rowIndex}`}
+                        type="button"
+                      >
+                        <X className="w-4 h-4" />
                       </button>
                     )}
                   </div>

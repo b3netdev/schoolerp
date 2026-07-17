@@ -124,15 +124,7 @@ const getEmployeeCodeRules = async (): Promise<EmployeeCodeRules> => {
   };
 };
 
-/**
- * Validate the manually entered employee-code number.
- *
- * The frontend sends only the numeric part:
- * "123456"
- *
- * The controller returns:
- * "GHSH123456"
- */
+
 const buildManualEmployeeCode = (
   employeeCode: string | undefined,
   rules: Extract<EmployeeCodeRules, { generationType: "manual" }>,
@@ -291,20 +283,12 @@ export class TeacherController {
       let finalEmployeeCode: string | undefined;
 
       if (employeeCodeRules.generationType === "manual") {
-        /**
-         * The user sends only the numeric part.
-         * The controller attaches the prefix.
-         */
         finalEmployeeCode = buildManualEmployeeCode(
           employee_code,
           employeeCodeRules,
         );
       } else {
-        /**
-         * Auto mode:
-         * Do not use an employee code from the request.
-         * The model/database must generate the code.
-         */
+       
         finalEmployeeCode = undefined;
       }
 
@@ -325,15 +309,13 @@ export class TeacherController {
         return next(new AppError("Basic salary cannot be negative", 400));
       }
 
+
+      
+
       const teacher = await TeacherModel.create({
         first_name: cleanedFirstName,
 
         last_name: cleanString(last_name),
-
-        /**
-         * Undefined in auto mode.
-         * The model/database must generate it.
-         */
         employee_code: finalEmployeeCode,
 
         email: cleanedEmail,
@@ -471,22 +453,12 @@ export class TeacherController {
         const employeeCodeRules = await getEmployeeCodeRules();
 
         if (employeeCodeRules.generationType === "manual") {
-          /**
-           * Manual mode:
-           * Validate only the numeric part and
-           * attach the prefix before update.
-           */
           finalEmployeeCode = buildManualEmployeeCode(
             employee_code,
             employeeCodeRules,
           );
         } else {
-          /**
-           * Auto mode:
-           * Ignore employee_code from the request.
-           * Never regenerate or change an existing
-           * teacher code during a normal update.
-           */
+          
           finalEmployeeCode = undefined;
         }
       }
@@ -513,11 +485,6 @@ export class TeacherController {
         first_name: cleanString(first_name),
 
         last_name: cleanString(last_name),
-
-        /**
-         * Undefined in auto mode, so the model
-         * keeps the existing employee code.
-         */
         employee_code: finalEmployeeCode,
 
         email: cleanedEmail,

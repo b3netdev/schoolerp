@@ -1020,11 +1020,6 @@ function TeacherFormModal({
     void validateField(key, values);
   };
 
-  /**
-   * Mirrors the old FormModal's rule: show a field's
-   * Yup error once the user has entered a value,
-   * blurred/touched the field, or tried to submit.
-   */
   const getDisplayError = (
     key: keyof TeacherFormValues,
   ): string | undefined => {

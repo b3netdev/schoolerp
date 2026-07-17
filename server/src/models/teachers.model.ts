@@ -242,6 +242,7 @@ export class TeacherModel {
       INSERT INTO ${tableName} (
         first_name,
         last_name,
+        employee_code,
         email,
         phone,
         alternate_phone,
@@ -279,7 +280,7 @@ export class TeacherModel {
         $16, $17, $18, $19, $20,
         $21, $22, $23, $24, $25,
         $26, $27, $28, $29, $30,
-        $31
+        $31, $32
       )
       RETURNING
         id,
@@ -322,6 +323,7 @@ export class TeacherModel {
       [
         data.first_name,
         data.last_name ?? null,
+        data.employee_code?? null,
         data.email ?? null,
         data.phone ?? null,
         data.alternate_phone ?? null,

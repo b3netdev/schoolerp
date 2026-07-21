@@ -166,10 +166,7 @@ const columns: Column[] = [
     key: "specialization",
     label: "Specialization",
   },
-  {
-    key: "employment_type",
-    label: "Employment Type",
-  },
+  
   {
     key: "status",
     label: "Status",

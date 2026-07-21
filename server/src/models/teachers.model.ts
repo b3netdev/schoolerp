@@ -208,8 +208,7 @@ export class TeacherModel {
 
   static async findById(id: number): Promise<Teacher | null> {
     const result = await query<Teacher>(
-      `
-      SELECT *
+      `SELECT *
       FROM ${tableName}
       WHERE id = $1
       AND deleted_at IS NULL
@@ -238,11 +237,7 @@ export class TeacherModel {
     queryText += ` LIMIT 1`;
     
     const result = await query<Teacher>(queryText, queryParams);
-      LIMIT 1
-      `,
-      [value],
-    );
-
+    
     return result.rows.length > 0;
   }
 

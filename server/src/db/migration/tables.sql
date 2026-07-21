@@ -166,3 +166,16 @@ WHERE status = 'active'
 AND deleted_at IS NULL;
 
 
+
+--create students
+create table students(
+id  serial primary key,
+first_name varchar(50) not null,
+last_name varchar(50),
+email varchar(50) unique,
+password text,
+status varchar(20) check(status in ('active', 'inactive')),
+phone varchar(15),
+created_at timestamp without time zone now(),
+updated_at timestamp without time zone
+);

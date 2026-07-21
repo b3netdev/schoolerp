@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import api from "@/lib/api";
 import { useAppDispatch } from "../../redux/hooks";
 
@@ -20,11 +20,15 @@ export interface AcademicSessionPayload {
   description?: string;
 }
 
+
 const useAcademicSession = () => {
   const dispatch = useAppDispatch();
 
+  const [isLoading, setIsLoading] = useState(true);
+
   const getAcademicSessions = useCallback(async (status: string = "all") => {
     try {
+      setIsLoading(true);
       const result = await api.get(
         "/academic-session/get-academic-sessions",
         {
@@ -34,9 +38,6 @@ const useAcademicSession = () => {
         }
       );
 
-      // Supports:
-      // { success: true, data: [...] }
-      // and directly returned arrays.
       const sessions = result.data?.data ?? result.data;
 
       dispatch(
@@ -53,6 +54,8 @@ const useAcademicSession = () => {
       );
 
       return null;
+    } finally{
+      setIsLoading(false);
     }
   }, [dispatch]);
 
@@ -119,6 +122,7 @@ const useAcademicSession = () => {
         );
 
         if (result.status === 204 || result.data?.status === 'success') {
+          console.log('test1');
           dispatch(AcademicSessionDelete(id));
         }
 

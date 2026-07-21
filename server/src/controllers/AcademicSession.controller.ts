@@ -96,12 +96,12 @@ export class AcademicSessionController {
     static restore = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
         const id = Number(req.params.id);
 
-        console.log("Attempting to restore academic session with ID:", id); // Debugging line
+        //console.log("Attempting to restore academic session with ID:", id); // Debugging line
         
         // Find the session in trash
         const trashedSession = await AcademicSessionModel.findTrashByID(id);
 
-        console.log("Trashed Session:", trashedSession); // Debugging line
+        //console.log("Trashed Session:", trashedSession); // Debugging line
         
         if (!trashedSession) {
             return next(new AppError('Academic session not found in trash', 404));

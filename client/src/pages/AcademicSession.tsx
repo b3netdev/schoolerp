@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import useAcademicSession from "@/hooks/useAcademicSession";
 import { useAppSelector } from "../../redux/hooks";
+import { ListingSkeleton } from "@/components/tables/ListingSkeleton";
 
 type AcademicSessionItem = {
   id?: number;
@@ -101,9 +102,24 @@ const AcademicSession = () => {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
+  const [isLoading, setIsLoading] = useState(true);
+
+const loadAcademicSessions = async (filter: StatusFilter) => {
+  try {
+    setIsLoading(true);
+    await getAcademicSessions(filter);
+  } catch (error) {
+    console.error("Failed to fetch academic sessions:", error);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
   const academicSessions = useAppSelector(
   (state) => (state as any).academicSession?.academicSessions
 );
+
+console.log("Academic Sessions from Redux Store:", academicSessions); // Debugging line
 
   const [editItem, setEditItem] = useState<AcademicSessionItem | null>(null);
   const [deleteItem, setDeleteItem] = useState<AcademicSessionItem | null>(null);
@@ -113,7 +129,8 @@ const AcademicSession = () => {
   const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
-    getAcademicSessions("all");
+    void loadAcademicSessions("all");
+    // getAcademicSessions("all");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -144,7 +161,7 @@ const AcademicSession = () => {
     setStatusFilter(item.value);
     setPage(1);
 
-    await getAcademicSessions(item.value);
+    await loadAcademicSessions(item.value);
   };
 
   const filtered = data.filter(
@@ -169,9 +186,16 @@ const AcademicSession = () => {
   }));
 
   const handleDelete = async () => {
-    if (deleteItem) {
-      // Call the delete function from the hook
-      await deleteAcademicSession(deleteItem.id!);
+    if (!deleteItem?.id) return;
+
+    try {
+      await deleteAcademicSession(deleteItem.id);
+
+      // Refresh the currently selected list
+      await loadAcademicSessions(statusFilter);
+    } catch (error) {
+      console.error("Failed to delete academic session:", error);
+    } finally {
       setDeleteItem(null);
     }
   };
@@ -183,7 +207,7 @@ const AcademicSession = () => {
       
       // If restore was successful, refresh the list
       if (result) {
-        await getAcademicSessions(statusFilter);
+        await loadAcademicSessions(statusFilter);
       }
     }
   };
@@ -192,6 +216,8 @@ const AcademicSession = () => {
     if (permanentDeleteItem) {
       await permanentDeleteAcademicSession(permanentDeleteItem.id!);
       setPermanentDeleteItem(null);
+      // Refresh the list after permanent delete
+      await loadAcademicSessions(statusFilter);
     }
   };
 
@@ -242,6 +268,7 @@ const AcademicSession = () => {
     setAddOpen(false);
 
     await addAcademicSession(payload);
+    await loadAcademicSessions(statusFilter);
   };
 
   const handleEditClick = (row: Record<string, unknown>) => {
@@ -262,7 +289,10 @@ const AcademicSession = () => {
     }
   };
 
-  const handleDeleteClick = (row: Record<string, unknown>) => {
+  const handleDeleteClick = async (row: Record<string, unknown>) => {
+    // console.log("Delete clicked for row:", row);
+    // return
+    
     const rowId = Number(row.id);
     const selectedSession = data.find((sessionItem) => sessionItem.id === rowId);
 
@@ -336,6 +366,9 @@ const AcademicSession = () => {
         </div>
 
         <div className="px-6">
+          {isLoading ? (
+            <ListingSkeleton columns={columns.length} rows={10} />
+          ) : (
           <DataTable
             columns={columns}
             data={paginatedData as Record<string, unknown>[]}
@@ -345,6 +378,7 @@ const AcademicSession = () => {
             onRestore={statusFilter === "trash" ? handleRestoreClick : undefined}
             onPermanentDelete={statusFilter === "trash" ? handlePermanentDeleteClick : undefined}
           />
+          )}
         </div>
 
         <div className="px-6 py-4 border-t border-border flex items-center justify-between">

@@ -221,13 +221,23 @@ export class TeacherModel {
     return result.rows[0] || null;
   }
 
-  static async alreadyExists(field: string, value: string): Promise<boolean> {
-    const result = await query<Teacher>(
-      `
+  static async alreadyExists(field: string, value: string, excludeId?: number): Promise<boolean> {
+    let queryText = `
       SELECT 1
       FROM ${tableName}
       WHERE ${field} = $1
       AND deleted_at IS NULL
+    `;
+    const queryParams: (string | number)[] = [value];
+    
+    if (excludeId !== undefined) {
+      queryText += ` AND id != $2`;
+      queryParams.push(excludeId);
+    }
+    
+    queryText += ` LIMIT 1`;
+    
+    const result = await query<Teacher>(queryText, queryParams);
       LIMIT 1
       `,
       [value],

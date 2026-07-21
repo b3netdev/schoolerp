@@ -34,7 +34,10 @@ const fields: FieldDef[] = [
     label: "Status",
     required: false,
     type: "select",
-    options: ["active", "inactive"],
+    options: [
+      { label: "Active", value: "active" },
+      { label: "Inactive", value: "inactive" },
+    ],
   },
   {
     key: "description",

@@ -146,6 +146,7 @@ CREATE TABLE academic_session (
     name VARCHAR(50) NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
+    current_session BOOLEAN NOT NULL DEFAULT FALSE,
 
     status VARCHAR(20) NOT NULL DEFAULT 'inactive'
         CHECK (status IN ('active', 'inactive')),

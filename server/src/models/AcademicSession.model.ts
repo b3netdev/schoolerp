@@ -16,6 +16,7 @@ export interface AcademicSessionPayload {
   name: string;
   start_date: Date;
   end_date: Date;
+  current_session: boolean;
   status: 'active' | 'inactive';
   description?: string | null;
 }
@@ -52,11 +53,15 @@ export class AcademicSessionModel {
         const result = await query<AcademicSession>(`SELECT * FROM ${tableName} WHERE id = $1 AND deleted_at IS NULL`, [id]);
         return result.rows[0] || null;
     }
+    static async findTrashByID(id: number): Promise<AcademicSession | null> {
+        const result = await query<AcademicSession>(`SELECT * FROM ${tableName} WHERE id = $1 AND deleted_at IS NOT NULL`, [id]);
+        return result.rows[0] || null;
+    }
 
     static async create(payload: AcademicSessionPayload): Promise<AcademicSession> {
         const result = await query<AcademicSession>(
-            `INSERT INTO ${tableName} (name, start_date, end_date, status, description) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-            [payload.name, payload.start_date, payload.end_date, payload.status, payload.description]
+            `INSERT INTO ${tableName} (name, start_date, end_date, status, description, current_session) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [payload.name, payload.start_date, payload.end_date, payload.status, payload.description, payload.current_session]
         );
         return result.rows[0];
     }
@@ -112,6 +117,7 @@ export class AcademicSessionModel {
     }
 
     static async restore(id: number): Promise<AcademicSession | null> {
+        // console.log(`Restoring academic session with ID: ${id}`);
         const result = await query<AcademicSession>(
             `UPDATE ${tableName} SET deleted_at = NULL WHERE id = $1 RETURNING *`,
             [id]

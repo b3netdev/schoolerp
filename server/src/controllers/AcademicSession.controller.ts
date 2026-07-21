@@ -99,7 +99,7 @@ export class AcademicSessionController {
         console.log("Attempting to restore academic session with ID:", id); // Debugging line
         
         // Find the session in trash
-        const trashedSession = await AcademicSessionModel.findById(id);
+        const trashedSession = await AcademicSessionModel.findTrashByID(id);
 
         console.log("Trashed Session:", trashedSession); // Debugging line
         

@@ -137,9 +137,15 @@ export interface TeacherUpdatePayload {
 }
 
 const tableName = "teachers";
-type TeacherStatusFilter = "all" | "active" | "inactive";
+type TeacherStatusFilter =
+  | "all"
+  | "active"
+  | "inactive"
+  | "resigned";
 export class TeacherModel {
-  static async findAll(status: TeacherStatusFilter = "all"): Promise<Teacher[]> {
+  static async findAll(
+    status: TeacherStatusFilter = "all",
+  ): Promise<Teacher[]> {
     const values: unknown[] = [];
     const conditions: string[] = ["deleted_at IS NULL"];
 
@@ -154,10 +160,50 @@ export class TeacherModel {
     WHERE ${conditions.join(" AND ")}
       ORDER BY id DESC
       `,
-      values
+      values,
     );
 
     return result.rows;
+  }
+  static async generateEmployeeCode(
+    prefix: string,
+    totalLength: number,
+  ): Promise<string> {
+    const cleanedPrefix = prefix.trim().toUpperCase();
+
+    if (!cleanedPrefix) {
+      throw new Error("Employee code prefix is required");
+    }
+
+    if (!Number.isInteger(totalLength) || totalLength <= 0) {
+      throw new Error("Employee code length must be a positive integer");
+    }
+
+    const numericPartLength = totalLength - cleanedPrefix.length;
+
+    if (numericPartLength <= 0) {
+      throw new Error(
+        "Employee code length must be greater than the prefix length",
+      );
+    }
+
+    const result = await query<{ sequence_value: string }>(
+      `
+    SELECT nextval(
+      'teacher_employee_code_seq'
+    )::text AS sequence_value
+    `,
+    );
+
+    const sequenceValue = result.rows[0].sequence_value;
+
+    if (sequenceValue.length > numericPartLength) {
+      throw new Error("Employee code sequence exceeded the configured length");
+    }
+
+    const paddedNumber = sequenceValue.padStart(numericPartLength, "0");
+
+    return `${cleanedPrefix}${paddedNumber}`;
   }
 
   static async findById(id: number): Promise<Teacher | null> {
@@ -169,7 +215,7 @@ export class TeacherModel {
       AND deleted_at IS NULL
       LIMIT 1
       `,
-      [id]
+      [id],
     );
 
     return result.rows[0] || null;
@@ -192,6 +238,10 @@ export class TeacherModel {
     queryText += ` LIMIT 1`;
     
     const result = await query<Teacher>(queryText, queryParams);
+      LIMIT 1
+      `,
+      [value],
+    );
 
     return result.rows.length > 0;
   }
@@ -202,6 +252,7 @@ export class TeacherModel {
       INSERT INTO ${tableName} (
         first_name,
         last_name,
+        employee_code,
         email,
         phone,
         alternate_phone,
@@ -239,7 +290,7 @@ export class TeacherModel {
         $16, $17, $18, $19, $20,
         $21, $22, $23, $24, $25,
         $26, $27, $28, $29, $30,
-        $31
+        $31, $32
       )
       RETURNING
         id,
@@ -282,6 +333,7 @@ export class TeacherModel {
       [
         data.first_name,
         data.last_name ?? null,
+        data.employee_code?? null,
         data.email ?? null,
         data.phone ?? null,
         data.alternate_phone ?? null,
@@ -317,7 +369,7 @@ export class TeacherModel {
 
         data.profile_image ?? null,
         data.remarks ?? null,
-      ]
+      ],
     );
 
     return result.rows[0];
@@ -325,7 +377,7 @@ export class TeacherModel {
 
   static async update(
     id: number,
-    data: TeacherUpdatePayload
+    data: TeacherUpdatePayload,
   ): Promise<Teacher | null> {
     const result = await query<Teacher>(
       `
@@ -452,7 +504,7 @@ export class TeacherModel {
         data.remarks ?? null,
 
         id,
-      ]
+      ],
     );
 
     return result.rows[0] || null;
@@ -506,7 +558,7 @@ export class TeacherModel {
         updated_at,
         deleted_at
       `,
-      [id]
+      [id],
     );
 
     return result.rows[0] || null;
@@ -518,7 +570,7 @@ export class TeacherModel {
       DELETE FROM ${tableName}
       WHERE id = $1
       `,
-      [id]
+      [id],
     );
 
     return (result.rowCount ?? 0) > 0;

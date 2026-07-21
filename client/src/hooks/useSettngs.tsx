@@ -94,8 +94,12 @@ const useSettings = () => {
         }
     }
 
-    const getSettingsbyKey = async(key:string)=>{
+    const getSettingsbyKey = async(setting_group:string)=>{
         try{
+            const response = await api.post("/settings/getbygroup",{setting_group})
+            if (response?.data?.success === true) {
+                return response?.data?.data
+            }
 
         }
         catch(error){
@@ -112,7 +116,8 @@ const useSettings = () => {
         error,
         getSettings,
         updateSettingsData,
-        searchSettingsOptions
+        searchSettingsOptions,
+        getSettingsbyKey
     };
 };
 

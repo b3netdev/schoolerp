@@ -1,10 +1,11 @@
-import { query } from "../db/query.js";
+import db from "../db/query-builder.js";
 
 export interface AcademicSession {
   id: number;
   name: string;
   start_date: Date;
   end_date: Date;
+  default_session: boolean;
   status: 'active' | 'inactive';
   description?: string | null;
   created_at: Date;
@@ -16,7 +17,7 @@ export interface AcademicSessionPayload {
   name: string;
   start_date: Date;
   end_date: Date;
-  current_session: boolean;
+  default_session: boolean;
   status: 'active' | 'inactive';
   description?: string | null;
 }
@@ -45,23 +46,32 @@ export class AcademicSessionModel {
         
         queryText += ` ORDER BY id DESC`;
         
-        const result = await query<AcademicSession>(queryText, queryParams);
+        const result = await db.query<AcademicSession>(queryText, queryParams);
         return result.rows;
     }
 
     static async findById(id: number): Promise<AcademicSession | null> {
-        const result = await query<AcademicSession>(`SELECT * FROM ${tableName} WHERE id = $1 AND deleted_at IS NULL`, [id]);
+        const result = await db.query<AcademicSession>(`SELECT * FROM ${tableName} WHERE id = $1 AND deleted_at IS NULL`, [id]);
         return result.rows[0] || null;
     }
     static async findTrashByID(id: number): Promise<AcademicSession | null> {
-        const result = await query<AcademicSession>(`SELECT * FROM ${tableName} WHERE id = $1 AND deleted_at IS NOT NULL`, [id]);
+        const result = await db.query<AcademicSession>(`SELECT * FROM ${tableName} WHERE id = $1 AND deleted_at IS NOT NULL`, [id]);
         return result.rows[0] || null;
     }
 
+    static async getDefaultSession(): Promise<AcademicSession | null> {
+        const result = await db
+        .table<AcademicSession>(tableName)
+        .where("default_session", true)
+        .whereNull("deleted_at")
+        .get();
+        return result[0] || null;
+    }
+
     static async create(payload: AcademicSessionPayload): Promise<AcademicSession> {
-        const result = await query<AcademicSession>(
-            `INSERT INTO ${tableName} (name, start_date, end_date, status, description, current_session) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-            [payload.name, payload.start_date, payload.end_date, payload.status, payload.description, payload.current_session]
+        const result = await db.query<AcademicSession>(
+            `INSERT INTO ${tableName} (name, start_date, end_date, status, description, default_session) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+            [payload.name, payload.start_date, payload.end_date, payload.status, payload.description, payload.default_session]
         );
         return result.rows[0];
     }
@@ -70,7 +80,7 @@ export class AcademicSessionModel {
         const fields = Object.keys(payload);
         const values = Object.values(payload);
         const setString = fields.map((field, index) => `${field} = $${index + 1}`).join(', ');
-        const result = await query<AcademicSession>(
+        const result = await db.query<AcademicSession>(
             `UPDATE ${tableName} SET ${setString} WHERE id = $${fields.length + 1} AND deleted_at IS NULL RETURNING *`,
             [...values, id]
         );
@@ -78,7 +88,7 @@ export class AcademicSessionModel {
     }
 
     static async delete(id: number): Promise<void> {
-        await query(`UPDATE ${tableName} SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
+        await db.query(`UPDATE ${tableName} SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
     }
 
     static async alreadyExists(field: string, value: string, excludeId?: number): Promise<boolean> {
@@ -97,8 +107,18 @@ export class AcademicSessionModel {
         
         queryText += ` LIMIT 1`;
         
-        const result = await query<AcademicSession>(queryText, queryParams);
+        const result = await db.query<AcademicSession>(queryText, queryParams);
         return result.rows.length > 0;
+    }
+
+    static async findByName(name: string): Promise<AcademicSession | null> {
+        const result = await db.query<AcademicSession>(`SELECT * FROM ${tableName} WHERE name = $1 AND deleted_at IS NULL`, [name]);
+        return result.rows[0] || null;
+    }
+
+    static async findDefaultSession(): Promise<AcademicSession | null> {
+        const result = await db.query<AcademicSession>(`SELECT * FROM ${tableName} WHERE default_session = true AND deleted_at IS NULL`);
+        return result.rows[0] || null;
     }
 
     static async hasActiveSession(excludeId?: number): Promise<boolean> {
@@ -112,13 +132,13 @@ export class AcademicSessionModel {
 
         queryText += ` LIMIT 1`;
 
-        const result = await query<AcademicSession>(queryText, queryParams);
+        const result = await db.query<AcademicSession>(queryText, queryParams);
         return result.rows.length > 0;
     }
 
     static async restore(id: number): Promise<AcademicSession | null> {
         // console.log(`Restoring academic session with ID: ${id}`);
-        const result = await query<AcademicSession>(
+        const result = await db.query<AcademicSession>(
             `UPDATE ${tableName} SET deleted_at = NULL WHERE id = $1 RETURNING *`,
             [id]
         );
@@ -126,7 +146,7 @@ export class AcademicSessionModel {
     }
 
     static async permanentDelete(id: number): Promise<void> {
-        await query(`DELETE FROM ${tableName} WHERE id = $1`, [id]);
+        await db.query(`DELETE FROM ${tableName} WHERE id = $1`, [id]);
     }
 
     

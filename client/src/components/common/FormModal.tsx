@@ -19,12 +19,24 @@ type CheckExistConfig = {
   at: string;
 };
 
-type CheckState = "idle" | "checking" | "valid" | "invalid";
+type CheckState =
+  | "idle"
+  | "checking"
+  | "valid"
+  | "invalid";
 
 type FieldCheckStatus = {
   state: CheckState;
   message: string;
 };
+
+/*
+ * Normal fields contain strings.
+ * Checkbox fields contain boolean values.
+ */
+export type FormValue = string | boolean;
+
+export type FormValues = Record<string, FormValue>;
 
 export interface FieldDef {
   key: string;
@@ -40,26 +52,32 @@ export interface FieldDef {
     | "date"
     | "password"
     | "file"
-    | "url";
+    | "url"
+    | "checkbox";
 
-  options?: { label: string; value: string }[];
+  options?: {
+    label: string;
+    value: string | boolean;
+  }[];
+
   required?: boolean;
   placeholder?: string;
 
   checkExistAt?: CheckExistConfig[];
 }
 
+
 export interface FormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: Record<string, string>) => void;
+  onSubmit: (data: FormValues) => void;
   title: string;
   fields: FieldDef[];
-  initialValues?: Record<string, string>;
+  initialValues?: FormValues;
   submitLabel?: string;
 }
 
-const EMPTY_INITIAL_VALUES: Record<string, string> = {};
+const EMPTY_INITIAL_VALUES: FormValues = {};
 
 const EMPTY_CHECK_STATUS: FieldCheckStatus = {
   state: "idle",
@@ -75,7 +93,7 @@ export function FormModal({
   initialValues = EMPTY_INITIAL_VALUES,
   submitLabel = "Save",
 }: FormModalProps) {
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<FormValues>({});
 
   const [fieldStatuses, setFieldStatuses] = useState<
     Record<string, FieldCheckStatus>
@@ -84,38 +102,45 @@ export function FormModal({
   const { checkExists } = useCheck();
 
   /*
-   * Separate debounce timer for each field.
-   * Typing in one field will not cancel another field's timer.
+   * Separate debounce timer for every field.
    */
   const debounceTimers = useRef<
     Record<string, ReturnType<typeof setTimeout>>
   >({});
 
   /*
-   * Used to prevent an older API response from replacing
+   * Prevent an older API response from replacing
    * the result of a newer request.
    */
-  const requestVersions = useRef<Record<string, number>>({});
+  const requestVersions = useRef<Record<string, number>>(
+    {}
+  );
 
   useEffect(() => {
     if (!isOpen) return;
 
-    const defaultValues: Record<string, string> = {};
+    const defaultValues: FormValues = {};
 
     fields.forEach((field) => {
       defaultValues[field.key] =
-        initialValues[field.key] ?? "";
+        initialValues[field.key] ??
+        (field.type === "checkbox" ? false : "");
     });
 
     setValues(defaultValues);
     setFieldStatuses({});
   }, [isOpen, fields, initialValues]);
 
+  /*
+   * Clear debounce timers when component unmounts.
+   */
   useEffect(() => {
     return () => {
-      Object.values(debounceTimers.current).forEach((timer) => {
-        clearTimeout(timer);
-      });
+      Object.values(debounceTimers.current).forEach(
+        (timer) => {
+          clearTimeout(timer);
+        }
+      );
     };
   }, []);
 
@@ -130,13 +155,16 @@ export function FormModal({
   };
 
   const cancelFieldCheck = (fieldKey: string) => {
-    if (debounceTimers.current[fieldKey]) {
-      clearTimeout(debounceTimers.current[fieldKey]);
+    const timer = debounceTimers.current[fieldKey];
+
+    if (timer) {
+      clearTimeout(timer);
       delete debounceTimers.current[fieldKey];
     }
 
     /*
-     * Increase version so any previous API response is ignored.
+     * Increase the version so that any old response
+     * for this field will be ignored.
      */
     requestVersions.current[fieldKey] =
       (requestVersions.current[fieldKey] ?? 0) + 1;
@@ -161,64 +189,69 @@ export function FormModal({
     const currentRequestVersion =
       requestVersions.current[field.key];
 
-    debounceTimers.current[field.key] = setTimeout(async () => {
-      try {
-        const result = await checkExists({
-          field: field.key,
-          value,
-          label: field.label,
-          at: field.checkExistAt![0].at,
-        });
-
-        /*
-         * Ignore response when the user typed something newer.
-         */
-        if (
-          requestVersions.current[field.key] !==
-          currentRequestVersion
-        ) {
-          return;
-        }
-
-        /*
-         * This assumes success: true means the value is available.
-         */
-        if (result?.success) {
-          updateFieldStatus(field.key, {
-            state: "valid",
-            message:
-              result.message ||
-              `${field.label} is available.`,
+    debounceTimers.current[field.key] = setTimeout(
+      async () => {
+        try {
+          const result = await checkExists({
+            field: field.key,
+            value,
+            label: field.label,
+            at: field.checkExistAt![0].at,
           });
-        } else {
+
+          /*
+           * Ignore an old response when the user
+           * has already entered a newer value.
+           */
+          if (
+            requestVersions.current[field.key] !==
+            currentRequestVersion
+          ) {
+            return;
+          }
+
+          /*
+           * Assumes success: true means the value
+           * is available.
+           */
+          if (result?.success) {
+            updateFieldStatus(field.key, {
+              state: "valid",
+              message:
+                result.message ||
+                `${field.label} is available.`,
+            });
+          } else {
+            updateFieldStatus(field.key, {
+              state: "invalid",
+              message:
+                result?.message ||
+                `${field.label} already exists.`,
+            });
+          }
+        } catch (error) {
+          if (
+            requestVersions.current[field.key] !==
+            currentRequestVersion
+          ) {
+            return;
+          }
+
           updateFieldStatus(field.key, {
             state: "invalid",
-            message:
-              result?.message ||
-              `${field.label} already exists.`,
+            message: `Unable to check ${field.label.toLowerCase()}.`,
           });
+        } finally {
+          delete debounceTimers.current[field.key];
         }
-      } catch (error) {
-        if (
-          requestVersions.current[field.key] !==
-          currentRequestVersion
-        ) {
-          return;
-        }
-
-        updateFieldStatus(field.key, {
-          state: "invalid",
-          message: `Unable to check ${field.label.toLowerCase()}.`,
-        });
-      } finally {
-        delete debounceTimers.current[field.key];
-      }
-    }, delay);
+      },
+      delay
+    );
   };
 
   const handleChange = (
     field: FieldDef,
-    value: string
+    value: FormValue
   ) => {
     setValues((previousValues) => ({
       ...previousValues,
@@ -226,15 +259,21 @@ export function FormModal({
     }));
 
     /*
-     * Normal fields do not trigger duplicate checking.
+     * Checkbox values are boolean and should not
+     * trigger duplicate checking.
+     */
+    if (typeof value !== "string") {
+      return;
+    }
+
+    /*
+     * Fields without duplicate-checking configuration
+     * do not need to call the API.
      */
     if (!field.checkExistAt?.length) {
       return;
     }
 
-    /*
-     * Cancel the timer and remove the message when empty.
-     */
     if (!value.trim()) {
       cancelFieldCheck(field.key);
 
@@ -254,13 +293,13 @@ export function FormModal({
   ) => {
     event.preventDefault();
 
-    const hasInvalidField = Object.values(fieldStatuses).some(
-      (status) => status.state === "invalid"
-    );
+    const hasInvalidField = Object.values(
+      fieldStatuses
+    ).some((status) => status.state === "invalid");
 
-    const hasCheckingField = Object.values(fieldStatuses).some(
-      (status) => status.state === "checking"
-    );
+    const hasCheckingField = Object.values(
+      fieldStatuses
+    ).some((status) => status.state === "checking");
 
     if (hasInvalidField || hasCheckingField) {
       return;
@@ -270,9 +309,11 @@ export function FormModal({
   };
 
   const handleClose = () => {
-    Object.values(debounceTimers.current).forEach((timer) => {
-      clearTimeout(timer);
-    });
+    Object.values(debounceTimers.current).forEach(
+      (timer) => {
+        clearTimeout(timer);
+      }
+    );
 
     debounceTimers.current = {};
     requestVersions.current = {};
@@ -281,13 +322,13 @@ export function FormModal({
     onClose();
   };
 
-  const hasInvalidField = Object.values(fieldStatuses).some(
-    (status) => status.state === "invalid"
-  );
+  const hasInvalidField = Object.values(
+    fieldStatuses
+  ).some((status) => status.state === "invalid");
 
-  const hasCheckingField = Object.values(fieldStatuses).some(
-    (status) => status.state === "checking"
-  );
+  const hasCheckingField = Object.values(
+    fieldStatuses
+  ).some((status) => status.state === "checking");
 
   const isSubmitDisabled =
     hasInvalidField || hasCheckingField;
@@ -318,6 +359,14 @@ export function FormModal({
                     ? "border-red-500 focus:ring-red-500/30"
                     : "border-border focus:ring-primary/30";
 
+              const stringValue =
+                typeof values[field.key] === "string"
+                  ? (values[field.key] as string)
+                  : "";
+
+              const checkboxValue =
+                values[field.key] === true;
+
               return (
                 <div
                   key={field.key}
@@ -327,46 +376,93 @@ export function FormModal({
                       : ""
                   }
                 >
-                  <label className="mb-1.5 block text-sm font-medium text-foreground">
-                    {field.label}
-
-                    {field.required && (
-                      <span className="ml-0.5 text-red-500">
-                        *
-                      </span>
-                    )}
-                  </label>
-
-                  {field.type === "select" &&
-                  field.options ? (
-                    <select
-                      value={values[field.key] ?? ""}
-                      onChange={(event) =>
-                        handleChange(
-                          field,
-                          event.target.value
-                        )
-                      }
-                      required={field.required}
-                      className={`h-9 w-full rounded-lg border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 ${inputBorderClass}`}
-                      data-testid={`field-${field.key}`}
+                  {/*
+                   * Normal label.
+                   * Checkbox has its own inline label below.
+                   */}
+                  {field.type !== "checkbox" && (
+                    <label
+                      htmlFor={`field-${field.key}`}
+                      className="mb-1.5 block text-sm font-medium text-foreground"
                     >
-                      <option value="">
-                        Select {field.label}
-                      </option>
+                      {field.label}
 
-                      {field.options.map((option) => (
-                        <option
-                          key={option.value}
-                          value={option.value}
-                        >
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
+                      {field.required && (
+                        <span className="ml-0.5 text-red-500">
+                          *
+                        </span>
+                      )}
+                    </label>
+                  )}
+                  {field.type === 'checkbox' && (
+                    <label
+                    htmlFor={`field-${field.key}`}
+                    className="mb-1.5 block text-sm font-medium text-foreground"
+                    >
+                      {field.label}
+                      {field.required && (
+                        <span className="ml-0.5 text-red-500">*</span>
+                      )}
+                    </label>
+                  )}
+
+                  {field.type === "checkbox" ? (
+                    <label
+                      htmlFor={`field-${field.key}`}
+                      className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 py-2"
+                    >
+                      <input
+                        id={`field-${field.key}`}
+                        type="checkbox"
+                        checked={checkboxValue}
+                        onChange={(event) =>
+                          handleChange(
+                            field,
+                            event.target.checked
+                          )
+                        }
+                        required={field.required}
+                        className="h-4 w-4 cursor-pointer rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
+                        data-testid={`field-${field.key}`}
+                      />
+
+                      <span className="text-sm font-medium text-foreground">
+                        {field.label}
+
+                        {field.required && (
+                          <span className="ml-0.5 text-red-500">
+                            *
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  ) : field.type === "select" &&
+                    field.options ? (
+                    <select
+  id={`field-${field.key}`}
+  value={stringValue}
+  onChange={(event) =>
+    handleChange(field, event.target.value)
+  }
+  required={field.required}
+  className={`h-9 w-full rounded-lg border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 ${inputBorderClass}`}
+  data-testid={`field-${field.key}`}
+>
+  <option value="">Select {field.label}</option>
+
+  {field.options?.map((option) => (
+    <option
+      key={String(option.value)}
+      value={String(option.value)}
+    >
+      {option.label}
+    </option>
+  ))}
+</select>
                   ) : field.type === "textarea" ? (
                     <textarea
-                      value={values[field.key] ?? ""}
+                      id={`field-${field.key}`}
+                      value={stringValue}
                       onChange={(event) =>
                         handleChange(
                           field,
@@ -384,8 +480,9 @@ export function FormModal({
                     />
                   ) : (
                     <input
+                      id={`field-${field.key}`}
                       type={field.type ?? "text"}
-                      value={values[field.key] ?? ""}
+                      value={stringValue}
                       onChange={(event) =>
                         handleChange(
                           field,

@@ -47,6 +47,14 @@ export class AcademicSessionController {
     });
 
     static create = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
+        if (req.body?.default_session) {
+            const existingDefaultSession = await AcademicSessionModel.getDefaultSession();
+            if (existingDefaultSession) {
+                return next(new AppError('A default academic session already exists. Please unset it before setting a new default session.', 409));
+            }
+        }
+
+        console.log("Creating academic session with payload:", req.body); // Debugging line
         const session = await AcademicSessionModel.create(req.body);
         res.status(201).json({
             success: true,
@@ -55,25 +63,63 @@ export class AcademicSessionController {
         });
     });
 
-    static update = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-        const id = Number(req.params.id);
+    static update = catchAsync(
+        async (
+            req: Request,
+            res: Response,
+            next: NextFunction
+        ) => {
+            const id = Number(req.params.id);
 
-        if (req.body?.status === 'active') {
-            const hasActiveSession = await AcademicSessionModel.hasActiveSession(id);
-            if (hasActiveSession) {
-                return next(new AppError('An active academic session already exists. Please deactivate it before setting this session to active.', 409));
+            if (!Number.isInteger(id) || id <= 0) {
+            return next(new AppError("Invalid academic session ID", 400));
             }
-        }
 
-        const session = await AcademicSessionModel.update(id, req.body);
-        if (!session) {
-            return next(new AppError('Academic session not found', 404));
+            const updateData = { ...req.body };
+
+            if (updateData.default_session !== undefined) {
+            updateData.default_session =
+                updateData.default_session === true ||
+                updateData.default_session === "true" ||
+                updateData.default_session === 1 ||
+                updateData.default_session === "1";
+            }
+
+            // Only validate when setting this session as default
+            if (updateData.default_session === true) {
+            const existingDefaultSession =
+                await AcademicSessionModel.getDefaultSession();
+
+            if (
+                existingDefaultSession &&
+                Number(existingDefaultSession.id) !== id
+            ) {
+                return next(
+                new AppError(
+                    "Another default academic session already exists. Please unset it before setting a new default session.",
+                    409
+                )
+                );
+            }
+            }
+
+            const session = await AcademicSessionModel.update(
+            id,
+            updateData
+            );
+
+            if (!session) {
+            return next(
+                new AppError("Academic session not found", 404)
+            );
+            }
+
+            res.status(200).json({
+            status: "success",
+            data: session,
+            });
         }
-        res.status(200).json({
-            status: 'success',
-            data: session
-        });
-    });
+        );
 
     static delete = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
         const session = await AcademicSessionModel.findById(Number(req.params.id));

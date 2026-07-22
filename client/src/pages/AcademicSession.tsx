@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { DataTable, Column } from "@/components/tables/DataTable";
-import { FormModal, FieldDef } from "@/components/common/FormModal";
+import { FormModal, FieldDef, FormValues } from "@/components/common/FormModal";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Modal } from "@/components/common/Modal";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
@@ -19,6 +19,7 @@ type AcademicSessionItem = {
   start_date: Date;
   end_date: Date;
   status: string;
+  default_session: boolean;
   description: string;
 };
 
@@ -27,6 +28,7 @@ const columns: Column[] = [
   { key: "start_date", label: "Start Date" },
   { key: "end_date", label: "End Date" },
   { key: "description", label: "Description" },
+  { key: "default_session", label: "Default Session" },
   { key: "status", label: "Status" },
 ];
 
@@ -48,6 +50,13 @@ const fields: FieldDef[] = [
     label: "End Date",
     required: true,
     type: "date",
+  },
+  {
+    key: "default_session",
+    label: "Is this the default session?",
+    required: false,
+    type: "checkbox",
+    options: [{ label: "Yes", value: true }],
   },
   {
     key: "status",
@@ -119,8 +128,6 @@ const loadAcademicSessions = async (filter: StatusFilter) => {
   (state) => (state as any).academicSession?.academicSessions
 );
 
-console.log("Academic Sessions from Redux Store:", academicSessions); // Debugging line
-
   const [editItem, setEditItem] = useState<AcademicSessionItem | null>(null);
   const [deleteItem, setDeleteItem] = useState<AcademicSessionItem | null>(null);
   const [restoreItem, setRestoreItem] = useState<AcademicSessionItem | null>(null);
@@ -130,16 +137,15 @@ console.log("Academic Sessions from Redux Store:", academicSessions); // Debuggi
 
   useEffect(() => {
     void loadAcademicSessions("all");
-    // getAcademicSessions("all");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
    useEffect(() => {
   const sessions = Array.isArray(academicSessions)
     ? academicSessions
     : [];
-
+console.log("Formatted Academic Sessions:", sessions); // Debugging line
   const formattedSessions: AcademicSessionItem[] =
+  
     sessions.map(
       (
         item: Partial<AcademicSessionItem>,
@@ -150,6 +156,7 @@ console.log("Academic Sessions from Redux Store:", academicSessions); // Debuggi
         start_date: item.start_date ? new Date(item.start_date) : new Date(),
         end_date: item.end_date ? new Date(item.end_date) : new Date(),
         status: String(item.status ?? "active"),
+        default_session: Boolean(item.default_session ?? false),
         description: String(item.description ?? ""),
       })
     );
@@ -183,6 +190,7 @@ console.log("Academic Sessions from Redux Store:", academicSessions); // Debuggi
     ...item,
     start_date: item.start_date instanceof Date ? item.start_date.toLocaleDateString() : item.start_date,
     end_date: item.end_date instanceof Date ? item.end_date.toLocaleDateString() : item.end_date,
+    default_session: item.default_session === true ? "Yes" : "No",
   }));
 
   const handleDelete = async () => {
@@ -239,16 +247,17 @@ console.log("Academic Sessions from Redux Store:", academicSessions); // Debuggi
     }
   };
 
-  const handleEdit = async (values: Record<string, string>) => {
+  const handleEdit = async (values: FormValues) => {
     if (!editItem) return;
 
     const payload = {
       id: editItem.id,
-      name: values.name,
-      start_date: values.start_date,
-      end_date: values.end_date,
-      status: values.status || "active",
-      description: values.description,
+      name: String(values.name),
+      start_date: String(values.start_date),
+      end_date: String(values.end_date),
+      default_session: String(values.default_session || false),
+      status: String(values.status || "active"),
+      description: String(values.description),
     };
 
     await updateAcademicSession(payload);
@@ -256,13 +265,14 @@ console.log("Academic Sessions from Redux Store:", academicSessions); // Debuggi
     setEditItem(null);
   };
 
-  const handleAdd = async (values: Record<string, string>) => {
+  const handleAdd = async (values: FormValues) => {
     const payload = {
-      name: values.name,
-      start_date: values.start_date,
-      end_date: values.end_date,
-      status: values.status || "active",
-      description: values.description,
+      name: String(values.name),
+      start_date: String(values.start_date),
+      end_date: String(values.end_date),
+      default_session: String(values.default_session || "false"),
+      status: String(values.status || "active"),
+      description: String(values.description),
     };
 
     setAddOpen(false);
@@ -301,15 +311,22 @@ console.log("Academic Sessions from Redux Store:", academicSessions); // Debuggi
     }
   };
 
-  const editInitialValues: Record<string, string> | undefined = editItem
-    ? {
+  const editInitialValues: FormValues | undefined = editItem
+  ? {
       name: editItem.name,
-      start_date: editItem.start_date instanceof Date ? editItem.start_date.toISOString().split('T')[0] : '',
-      end_date: editItem.end_date instanceof Date ? editItem.end_date.toISOString().split('T')[0] : '',
+      start_date:
+        editItem.start_date instanceof Date
+          ? editItem.start_date.toISOString().split("T")[0]
+          : "",
+      end_date:
+        editItem.end_date instanceof Date
+          ? editItem.end_date.toISOString().split("T")[0]
+          : "",
+      default_session: editItem.default_session,
       status: editItem.status,
       description: editItem.description,
     }
-    : undefined;
+  : undefined;
 
   return (
     <div>
@@ -367,7 +384,7 @@ console.log("Academic Sessions from Redux Store:", academicSessions); // Debuggi
 
         <div className="px-6">
           {isLoading ? (
-            <ListingSkeleton columns={columns.length} rows={10} />
+            <ListingSkeleton columns={columns.length} rows={data.length} />
           ) : (
           <DataTable
             columns={columns}
@@ -445,6 +462,15 @@ console.log("Academic Sessions from Redux Store:", academicSessions); // Debuggi
                   {viewItem.end_date instanceof Date
                     ? viewItem.end_date.toLocaleDateString()
                     : viewItem.end_date}
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Current Session
+                </label>
+                <p className="mt-1 text-sm text-foreground">
+                  {viewItem.default_session ? "Yes" : "No"}
                 </p>
               </div>
             </div>

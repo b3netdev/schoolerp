@@ -66,9 +66,9 @@ const mainNav: NavItem[] = [
     roles: ["admin"],
   },
   {
-    path: "class-section",
+    path: "class-section-relation",
     icon: BookOpen,
-    label: "Class Section",
+    label: "Class Section Relation",
     roles: ["admin"],
   },
   {

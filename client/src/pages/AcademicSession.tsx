@@ -7,11 +7,13 @@ import { Modal } from "@/components/common/Modal";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
 import { Pagination } from "@/components/common/Pagination";
 import { PageHeader } from "@/components/common/PageHeader";
-import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
 import useAcademicSession from "@/hooks/useAcademicSession";
 import { useAppSelector } from "../../redux/hooks";
 import { ListingSkeleton } from "@/components/tables/ListingSkeleton";
+import {
+  StatusTabs,
+  StatusTabOption,
+} from "@/components/common/StatusTabs";
 
 type AcademicSessionItem = {
   id?: number;
@@ -79,12 +81,7 @@ const fields: FieldDef[] = [
 
 type StatusFilter = "all" | "active" | "inactive" | "trash";
 
-type StatusFilterOption = {
-  value: StatusFilter;
-  label: string;
-};
-
-const buttonGroup: StatusFilterOption[] = [
+const statusTabs: StatusTabOption<StatusFilter>[] = [
   {
     value: "all",
     label: "All",
@@ -164,11 +161,11 @@ console.log("Formatted Academic Sessions:", sessions); // Debugging line
   setData(formattedSessions);
 }, [academicSessions]);
 
-  const selectTabe = async (item: StatusFilterOption) => {
-    setStatusFilter(item.value);
+  const handleStatusChange = async (status: StatusFilter) => {
+    setStatusFilter(status);
     setPage(1);
 
-    await loadAcademicSessions(item.value);
+    await loadAcademicSessions(status);
   };
 
   const filtered = data.filter(
@@ -366,20 +363,13 @@ console.log("Formatted Academic Sessions:", sessions); // Debugging line
             />
           </div>
 
-          <ButtonGroup className="lg:ml-auto">
-            {buttonGroup.map((item) => (
-              <Button
-                key={item.value}
-                className="cursor-pointer"
-                variant={statusFilter === item.value ? "default" : "outline"}
-                size="sm"
-                type="button"
-                onClick={() => selectTabe(item)}
-              >
-                {item.label}
-              </Button>
-            ))}
-          </ButtonGroup>
+          <StatusTabs
+            options={statusTabs}
+            value={statusFilter}
+            onChange={handleStatusChange}
+            disabled={isLoading}
+            className="lg:ml-auto"
+          />
         </div>
 
         <div className="px-6">

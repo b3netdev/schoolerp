@@ -14,7 +14,8 @@ type TeacherStatusFilter =
   | "all"
   | "active"
   | "inactive"
-  | "resigned";
+  | "resigned"
+  | "trash";
 
 type AutoEmployeeCodeRules = {
   generationType: "auto";
@@ -539,6 +540,7 @@ export class TeacherController {
           "active",
           "inactive",
           "resigned",
+          "trash",
         ];
 
         if (
@@ -788,6 +790,65 @@ export class TeacherController {
         success: true,
         message: "Teacher deleted successfully",
         data: teacher,
+      });
+    },
+  );
+
+  static restore = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const id = Number(req.params.id);
+
+      if (!Number.isInteger(id) || id <= 0) {
+        return next(
+          new AppError("Invalid teacher ID", 400),
+        );
+      }
+
+      const teacher = await TeacherModel.restore(id);
+
+      if (!teacher) {
+        return next(
+          new AppError("Teacher not found in trash", 404),
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Teacher restored successfully",
+        data: teacher,
+      });
+    },
+  );
+
+  static permanentDelete = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const id = Number(req.params.id);
+
+      if (!Number.isInteger(id) || id <= 0) {
+        return next(
+          new AppError("Invalid teacher ID", 400),
+        );
+      }
+
+      const deleted = await TeacherModel.hardDelete(id);
+
+      if (!deleted) {
+        return next(
+          new AppError("Teacher not found or already deleted", 404),
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Teacher permanently deleted successfully",
       });
     },
   );

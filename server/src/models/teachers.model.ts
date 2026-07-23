@@ -141,23 +141,32 @@ type TeacherStatusFilter =
   | "all"
   | "active"
   | "inactive"
-  | "resigned";
+  | "resigned"
+  | "trash";
 export class TeacherModel {
   static async findAll(
     status: TeacherStatusFilter = "all",
   ): Promise<Teacher[]> {
     const values: unknown[] = [];
-    const conditions: string[] = ["deleted_at IS NULL"];
+    const conditions: string[] = [];
 
-    if (status !== "all") {
-      values.push(status);
-      conditions.push(`status = $${values.length}`);
+    // Handle trash filter separately
+    if (status === "trash") {
+      conditions.push("deleted_at IS NOT NULL");
+    } else {
+      conditions.push("deleted_at IS NULL");
+      
+      if (status !== "all") {
+        values.push(status);
+        conditions.push(`status = $${values.length}`);
+      }
     }
+    
     const result = await query<Teacher>(
       `
       SELECT *
       FROM ${tableName}
-    WHERE ${conditions.join(" AND ")}
+      WHERE ${conditions.join(" AND ")}
       ORDER BY id DESC
       `,
       values,
@@ -512,9 +521,63 @@ export class TeacherModel {
       SET
         deleted_at = CURRENT_TIMESTAMP,
         updated_at = CURRENT_TIMESTAMP,
-        status='inactive',
+        status = 'inactive'
       WHERE id = $1
       AND deleted_at IS NULL
+      RETURNING
+        id,
+        employee_code,
+        first_name,
+        last_name,
+        email,
+        phone,
+        alternate_phone,
+        gender,
+        date_of_birth,
+        blood_group,
+        marital_status,
+        current_address,
+        permanent_address,
+        city,
+        state,
+        country,
+        pincode,
+        qualification,
+        specialization,
+        experience_years,
+        joining_date,
+        employment_type,
+        status,
+        basic_salary,
+        bank_name,
+        bank_account_number,
+        ifsc_code,
+        pan_number,
+        emergency_contact_name,
+        emergency_contact_phone,
+        emergency_contact_relation,
+        profile_image,
+        remarks,
+        created_at,
+        updated_at,
+        deleted_at
+      `,
+      [id],
+    );
+
+    return result.rows[0] || null;
+  }
+
+  static async restore(id: number): Promise<Teacher | null> {
+    const result = await query<Teacher>(
+      `
+      UPDATE ${tableName}
+      SET
+        deleted_at = NULL,
+        updated_at = CURRENT_TIMESTAMP,
+        status = 'active'
+      WHERE id = $1
+      AND deleted_at IS NOT NULL
       RETURNING
         id,
         employee_code,

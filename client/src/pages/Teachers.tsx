@@ -41,7 +41,8 @@ import useClass from "@/hooks/useClass";
 import type { Teacher } from "../../redux/slicers/teacherSlice";
 
 import { Button } from "@/components/ui/button";
-import { ButtonGroup } from "@/components/ui/button-group";
+import { StatusTabs, StatusTabOption } from "@/components/common/StatusTabs";
+import { ListingSkeleton } from "@/components/tables/ListingSkeleton";
 
 import {
   Select,
@@ -57,15 +58,26 @@ type TeacherTableRow = Teacher & {
   initials: string;
 };
 
-type StatusFilter =
-  | "all"
-  | "active"
-  | "inactive";
+type StatusFilter = "all" | "active" | "inactive" | "trash";
 
-type StatusFilterOption = {
-  value: StatusFilter;
-  label: string;
-};
+const statusTabs: StatusTabOption<StatusFilter>[] = [
+  {
+    value: "all",
+    label: "All",
+  },
+  {
+    value: "active",
+    label: "Active",
+  },
+  {
+    value: "inactive",
+    label: "Inactive",
+  },
+  {
+    value: "trash",
+    label: "Trash",
+  },
+];
 
 type TeacherFormValues = {
   first_name: string;
@@ -159,33 +171,9 @@ const columns: Column[] = [
     label: "Phone",
   },
   {
-    key: "qualification",
-    label: "Qualification",
-  },
-  {
-    key: "specialization",
-    label: "Specialization",
-  },
-  
-  {
     key: "status",
     label: "Status",
     type: "badge",
-  },
-];
-
-const buttonGroup: StatusFilterOption[] = [
-  {
-    value: "all",
-    label: "All",
-  },
-  {
-    value: "active",
-    label: "Active",
-  },
-  {
-    value: "inactive",
-    label: "Inactive",
   },
 ];
 
@@ -2029,12 +2017,15 @@ export default function Teachers() {
   );
 
   const { classes } = useAppSelector((state) => state.class);
+  const [isLoading, setIsLoading] = useState(true);
 
   const {
     getTeachers,
     addteacher,
     updateteacher,
     deleteteacher,
+    restoreteacher,
+    permanentdeleteteacher,
   } = useTeacher();
 
   const { getClasses } = useClass();
@@ -2071,6 +2062,8 @@ export default function Teachers() {
   const [viewItem, setViewItem] = useState<Teacher | null>(null);
   const [editItem, setEditItem] = useState<Teacher | null>(null);
   const [deleteItem, setDeleteItem] = useState<Teacher | null>(null);
+  const [restoreItem, setRestoreItem] = useState<Teacher | null>(null);
+  const [permanentDeleteItem, setPermanentDeleteItem] = useState<Teacher | null>(null);
   const [addOpen, setAddOpen] = useState(false);
 
   const [statusFilter, setStatusFilter] =
@@ -2081,8 +2074,19 @@ export default function Teachers() {
 
   const itemsPerPage = 10;
 
+  const loadTeachers = async (status: StatusFilter) => {
+    try {
+      setIsLoading(true);
+      await getTeachers(status);
+    } catch (error) {
+      console.error("Failed to fetch teachers:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    void getTeachers("all");
+    void loadTeachers(statusFilter);
     void getClasses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2306,17 +2310,45 @@ export default function Teachers() {
   const handleDelete = async () => {
     if (!deleteItem?.id) return;
 
-    await deleteteacher(deleteItem.id);
+    const result = await deleteteacher(deleteItem.id);
+    
+    if (result?.success) {
+      await loadTeachers(statusFilter);
+    }
 
     setDeleteItem(null);
   };
 
-  const selectTab = async (item: StatusFilterOption) => {
-    setStatusFilter(item.value);
-    setPage(1);
+  const handleRestore = async () => {
+    if (!restoreItem?.id) return;
 
-    await getTeachers(item.value);
+    const result = await restoreteacher(restoreItem.id);
+    
+    if (result?.success) {
+      await loadTeachers(statusFilter);
+    }
+
+    setRestoreItem(null);
   };
+
+  const handlePermanentDelete = async () => {
+    if (!permanentDeleteItem?.id) return;
+
+    const result = await permanentdeleteteacher(permanentDeleteItem.id);
+    
+    if (result?.success) {
+      await loadTeachers(statusFilter);
+    }
+
+    setPermanentDeleteItem(null);
+  };
+
+  const handleStatusChange = async (status: StatusFilter) => {
+  setStatusFilter(status);
+  setPage(1);
+
+  await loadTeachers(status);
+};
 
   const handleClassChange = (value: string) => {
     setSelectedClassId(value);
@@ -2361,7 +2393,7 @@ export default function Teachers() {
             />
           </div>
 
-          <div className="w-full lg:w-[220px]">
+          <div className="w-full lg:w-55">
             <Select
               value={selectedClassId}
               onValueChange={handleClassChange}
@@ -2385,27 +2417,19 @@ export default function Teachers() {
             </Select>
           </div>
 
-          <ButtonGroup>
-            {buttonGroup.map((item) => (
-              <Button
-                key={item.value}
-                className="cursor-pointer"
-                variant={
-                  statusFilter === item.value
-                    ? "default"
-                    : "outline"
-                }
-                size="sm"
-                type="button"
-                onClick={() => void selectTab(item)}
-              >
-                {item.label}
-              </Button>
-            ))}
-          </ButtonGroup>
+          <StatusTabs
+              options={statusTabs}
+              value={statusFilter}
+              onChange={handleStatusChange}
+              disabled={isLoading}
+              className="lg:ml-auto"
+            />
         </div>
 
         <div className="px-6">
+          {isLoading ? (
+            <ListingSkeleton columns={columns.length} rows={paginatedTeachers.length} />
+          ) : (
           <DataTable
             columns={columns}
             data={
@@ -2417,13 +2441,21 @@ export default function Teachers() {
             onView={(row) =>
               setViewItem(row as unknown as Teacher)
             }
-            onEdit={(row) =>
-              setEditItem(row as unknown as Teacher)
-            }
-            onDelete={(row) =>
-              setDeleteItem(row as unknown as Teacher)
-            }
+            {...(statusFilter === "trash"
+              ? {
+                  onRestore: (row) =>
+                    setRestoreItem(row as unknown as Teacher),
+                  onPermanentDelete: (row) =>
+                    setPermanentDeleteItem(row as unknown as Teacher),
+                }
+              : {
+                  onEdit: (row) =>
+                    setEditItem(row as unknown as Teacher),
+                  onDelete: (row) =>
+                    setDeleteItem(row as unknown as Teacher),
+                })}
           />
+          )}
         </div>
 
         <div className="flex items-center justify-between border-t border-border px-6 py-4">
@@ -2626,6 +2658,28 @@ export default function Teachers() {
         }" from the system? This action cannot be undone.`}
         confirmLabel="Delete Teacher"
       />
+
+      <ConfirmModal
+        isOpen={Boolean(restoreItem)}
+        onClose={() => setRestoreItem(null)}
+        onConfirm={handleRestore}
+        title="Restore Teacher"
+        description={`Are you sure you want to restore "${
+          restoreItem ? getFullName(restoreItem) : ""
+        }" back to active status?`}
+        confirmLabel="Restore Teacher"
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(permanentDeleteItem)}
+        onClose={() => setPermanentDeleteItem(null)}
+        onConfirm={handlePermanentDelete}
+        title="Permanently Delete Teacher"
+        description={`Are you sure you want to permanently delete "${
+          permanentDeleteItem ? getFullName(permanentDeleteItem) : ""
+        }"? This action CANNOT be undone and all data will be lost forever.`}
+        confirmLabel="Permanently Delete"
+      />
     </div>
   );
 }
@@ -2665,7 +2719,7 @@ function Info({
         {label}
       </p>
 
-      <p className="min-h-[38px] break-words rounded-lg bg-muted/40 px-3 py-2 font-medium text-foreground">
+      <p className="min-h-9.5 wrap-break-word rounded-lg bg-muted/40 px-3 py-2 font-medium text-foreground">
         {value || "-"}
       </p>
     </div>

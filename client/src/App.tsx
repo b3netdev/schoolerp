@@ -29,7 +29,7 @@ import { Provider } from "react-redux";
 import { store } from "../redux/store";
 import AuthInitializer from "./components/common/AuthInitializer";
 import ComingSoon from "./components/common/ommingSoon";
-import ClassSectionRelation from "./pages/ClassSection";
+import ClassSectionRelation from "./pages/ClassSectionRelation";
 import Streams from "./pages/Stream";
 import { Toaster } from "./components/ui/sonner";
 
@@ -103,7 +103,7 @@ function App() {
                   <Route path="teachers" element={<Teachers />} />
                   <Route path="fees" element={<ComingSoon />} />
                   <Route path="section" element={<Section />} />
-                  <Route path="class-section" element={<ClassSectionRelation />} />
+                  <Route path="class-section-relation" element={<ClassSectionRelation />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="streams" element={<Streams />} />
                 </Route>

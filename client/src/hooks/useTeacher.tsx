@@ -52,7 +52,7 @@ export interface AddTeacherPayload {
 export interface UpdateTeacherPayload extends AddTeacherPayload {
   id: number;
 }
-type TeacherStatusFilter = "all" | "active" | "inactive";
+type TeacherStatusFilter = "all" | "active" | "inactive" | "trash";
 const useTeacher = () => {
   const dispatch = useAppDispatch();
 
@@ -103,9 +103,45 @@ const useTeacher = () => {
 
       if (result?.data?.success) {
         dispatch(deleteTeacher(id));
+        return { success: true, message: result.data.message };
       }
-    } catch (error) {
+      return { success: false, message: 'Failed to delete teacher' };
+    } catch (error: any) {
       console.log(error);
+      const message = error?.response?.data?.message || 'An error occurred while deleting teacher';
+      return { success: false, message };
+    }
+  };
+
+  const restoreteacher = async (id: number) => {
+    try {
+      const result = await api.post(`/teacher/restore-teacher/${id}`);
+
+      if (result?.data?.success) {
+        dispatch(updateTeacher(result.data.data));
+        return { success: true, message: result.data.message };
+      }
+      return { success: false, message: 'Failed to restore teacher' };
+    } catch (error: any) {
+      console.log(error);
+      const message = error?.response?.data?.message || 'An error occurred while restoring teacher';
+      return { success: false, message };
+    }
+  };
+
+  const permanentdeleteteacher = async (id: number) => {
+    try {
+      const result = await api.delete(`/teacher/permanent-delete-teacher/${id}`);
+
+      if (result?.data?.success) {
+        dispatch(deleteTeacher(id));
+        return { success: true, message: result.data.message };
+      }
+      return { success: false, message: 'Failed to permanently delete teacher' };
+    } catch (error: any) {
+      console.log(error);
+      const message = error?.response?.data?.message || 'An error occurred while permanently deleting teacher';
+      return { success: false, message };
     }
   };
   
@@ -115,6 +151,8 @@ const useTeacher = () => {
     addteacher,
     updateteacher,
     deleteteacher,
+    restoreteacher,
+    permanentdeleteteacher,
   };
 };
 

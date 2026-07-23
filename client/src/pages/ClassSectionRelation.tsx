@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Search } from "lucide-react";
 import { DataTable, Column } from "@/components/tables/DataTable";
-import { FormModal, FieldDef } from "@/components/common/FormModal";
+import { FormModal, FieldDef, FormValues } from "@/components/common/FormModal";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
 import { Pagination } from "@/components/common/Pagination";
@@ -123,31 +123,24 @@ export default function ClassSectionRelation() {
       label: "Class",
       type: "select",
       required: true,
-      options: classOptions.map((item) => makeOptionValue(item.id, item.label)),
     },
     {
       key: "section_id",
       label: "Section",
       type: "select",
       required: true,
-      options: sectionOptions.map((item) =>
-        makeOptionValue(item.id, item.label)
-      ),
     },
     {
       key: "teacher_id",
       label: "Teacher",
       type: "select",
       required: true,
-      options: teacherOptions.map((item) =>
-        makeOptionValue(item.id, item.label)
-      ),
     },
   ];
-  const buildRelationPayload = (values: Record<string, string>) => {
-    const classId = findOptionIdByLabel(classOptions, values.class_id);
-    const sectionId = findOptionIdByLabel(sectionOptions, values.section_id);
-    const teacherId = findOptionIdByLabel(teacherOptions, values.teacher_id);
+  const buildRelationPayload = (values: FormValues) => {
+    const classId = findOptionIdByLabel(classOptions, String(values.class_id));
+    const sectionId = findOptionIdByLabel(sectionOptions, String(values.section_id));
+    const teacherId = findOptionIdByLabel(teacherOptions, String(values.teacher_id));
 
     return {
       class_id: classId,
@@ -172,7 +165,7 @@ export default function ClassSectionRelation() {
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
 
-  const handleAdd = async (values: Record<string, string>) => {
+  const handleAdd = async (values: FormValues) => {
     const payload = buildRelationPayload(values);
     console.log(payload, "PAYLOAD")
 
@@ -183,7 +176,7 @@ export default function ClassSectionRelation() {
     }
   };
 
-  const handleEdit = async (values: Record<string, string>) => {
+  const handleEdit = async (values: FormValues) => {
     if (!editItem) return;
 
     const payload = {
@@ -232,7 +225,7 @@ export default function ClassSectionRelation() {
     }
   };
 
-  const editInitialValues: Record<string, string> | undefined = editItem
+  const editInitialValues: FormValues | undefined = editItem
     ? {
       class_id: makeOptionValue(editItem.class_id, editItem.class_name),
       section_id: makeOptionValue(editItem.section_id, editItem.section_name),
@@ -315,9 +308,9 @@ export default function ClassSectionRelation() {
         isOpen={addOpen}
         onClose={() => setAddOpen(false)}
         onSubmit={handleAdd}
-        title="Add Class Section Relation"
+        title="Make Class Section Relation"
         fields={fields}
-        submitLabel="Add Relation"
+        submitLabel="Make Relation"
       />
 
       <FormModal

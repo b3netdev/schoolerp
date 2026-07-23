@@ -1,6 +1,6 @@
 import { Badge, statusToBadgeVariant } from "@/components/common/Badge";
 import { Avatar } from "@/components/common/Avatar";
-import { Eye, Pencil, Trash2, RotateCcw, X } from "lucide-react";
+import { ActionButtonGroup } from "@/components/common/ActionButtonGroup";
 
 export type ColumnType = "text" | "avatar-text" | "badge" | "status" | "actions";
 
@@ -110,67 +110,13 @@ export function DataTable({
 
               {hasActions && (
                 <td className="px-6 py-3">
-                  <div className="flex items-center gap-1">
-                    {onView && (
-                      <button
-                        onClick={() => onView(row)}
-                        className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                        title="View"
-                        data-testid={`action-view-${rowIndex}`}
-                        type="button"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-
-                    {onEdit && (
-                      <button
-                        onClick={() => onEdit(row)}
-                        className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-amber-600 hover:bg-amber-50 transition-colors"
-                        title="Edit"
-                        data-testid={`action-edit-${rowIndex}`}
-                        type="button"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-
-                    {onDelete && (
-                      <button
-                        onClick={() => onDelete(row)}
-                        className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-red-600 hover:bg-red-50 transition-colors"
-                        title="Delete"
-                        data-testid={`action-delete-${rowIndex}`}
-                        type="button"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-
-                    {onRestore && (
-                      <button
-                        onClick={() => onRestore(row)}
-                        className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-green-600 hover:bg-green-50 transition-colors"
-                        title="Restore"
-                        data-testid={`action-restore-${rowIndex}`}
-                        type="button"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-
-                    {onPermanentDelete && (
-                      <button
-                        onClick={() => onPermanentDelete(row)}
-                        className="w-7 h-7 rounded-md flex items-center justify-center text-muted-foreground hover:text-red-700 hover:bg-red-100 transition-colors"
-                        title="Permanently Delete"
-                        data-testid={`action-permanent-delete-${rowIndex}`}
-                        type="button"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
+                  <ActionButtonGroup
+                    onView={onView ? () => onView(row) : undefined}
+                    onEdit={onEdit ? () => onEdit(row) : undefined}
+                    onDelete={onDelete ? () => onDelete(row) : undefined}
+                    onRestore={onRestore ? () => onRestore(row) : undefined}
+                    onPermanentDelete={onPermanentDelete ? () => onPermanentDelete(row) : undefined}
+                  />
                 </td>
               )}
             </tr>

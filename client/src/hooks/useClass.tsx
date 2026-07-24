@@ -4,6 +4,7 @@ import {
     setClasses,
     addClass,
     updateClass,
+    deleteClass,
 } from "../../redux/slicers/classesSlicer";
 
 interface AddClassPayload {
@@ -16,9 +17,9 @@ interface AddClassPayload {
 const useClass = () => {
     const dispatch = useAppDispatch();
 
-    const getClasses = async () => {
+    const getClasses = async (status: string = "all") => {
         try {
-            const result = await api.get("/class/get-classes");
+            const result = await api.get(`/class/get-classes?status=${status}`);
 
             if (result?.data?.success) {
                 dispatch(setClasses(result.data.data));
@@ -52,10 +53,49 @@ const useClass = () => {
         }
     };
 
+    const deleteclass = async (id: number) => {
+        try {
+            const result = await api.delete(`/class/delete-class/${id}`);
+
+            if (result?.data?.success) {
+                dispatch(deleteClass(id));
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    };
+
+    const restoreclass = async (id: number) => {
+        try {
+            const result = await api.patch(`/class/restore-class/${id}`);
+
+            if (result?.data?.success) {
+                dispatch(updateClass(result.data.data));
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    };
+
+    const hardDeleteclass = async (id: number) => {
+        try {
+            const result = await api.delete(`/class/hard-delete-class/${id}`);
+
+            if (result?.data?.success) {
+                dispatch(deleteClass(id));
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    };
+
     return {
         getClasses,
         addclass,
         updateclass,
+        deleteclass,
+        restoreclass,
+        hardDeleteclass,
     };
 };
 

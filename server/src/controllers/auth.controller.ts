@@ -1,9 +1,11 @@
 import { Request, Response, NextFunction } from "express";
 import { catchAsync } from "../utils/catchAsync.js";
 import { UserModel } from "../models/user.model.js";
+import { AcademicSessionModel } from "../models/AcademicSession.model.js";
 import { AppError } from "../utils/AppError.js";
 import bcrypt from "bcrypt";
 import jwt, { SignOptions } from "jsonwebtoken";
+import session from "express-session";
 
 export const createAdmin = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -34,12 +36,14 @@ export const adminLogin = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const { email, password } = req.body;
     if (!email || !password)
-      return next(new AppError("Email or password is required", 404));
+      return next(new AppError("Email or password is required", 400));
+    const DefaultAcademicSession = await AcademicSessionModel.getDefaultSession();
+    //console.log("DefaultAcademicSession", DefaultAcademicSession);
     const user = await UserModel.findByEmail(email);
-    if (!user) return next(new AppError("Wrong email or password", 409));
+    if (!user) return next(new AppError("Wrong email or password", 401));
     const ispasswordMatch = await bcrypt.compare(password, user.password);
     if (!ispasswordMatch)
-      return next(new AppError("Wrong email or password", 404));
+      return next(new AppError("Wrong email or password", 401));
     const expiresIn = (process.env.JWT_EXPIRES_IN ||
       "7d") as SignOptions["expiresIn"];
 
@@ -48,17 +52,22 @@ export const adminLogin = catchAsync(
         id: user.id,
         email: user.email,
         role: user.role,
+        default_academic_session: DefaultAcademicSession,
       },
       process.env.JWT_SECRET as string,
       {
         expiresIn,
       },
     );
+    
+    const isProduction = process.env.NODE_ENV === "production";
+    
     res.cookie("authtoken", token, {
       httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+      secure: isProduction,
+      sameSite: isProduction ? "strict" : "lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/",
     });
 
     res.status(200).json({
@@ -69,6 +78,7 @@ export const adminLogin = catchAsync(
         name: user.name,
         email: user.email,
         role: user.role,
+        default_academic_session: DefaultAcademicSession,
       },
     });
   },
@@ -76,10 +86,13 @@ export const adminLogin = catchAsync(
 
 export const signOut = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
+    const isProduction = process.env.NODE_ENV === "production";
+    
     res.clearCookie("authtoken", {
       httpOnly: true,
-      secure: false,
-      sameSite: "lax",
+      secure: isProduction,
+      sameSite: isProduction ? "strict" : "lax",
+      path: "/",
     });
     return res.status(200).json({
       success: true,

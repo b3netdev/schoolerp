@@ -4,7 +4,8 @@ export interface Section {
   id: number;
   name: string;
   stream: string;
-  description: string
+  status: string;
+  description: string;
 }
 
 interface SectionState {

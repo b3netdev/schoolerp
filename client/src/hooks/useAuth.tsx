@@ -24,7 +24,7 @@ const useAuth = () => {
     const adminLogin = async (payload: logInpayload) => {
         setLoading(true)
         try {
-            const data = await api.post(`/auth/admin-login`, payload)
+            const data = await api.post(`/auth/admin-login`, payload);
             if (data?.data?.success == true) {
                 dispatch(setAuth(data.data.data))
                 return data.data.data
@@ -47,9 +47,12 @@ const useAuth = () => {
                 dispatch(setAuth(data.data.data))
                 return true
             }
+            return false
         }
         catch (error) {
+            console.log("Auth check failed:", error)
             setError(error)
+            return false
         }
         finally {
             setCheckAUthLoading(false)

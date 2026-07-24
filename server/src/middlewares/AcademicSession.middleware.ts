@@ -9,4 +9,3 @@ export const validateAcademicSessionId = async (req: Request, res: Response, nex
     }
     next();
 };
-

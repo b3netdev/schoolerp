@@ -8,6 +8,7 @@ interface JwtPayload {
   id: string;
   email: string;
   role: string;
+  default_academic_session: string;
 }
 
 export const isAuthenticated = catchAsync(
@@ -31,12 +32,19 @@ export const isAuthenticated = catchAsync(
     if (!user) {
       return next(new AppError("User no longer exists", 401));
     }
+    if (!user.is_active) {
+      return next(new AppError("User is not active", 403));
+    }
+    if (user.role !== decoded.role) {
+      return next(new AppError("User role has changed, please login again", 403));
+    }
 
     req.user = {
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
+      default_academic_session: decoded.default_academic_session,
     };
     next();
   },

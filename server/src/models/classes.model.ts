@@ -45,6 +45,61 @@ export class ClassModel {
         return result.rows;
     }
 
+    static async findByStatus(statusFilter: string): Promise<Class[]> {
+        let whereClause = "WHERE deleted_at IS NULL";
+        
+        if (statusFilter === "trash") {
+            whereClause = "WHERE deleted_at IS NOT NULL";
+        } else if (statusFilter === "active") {
+            whereClause = "WHERE deleted_at IS NULL AND status = 'active'";
+        } else if (statusFilter === "inactive") {
+            whereClause = "WHERE deleted_at IS NULL AND status = 'inactive'";
+        }
+        // 'all' shows all non-deleted items
+        
+        const result = await query<Class>(
+            `
+      SELECT 
+        id,
+        class_name,
+        status,
+        description,
+        "created_at",
+        "updated_at",
+        deleted_at
+      FROM ${tableName}
+      ${whereClause}
+      ORDER BY id DESC
+      `
+        );
+
+        return result.rows;
+    }
+
+    static async restore(id: number): Promise<Class | null> {
+        const result = await query<Class>(
+            `
+      UPDATE ${tableName}
+      SET 
+        deleted_at = NULL,
+        "updated_at" = CURRENT_TIMESTAMP
+      WHERE id = $1
+        AND deleted_at IS NOT NULL
+      RETURNING 
+        id,
+        class_name,
+        status,
+        description,
+        "created_at",
+        "updated_at",
+        deleted_at
+      `,
+            [id]
+        );
+
+        return result.rows[0] || null;
+    }
+
     static async findById(id: number): Promise<Class | null> {
         const result = await query<Class>(
             `

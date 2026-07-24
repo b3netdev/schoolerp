@@ -40,14 +40,122 @@ create table section (
 
 --class_section relation
 
-create table class_section_relation (
-id SERIAL PRIMARY KEY,
-class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE RESTRICT,
-    section_id INTEGER NOT NULL REFERENCES sections(id) ON DELETE RESTRICT,
-teacher_id INTEGER REFERENCES teachers(id) ON DELETE RESTRICT,
-created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE class_section_relation (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    class_id BIGINT NOT NULL,
+    section_id BIGINT NOT NULL,
+    teacher_id BIGINT NOT NULL,
+    academic_year_id BIGINT NOT NULL,
+
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+
+    CONSTRAINT fk_class_section_relation_class
+        FOREIGN KEY (class_id)
+        REFERENCES classes(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_class_section_relation_section
+        FOREIGN KEY (section_id)
+        REFERENCES section(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_class_section_relation_teacher
+        FOREIGN KEY (teacher_id)
+        REFERENCES teachers(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_class_section_relation_academic_session
+        FOREIGN KEY (academic_year_id)
+        REFERENCES academic_session(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
 );
+
+CREATE TABLE IF NOT EXISTS public.academic_session (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'inactive',
+    default_session BOOLEAN NOT NULL DEFAULT FALSE,
+    description TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+
+    CONSTRAINT chk_academic_session_dates
+        CHECK (end_date > start_date),
+
+    CONSTRAINT chk_academic_session_status
+        CHECK (status IN ('active', 'inactive'))
+);
+
+CREATE TABLE public.class_section_relation (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+
+    class_id INTEGER NOT NULL,
+    section_id INTEGER NOT NULL,
+    teacher_id INTEGER NOT NULL,
+    academic_year_id INTEGER NOT NULL,
+
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+
+    CONSTRAINT fk_class_section_relation_class
+        FOREIGN KEY (class_id)
+        REFERENCES public.classes(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_class_section_relation_section
+        FOREIGN KEY (section_id)
+        REFERENCES public.section(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_class_section_relation_teacher
+        FOREIGN KEY (teacher_id)
+        REFERENCES public.teachers(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_class_section_relation_academic_session
+        FOREIGN KEY (academic_year_id)
+        REFERENCES public.academic_session(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
+);
+
+CREATE UNIQUE INDEX
+uq_class_section_academic_session
+ON public.class_section_relation (
+    class_id,
+    section_id,
+    academic_year_id
+)
+WHERE deleted_at IS NULL;
+
+CREATE INDEX idx_class_section_relation_class_id
+ON public.class_section_relation(class_id);
+
+CREATE INDEX idx_class_section_relation_section_id
+ON public.class_section_relation(section_id);
+
+CREATE INDEX idx_class_section_relation_teacher_id
+ON public.class_section_relation(teacher_id);
+
+CREATE INDEX idx_class_section_relation_academic_year_id
+ON public.class_section_relation(academic_year_id);
+
+
+
 
 
 -- academic_year table

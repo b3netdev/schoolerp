@@ -13,7 +13,8 @@ export class SectionController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const sections = await SectionModel.findAll();
+      const status = req.query.status as string || "all";
+      const sections = await SectionModel.findByStatus(status);
 
       res.status(200).json({
         success: true,
@@ -63,16 +64,17 @@ export class SectionController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const { name, stream, description } = req.body as SectionPayload;
+      const { name, stream, status, description } = req.body as SectionPayload;
 
-      if (!name || !stream) {
-        return next(new AppError("Failed to fetch section data", 500));
+      if (!name) {
+        return next(new AppError("Name is required", 400));
       }
 
       const section = await SectionModel.create({
         name: name.trim(),
         stream: stream.trim(),
-        description: description.trim()
+        status: status?.trim() || "active",
+        description: description?.trim() || ""
       });
 
       res.status(201).json({
@@ -101,22 +103,23 @@ export class SectionController {
         return;
       }
 
-      const { name, stream, description } = req.body as SectionUpdatePayload;
+      const { name, stream, status, description } = req.body as SectionUpdatePayload;
 
-      if (!name && !stream && !description) {
+      if (!name && !stream && !status && !description) {
         return next(
-          new AppError("Atlest one field is required to change", 500),
+          new AppError("At least one field is required to change", 400),
         );
       }
 
       const section = await SectionModel.update(id, {
         name: name?.trim(),
         stream: stream?.trim(),
+        status: status?.trim(),
         description: description?.trim()
       });
 
       if (!section) {
-        return next(new AppError("Section not found", 500));
+        return next(new AppError("Section not found", 404));
       }
 
       res.status(200).json({
@@ -162,6 +165,78 @@ export class SectionController {
       });
     } catch (error) {
       return next(new AppError("Failed to delete section", 500));
+    }
+  }
+
+  static async restore(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const id = Number(req.params.id);
+
+      if (!id || Number.isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid section ID",
+        });
+        return;
+      }
+
+      const section = await SectionModel.restore(id);
+
+      if (!section) {
+        res.status(404).json({
+          success: false,
+          message: "Section not found in trash",
+        });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Section restored successfully",
+        data: section,
+      });
+    } catch (error) {
+      return next(new AppError("Failed to restore section", 500));
+    }
+  }
+
+  static async hardDelete(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const id = Number(req.params.id);
+
+      if (!id || Number.isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid section ID",
+        });
+        return;
+      }
+
+      const success = await SectionModel.hardDelete(id);
+
+      if (!success) {
+        res.status(404).json({
+          success: false,
+          message: "Section not found",
+        });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        message: "Section permanently deleted",
+        data: { id },
+      });
+    } catch (error) {
+      return next(new AppError("Failed to permanently delete section", 500));
     }
   }
 }

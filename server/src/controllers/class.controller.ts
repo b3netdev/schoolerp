@@ -13,7 +13,8 @@ export class ClassController {
         next: NextFunction,
     ): Promise<void> {
         try {
-            const classes = await ClassModel.findAll();
+            const status = req.query.status as string || "all";
+            const classes = await ClassModel.findByStatus(status);
 
             res.status(200).json({
                 success: true,
@@ -163,6 +164,78 @@ export class ClassController {
             });
         } catch (error) {
             return next(new AppError("Failed to delete class", 500));
+        }
+    }
+
+    static async restore(
+        req: Request,
+        res: Response,
+        next: NextFunction,
+    ): Promise<void> {
+        try {
+            const id = Number(req.params.id);
+
+            if (!id || Number.isNaN(id)) {
+                res.status(400).json({
+                    success: false,
+                    message: "Invalid class ID",
+                });
+                return;
+            }
+
+            const classData = await ClassModel.restore(id);
+
+            if (!classData) {
+                res.status(404).json({
+                    success: false,
+                    message: "Class not found in trash",
+                });
+                return;
+            }
+
+            res.status(200).json({
+                success: true,
+                message: "Class restored successfully",
+                data: classData,
+            });
+        } catch (error) {
+            return next(new AppError("Failed to restore class", 500));
+        }
+    }
+
+    static async hardDelete(
+        req: Request,
+        res: Response,
+        next: NextFunction,
+    ): Promise<void> {
+        try {
+            const id = Number(req.params.id);
+
+            if (!id || Number.isNaN(id)) {
+                res.status(400).json({
+                    success: false,
+                    message: "Invalid class ID",
+                });
+                return;
+            }
+
+            const success = await ClassModel.hardDelete(id);
+
+            if (!success) {
+                res.status(404).json({
+                    success: false,
+                    message: "Class not found",
+                });
+                return;
+            }
+
+            res.status(200).json({
+                success: true,
+                message: "Class permanently deleted",
+                data: { id },
+            });
+        } catch (error) {
+            return next(new AppError("Failed to permanently delete class", 500));
         }
     }
 }

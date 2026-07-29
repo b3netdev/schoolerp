@@ -23,18 +23,18 @@ export class StreamController {
         async (req: Request, res: Response, next: NextFunction) => {
             const statusParam = req.query.status;
 
-            let status: "all" | "active" | "inactive" = "all";
+            let status: "all" | "active" | "inactive" | "trash" = "all";
 
             if (typeof statusParam === "string" && statusParam.trim() !== "") {
                 const normalizedStatus = statusParam.trim().toLowerCase();
 
-                const allowedStatuses = ["all", "active", "inactive"];
+                const allowedStatuses = ["all", "active", "inactive", "trash"];
 
                 if (!allowedStatuses.includes(normalizedStatus)) {
                     return next(new AppError("Invalid stream status filter.", 400));
                 }
 
-                status = normalizedStatus as "all" | "active" | "inactive";
+                status = normalizedStatus as "all" | "active" | "inactive" | "trash";
             }
 
             const streams = await StreamModel.findAll(status);
@@ -159,6 +159,29 @@ export class StreamController {
             res.status(200).json({
                 success: true,
                 message: "Stream deleted successfully.",
+                data: stream,
+            });
+        }
+    );
+
+    // Restore stream from trash
+    static restore = catchAsync(
+        async (req: Request, res: Response, next: NextFunction) => {
+            const id = Number(req.params.id);
+
+            if (!id || Number.isNaN(id)) {
+                return next(new AppError("Invalid stream ID.", 400));
+            }
+
+            const stream = await StreamModel.restore(id);
+
+            if (!stream) {
+                return next(new AppError("Stream not found in trash.", 404));
+            }
+
+            res.status(200).json({
+                success: true,
+                message: "Stream restored successfully.",
                 data: stream,
             });
         }

@@ -13,6 +13,8 @@ router.post("/update-stream", StreamController.update);
 
 router.delete("/delete-stream/:id", StreamController.delete);
 
+router.patch("/restore-stream/:id", StreamController.restore);
+
 router.delete("/hard-delete-stream/:id", StreamController.hardDelete);
 
 export default router;

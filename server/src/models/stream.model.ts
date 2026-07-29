@@ -1,4 +1,4 @@
-import { query } from "../db/query.js";
+import { db } from "../db/query-builder.js";
 
 export interface Stream {
     id: number;
@@ -20,151 +20,93 @@ export interface StreamUpdatePayload {
 }
 
 const tableName = "stream";
-export type StreamStatusFilter = "all" | "active" | "inactive";
+export type StreamStatusFilter = "all" | "active" | "inactive" | "trash";
 
 export class StreamModel {
     static async findAll(
-        status: StreamStatusFilter = "all"
+        statusFilter: StreamStatusFilter = "all"
     ): Promise<Stream[]> {
-        const values: unknown[] = [];
-        const conditions: string[] = ["deleted_at IS NULL"];
+        let query = db.table<Stream>(tableName);
 
-        if (status !== "all") {
-            values.push(status);
-            conditions.push(`status = $${values.length}`);
+        if (statusFilter === "trash") {
+            query = query.whereNotNull("deleted_at");
+        } else if (statusFilter === "active") {
+            query = query.whereNull("deleted_at").where("status", "=", "active");
+        } else if (statusFilter === "inactive") {
+            query = query.whereNull("deleted_at").where("status", "=", "inactive");
+        } else {
+            // 'all' shows all non-deleted items
+            query = query.whereNull("deleted_at");
         }
 
-        const result = await query<Stream>(
-            `
-    SELECT
-      id,
-      name,
-      status,
-      created_at,
-      updated_at,
-      deleted_at
-    FROM ${tableName}
-    WHERE ${conditions.join(" AND ")}
-    ORDER BY id DESC
-    `,
-            values
-        );
-
-        return result.rows;
+        const result = await query.orderBy("id", "DESC").get();
+        return result;
     }
 
     static async findById(id: number): Promise<Stream | null> {
-        const result = await query<Stream>(
-            `
-      SELECT
-        id,
-        name,
-        status,
-        created_at,
-        updated_at,
-        deleted_at
-      FROM ${tableName}
-      WHERE id = $1
-      AND deleted_at IS NULL
-      LIMIT 1
-      `,
-            [id]
-        );
+        const result = await db
+            .table<Stream>(tableName)
+            .where("id", "=", id)
+            .whereNull("deleted_at")
+            .first();
 
-        return result.rows[0] || null;
+        return result || null;
     }
 
     static async create(data: StreamPayload): Promise<Stream> {
-        const result = await query<Stream>(
-            `
-      INSERT INTO ${tableName} (
-        name,
-        status
-      )
-      VALUES (
-        $1, $2
-      )
-      RETURNING
-        id,
-        name,
-        status,
-        created_at,
-        updated_at,
-        deleted_at
-      `,
-            [
-                data.name,
-                data.status ?? "active",
-            ]
-        );
+        const result = await db
+            .table<Stream>(tableName)
+            .insert({
+                name: data.name,
+                status: data.status ?? "active",
+            });
 
-        return result.rows[0];
+        return result;
     }
 
     static async update(
         id: number,
         data: StreamUpdatePayload
     ): Promise<Stream | null> {
-        const result = await query<Stream>(
-            `
-      UPDATE ${tableName}
-      SET
-        name = COALESCE($1, name),
-        status = COALESCE($2, status),
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = $3
-      AND deleted_at IS NULL
-      RETURNING
-        id,
-        name,
-        status,
-        created_at,
-        updated_at,
-        deleted_at
-      `,
-            [
-                data.name ?? null,
-                data.status ?? null,
-                id,
-            ]
-        );
+        const updateData: Record<string, any> = {};
+        if (data.name !== undefined) updateData.name = data.name;
+        if (data.status !== undefined) updateData.status = data.status;
 
-        return result.rows[0] || null;
+        const result = await db
+            .table<Stream>(tableName)
+            .where("id", "=", id)
+            .whereNull("deleted_at")
+            .update(updateData);
+
+        return result || null;
     }
 
     static async delete(id: number): Promise<Stream | null> {
-        const result = await query<Stream>(
-            `
-      UPDATE ${tableName}
-      SET
-        deleted_at = CURRENT_TIMESTAMP,
-        updated_at = CURRENT_TIMESTAMP,
-        status = 'inactive'
-      WHERE id = $1
-      AND deleted_at IS NULL
-      RETURNING
-        id,
-        name,
-        status,
-        created_at,
-        updated_at,
-        deleted_at
-      `,
-            [id]
-        );
+        const result = await db
+            .table<Stream>(tableName)
+            .where("id", "=", id)
+            .whereNull("deleted_at")
+            .softDelete();
 
-        return result.rows[0] || null;
+        return result || null;
+    }
+
+    static async restore(id: number): Promise<Stream | null> {
+        const result = await db
+            .table<Stream>(tableName)
+            .where("id", "=", id)
+            .whereNotNull("deleted_at")
+            .restore();
+
+        return result || null;
     }
 
     static async hardDelete(id: number): Promise<boolean> {
-        const result = await query(
-            `
-      DELETE FROM ${tableName}
-      WHERE id = $1
-      `,
-            [id]
-        );
+        const result = await db
+            .table(tableName)
+            .where("id", "=", id)
+            .delete();
 
-        return (result.rowCount ?? 0) > 0;
+        return result;
     }
 }

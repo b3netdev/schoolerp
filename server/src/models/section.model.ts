@@ -1,9 +1,11 @@
-import { query } from "../db/query.js";
+import { get } from "https";
+import { db } from "../db/query-builder.js";
+
 
 export interface Section {
   id: number;
   name: string;
-  stream: string;
+  stream_id: string;
   status: string;
   description: string;
   created_at: Date;
@@ -13,14 +15,14 @@ export interface Section {
 
 export interface SectionPayload {
   name: string;
-  stream: string;
+  stream_id: string;
   status: string;
   description: string;
 }
 
 export interface SectionUpdatePayload {
   name?: string;
-  stream?: string;
+  stream_id?: string;
   status?: string;
   description?: string;
 }
@@ -28,25 +30,22 @@ export interface SectionUpdatePayload {
 const tableName = "section";
 
 export class SectionModel {
-  static async findAll(): Promise<Section[]> {
-    const result = await query<Section>(
-      `
-      SELECT 
-        id,
-        name,
-        stream,
-        status,
-        description,
-        "created_at",
-        "updated_at",
-        deleted_at
-      FROM ${tableName}
-      WHERE deleted_at IS NULL
-      ORDER BY id DESC
-      `
-    );
+  static async findAll(statusFilter: string = "all"): Promise<Section[]> {
+    let query = db.table<Section>(tableName);
 
-    return result.rows;
+    if (statusFilter === "trash") {
+      query = query.whereNotNull("deleted_at");
+    } else if (statusFilter === "active") {
+      query = query.whereNull("deleted_at").where("status", "=", "active");
+    } else if (statusFilter === "inactive") {
+      query = query.whereNull("deleted_at").where("status", "=", "inactive");
+    } else {
+      // 'all' shows all non-deleted items
+      query = query.whereNull("deleted_at");
+    }
+
+    const result = await query.orderBy("id", "DESC").get();
+    return result;
   }
 
   static async findByStatus(statusFilter: string): Promise<Section[]> {
@@ -61,12 +60,12 @@ export class SectionModel {
     }
     // 'all' shows all non-deleted items
     
-    const result = await query<Section>(
+    const result = await db.query<Section>(
       `
       SELECT 
         id,
         name,
-        stream,
+        stream_id,
         status,
         description,
         "created_at",
@@ -82,12 +81,12 @@ export class SectionModel {
   }
 
   static async findById(id: number): Promise<Section | null> {
-    const result = await query<Section>(
+    const result = await db.query<Section>(
       `
       SELECT 
         id,
         name,
-        stream,
+        stream_id,
         status,
         description,
         "created_at",
@@ -105,23 +104,23 @@ export class SectionModel {
   }
 
   static async create(data: SectionPayload): Promise<Section> {
-    const result = await query<Section>(
+    const result = await db.query<Section>(
       `
       INSERT INTO ${tableName} 
-        (name, stream, status, description)
+        (name, stream_id, status, description)
       VALUES 
         ($1, $2, $3, $4)
       RETURNING 
         id,
         name,
-        stream,
+        stream_id,
         status,
         description,
         "created_at",
         "updated_at",
         deleted_at
       `,
-      [data.name, data.stream, data.status, data.description]
+      [data.name, data.stream_id, data.status, data.description]
     );
 
     return result.rows[0];
@@ -131,12 +130,12 @@ export class SectionModel {
     id: number,
     data: SectionUpdatePayload
   ): Promise<Section | null> {
-    const result = await query<Section>(
+    const result = await db.query<Section>(
       `
       UPDATE ${tableName}
       SET
         name = COALESCE($1, name),
-        stream = COALESCE($2, stream),
+        stream_id = COALESCE($2, stream_id),
         status = COALESCE($3, status),
         description = COALESCE($4, description),
         "updated_at" = CURRENT_TIMESTAMP
@@ -145,21 +144,21 @@ export class SectionModel {
       RETURNING 
         id,
         name,
-        stream,
+        stream_id,
         status,
         description,
         "created_at",
         "updated_at",
         deleted_at
       `,
-      [data.name ?? null, data.stream ?? null, data.status ?? null, data.description ?? null, id]
+      [data.name ?? null, data.stream_id ?? null, data.status ?? null, data.description ?? null, id]
     );
 
     return result.rows[0] || null;
   }
 
   static async delete(id: number): Promise<Section | null> {
-    const result = await query<Section>(
+    const result = await db.query<Section>(
       `
       UPDATE ${tableName}
       SET 
@@ -170,7 +169,7 @@ export class SectionModel {
       RETURNING 
         id,
         name,
-        stream,
+        stream_id,
         status,
         description,
         "created_at",
@@ -184,7 +183,7 @@ export class SectionModel {
   }
 
   static async restore(id: number): Promise<Section | null> {
-    const result = await query<Section>(
+    const result = await db.query<Section>(
       `
       UPDATE ${tableName}
       SET 
@@ -195,7 +194,7 @@ export class SectionModel {
       RETURNING 
         id,
         name,
-        stream,
+        stream_id,
         status,
         description,
         "created_at",
@@ -209,7 +208,7 @@ export class SectionModel {
   }
 
   static async hardDelete(id: number): Promise<boolean> {
-    const result = await query(
+    const result = await db.query(
       `
       DELETE FROM ${tableName}
       WHERE id = $1

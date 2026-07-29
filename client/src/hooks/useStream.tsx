@@ -14,7 +14,7 @@ export interface StreamPayload {
     name: string;
     status?: StreamStatus;
 }
-type StreamStatusFilter = "all" | "active" | "inactive";
+type StreamStatusFilter = "all" | "active" | "inactive" | "trash";
 const useStream = () => {
     const dispatch = useAppDispatch();
 
@@ -74,11 +74,39 @@ const useStream = () => {
         }
     };
 
+    const restorestream = async (id: number) => {
+        try {
+            const result = await api.patch(`/stream/restore-stream/${id}`);
+
+            if (result?.data?.success) {
+                dispatch(updateStream(result.data.data));
+                return true;
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    };
+
+    const hardDeletestream = async (id: number) => {
+        try {
+            const result = await api.delete(`/stream/hard-delete-stream/${id}`);
+
+            if (result?.data?.success) {
+                dispatch(deleteStream(id));
+                return true;
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    };
+
     return {
         getStreams,
         addstream,
         updatestream,
         deletestream,
+        restorestream,
+        hardDeletestream,
     };
 };
 

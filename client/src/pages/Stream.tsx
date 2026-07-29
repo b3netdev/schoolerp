@@ -1,463 +1,341 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Plus, Search, Pencil, Trash2, Loader2 } from "lucide-react";
-
-import { useAppSelector } from "../../redux/hooks";
-import useStream, { type StreamPayload } from "@/hooks/useStream";
-import type { Stream, StreamStatus } from "../../redux/slicers/stream.Slicer";
-
+import { useEffect, useState } from "react";
+import { Plus, Search } from "lucide-react";
+import { DataTable, Column } from "@/components/tables/DataTable";
+import { FormModal, FieldDef, FormValues } from "@/components/common/FormModal";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
-import { ButtonGroup } from "@/components/ui/button-group";
-import { Button } from "@/components/ui/button";
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    CardDescription,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge, statusToBadgeVariant } from "@/components/common/Badge";
-import {
-    Dialog,
-    DialogContent,
-    DialogHeader,
-    DialogTitle,
-    DialogDescription,
-    DialogFooter,
-} from "@/components/ui/dialog";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { Pagination } from "@/components/common/Pagination";
+import { PageHeader } from "@/components/common/PageHeader";
+import useStream from "@/hooks/useStream";
+import { useAppSelector } from "../../redux/hooks";
+import { StatusTabs, StatusTabOption } from "@/components/common/StatusTabs";
+import { ListingSkeleton } from "@/components/tables/ListingSkeleton";
 
-type StreamFormState = {
-    name: string;
-    status: StreamStatus;
+type Stream = {
+  id?: number;
+  name: string;
+  status: string;
+  created_at?: string;
+  updated_at?: string;
 };
 
-const defaultFormState: StreamFormState = {
-    name: "",
-    status: "active",
-};
-
-const formatDate = (value?: string | null): string => {
-    if (!value) return "-";
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return "-";
-    }
-
-    return date.toLocaleDateString();
-};
-
-
-type StreamStatusFilter = "all" | "active" | "inactive";
-
-type StreamStatusFilterOption = {
-    value: StreamStatusFilter;
-    label: string;
-};
-
-const statusFilterOptions: StreamStatusFilterOption[] = [
-    {
-        value: "all",
-        label: "All",
-    },
-    {
-        value: "active",
-        label: "Active",
-    },
-    {
-        value: "inactive",
-        label: "Inactive",
-    },
+const columns: Column[] = [
+  { key: "name", label: "Stream Name", type: "avatar-text" },
+  { key: "status", label: "Status", type: "status" },
 ];
 
-export default function Streams() {
-    const { streams } = useAppSelector((state) => state.stream);
+const fields: FieldDef[] = [
+  {
+    key: "name",
+    label: "Stream Name",
+    required: true,
+    placeholder: "e.g. Science",
+  },
+  {
+    key: "status",
+    label: "Status",
+    required: false,
+    type: "select",
+    options: [
+      { label: "Active", value: "active" },
+      { label: "Inactive", value: "inactive" },
+    ],
+  },
+];
 
-    const { getStreams, addstream, updatestream, deletestream } = useStream();
+type StatusFilter = "all" | "active" | "inactive" | "trash";
 
-    const [search, setSearch] = useState<string>("");
-    const [addOpen, setAddOpen] = useState<boolean>(false);
-    const [editItem, setEditItem] = useState<Stream | null>(null);
-    const [deleteItem, setDeleteItem] = useState<Stream | null>(null);
-    const [formData, setFormData] = useState<StreamFormState>(defaultFormState);
-    const [submitLoading, setSubmitLoading] = useState(false);
-    const [statusFilter, setStatusFilter] = useState<StreamStatusFilter>("all");
+const statusTabs: StatusTabOption<StatusFilter>[] = [
+  {
+    value: "all",
+    label: "All",
+  },
+  {
+    value: "active",
+    label: "Active",
+  },
+  {
+    value: "inactive",
+    label: "Inactive",
+  },
+  {
+    value: "trash",
+    label: "Trash",
+  },
+];
 
-    useEffect(() => {
-        getStreams();
+const Streams = () => {
+  const { getStreams, addstream, updatestream, deletestream, restorestream, hardDeletestream } = useStream();
 
-    }, []);
-    useEffect(() => {
-        getStreams(statusFilter);
-    }, [statusFilter]);
-    const selectStatusTab = (item: StreamStatusFilterOption) => {
-        setStatusFilter(item.value);
-    };
+  const [data, setData] = useState<Stream[]>([]);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
 
-    const filteredStreams = useMemo<Stream[]>(() => {
-        const keyword = search.trim().toLowerCase();
+  const { streams } = useAppSelector((state) => state.stream);
 
-        if (!keyword) return streams;
+  const [editItem, setEditItem] = useState<Stream | null>(null);
+  const [deleteItem, setDeleteItem] = useState<Stream | null>(null);
+  const [restoreItem, setRestoreItem] = useState<Stream | null>(null);
+  const [permanentDeleteItem, setPermanentDeleteItem] = useState<Stream | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
-        return streams.filter((stream: any) =>
-            String(stream.name).toLowerCase().includes(keyword)
-        );
-    }, [streams, search]);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [isLoading, setIsLoading] = useState(false);
 
-    const openAddModal = () => {
-        setFormData(defaultFormState);
-        setEditItem(null);
-        setAddOpen(true);
-    };
+  const loadStreams = async (status: StatusFilter) => {
+    try {
+      setIsLoading(true);
+      await getStreams(status);
+    } catch (error) {
+      console.error("Failed to fetch streams:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    const openEditModal = (stream: Stream) => {
-        setAddOpen(false);
-        setEditItem(stream);
+  useEffect(() => {
+    loadStreams(statusFilter);
+  }, [statusFilter]);
 
-        setFormData({
-            name: stream.name || "",
-            status: stream.status || "active",
-        });
-    };
+  useEffect(() => {
+    if (Array.isArray(streams)) {
+      const formattedStreams: Stream[] = streams.map(
+        (item: Partial<Stream>, index: number) => ({
+          id: Number(item.id ?? index + 1),
+          name: String(item.name ?? ""),
+          status: String(item.status ?? "active"),
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+        })
+      );
 
-    const closeModal = () => {
-        setAddOpen(false);
-        setEditItem(null);
-        setFormData(defaultFormState);
-    };
+      setData(formattedStreams);
+    }
+  }, [streams]);
 
-    const handleDialogOpenChange = (open: boolean) => {
-        if (!open) {
-            closeModal();
+  const filtered = data.filter((stream) =>
+    stream.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const paginatedData = filtered.slice((page - 1) * 10, page * 10);
+
+  const handleDelete = async () => {
+    if (!deleteItem) return;
+
+    await deletestream(deleteItem.id!);
+    setDeleteItem(null);
+    await loadStreams(statusFilter);
+  };
+
+  const handleRestore = async () => {
+    if (!restoreItem) return;
+
+    await restorestream(restoreItem.id!);
+    setRestoreItem(null);
+    await loadStreams(statusFilter);
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!permanentDeleteItem) return;
+
+    await hardDeletestream(permanentDeleteItem.id!);
+    setPermanentDeleteItem(null);
+    await loadStreams(statusFilter);
+  };
+
+  const handleEdit = async (values: FormValues) => {
+    if (!editItem) return;
+    const payload = {
+      id: editItem.id,
+      name: String(values.name),
+      status: String(values.status) || "active",
+    } as const;
+    await updatestream(payload as any);
+
+    setEditItem(null);
+    await loadStreams(statusFilter);
+  };
+
+  const handleAdd = async (values: FormValues) => {
+    const payload = {
+      name: String(values.name),
+      status: String(values.status) || "active",
+    } as const;
+
+    await addstream(payload as any);
+    setAddOpen(false);
+    await loadStreams(statusFilter);
+  };
+
+  const handleEditClick = (row: Record<string, unknown>) => {
+    const rowId = Number(row.id);
+    const selectedStream = data.find((stream) => stream.id === rowId);
+
+    if (selectedStream) {
+      // Only allow editing for non-trashed items
+      if (statusFilter !== "trash") {
+        setEditItem(selectedStream);
+      }
+    }
+  };
+
+  const handleDeleteClick = (row: Record<string, unknown>) => {
+    const rowId = Number(row.id);
+    const selectedStream = data.find((stream) => stream.id === rowId);
+
+    if (selectedStream) {
+      if (statusFilter === "trash") {
+        // In trash, show permanent delete option
+        setPermanentDeleteItem(selectedStream);
+      } else {
+        // Normal view, soft delete
+        setDeleteItem(selectedStream);
+      }
+    }
+  };
+
+  const handleRestoreClick = (row: Record<string, unknown>) => {
+    const rowId = Number(row.id);
+    const selectedStream = data.find((stream) => stream.id === rowId);
+
+    if (selectedStream) {
+      setRestoreItem(selectedStream);
+    }
+  };
+
+  const editInitialValues: FormValues | undefined = editItem
+    ? {
+        name: editItem.name,
+        status: editItem.status,
+      }
+    : undefined;
+
+  return (
+    <div>
+      <Breadcrumb items={[{ label: "Streams" }]} />
+
+      <PageHeader
+        title="Streams"
+        description={`${data.length} stream records`}
+        action={
+          <button
+            onClick={() => setAddOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+            data-testid="add-stream-btn"
+          >
+            <Plus className="w-4 h-4" />
+            Add Stream
+          </button>
         }
-    };
+      />
 
-    const handleDeleteDialogOpenChange = (open: boolean) => {
-        if (!open) {
-            setDeleteItem(null);
-        }
-    };
+      <div className="bg-card border border-border rounded-xl overflow-hidden">
+        <div className="p-5 border-b border-border">
+          <div className="flex flex-col lg:flex-row gap-4 lg:items-center">
+            <div className="relative max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 
-    const handleNameChange = (value: string) => {
-        setFormData((prev) => ({
-            ...prev,
-            name: value,
-        }));
-    };
-
-    const handleStatusChange = (value: string) => {
-        setFormData((prev) => ({
-            ...prev,
-            status: value as StreamStatus,
-        }));
-    };
-
-    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-
-        const payload: StreamPayload = {
-            name: formData.name.trim(),
-            status: formData.status,
-        };
-
-        if (!payload.name) return;
-
-        try {
-            setSubmitLoading(true);
-
-            if (editItem?.id) {
-                const updated = await updatestream({
-                    id: editItem.id,
-                    ...payload,
-                });
-
-                if (updated) {
-                    closeModal();
-                }
-
-                return;
-            }
-
-            const created = await addstream(payload);
-
-            if (created) {
-                closeModal();
-            }
-        } finally {
-            setSubmitLoading(false);
-        }
-    };
-
-    const handleDelete = async () => {
-        if (!deleteItem?.id) return;
-
-        const deleted = await deletestream(deleteItem.id);
-
-        if (deleted) {
-            setDeleteItem(null);
-        }
-    };
-
-    const isModalOpen = addOpen || Boolean(editItem);
-
-    return (
-        <div className="space-y-6">
-            <Breadcrumb items={[{ label: "Streams" }]} />
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                    <h1 className="text-2xl font-bold text-foreground">Streams</h1>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Manage academic streams such as Science, Commerce, Arts, and others.
-                    </p>
-                </div>
-
-                <Button type="button" onClick={openAddModal} className="w-full sm:w-auto">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Stream
-                </Button>
+              <input
+                type="search"
+                placeholder="Search streams..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full h-9 pl-9 pr-4 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                data-testid="streams-search"
+              />
             </div>
-
-            <Card>
-                <CardHeader className="border-b border-border">
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                        <div>
-                            <CardTitle>Stream List</CardTitle>
-                            <CardDescription>
-                                Showing {filteredStreams.length} of {streams.length} streams
-                            </CardDescription>
-                        </div>
-
-                        <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-center">
-                            <div className="relative w-full md:w-64">
-                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-
-                                <Input
-                                    type="search"
-                                    placeholder="Search stream..."
-                                    value={search}
-                                    onChange={(e) => setSearch(e.target.value)}
-                                    className="pl-9"
-                                />
-                            </div>
-
-                            <ButtonGroup>
-                                {statusFilterOptions.map((item) => (
-                                    <Button
-                                        key={item.value}
-                                        type="button"
-                                        size="sm"
-                                        variant={statusFilter === item.value ? "default" : "outline"}
-                                        className="cursor-pointer"
-                                        onClick={() => selectStatusTab(item)}
-                                    >
-                                        {item.label}
-                                    </Button>
-                                ))}
-                            </ButtonGroup>
-                        </div>
-                    </div>
-                </CardHeader>
-
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead className="w-[80px]">ID</TableHead>
-                                <TableHead>Stream Name</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Created At</TableHead>
-                                <TableHead>Updated At</TableHead>
-                                <TableHead className="w-[140px] text-right">
-                                    Actions
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-
-                        <TableBody>
-                            {filteredStreams.length > 0 ? (
-                                filteredStreams.map((stream) => (
-                                    <TableRow key={stream.id}>
-                                        <TableCell className="font-medium">
-                                            {stream.id}
-                                        </TableCell>
-
-                                        <TableCell>{stream.name}</TableCell>
-
-                                        <TableCell>
-                                            <Badge variant={statusToBadgeVariant(stream.status || "inactive")}>
-                                                {stream.status || "inactive"}
-                                            </Badge>
-                                        </TableCell>
-
-                                        <TableCell>{formatDate(stream.created_at)}</TableCell>
-
-                                        <TableCell>{formatDate(stream.updated_at)}</TableCell>
-
-                                        <TableCell>
-                                            <div className="flex justify-end gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    className="cursor-pointer"
-                                                    size="icon"
-                                                    onClick={() => openEditModal(stream)}
-                                                >
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
-
-
-                                                
-                                                <Button
-                                                    type="button"
-                                                    variant="destructive"
-                                                    className="cursor-pointer"
-                                                    size="icon"
-                                                    onClick={() => setDeleteItem(stream)}
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={6}
-                                        className="h-32 text-center text-muted-foreground"
-                                    >
-                                        No streams found.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
-
-            <Dialog open={isModalOpen} onOpenChange={handleDialogOpenChange}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>{editItem ? "Edit Stream" : "Add Stream"}</DialogTitle>
-
-                        <DialogDescription>
-                            {editItem
-                                ? "Update the selected stream details."
-                                : "Create a new academic stream."}
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Stream Name</Label>
-
-                            <Input
-                                id="name"
-                                name="name"
-                                placeholder="e.g. Science"
-                                value={formData.name}
-                                onChange={(e) => handleNameChange(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Status</Label>
-
-                            <Select
-                                value={formData.status}
-                                onValueChange={handleStatusChange}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select status" />
-                                </SelectTrigger>
-
-                                <SelectContent>
-                                    <SelectItem value="active">Active</SelectItem>
-                                    <SelectItem value="inactive">Inactive</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <DialogFooter>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={closeModal}
-                                disabled={submitLoading}
-                            >
-                                Cancel
-                            </Button>
-
-                            <Button type="submit" disabled={submitLoading}>
-                                {submitLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-
-                                {submitLoading
-                                    ? editItem
-                                        ? "Saving..."
-                                        : "Adding..."
-                                    : editItem
-                                        ? "Save Changes"
-                                        : "Add Stream"}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </DialogContent>
-            </Dialog>
-
-            <AlertDialog
-                open={Boolean(deleteItem)}
-                onOpenChange={handleDeleteDialogOpenChange}
-            >
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Stream</AlertDialogTitle>
-
-                        <AlertDialogDescription>
-                            Are you sure you want to delete{" "}
-                            <span className="font-medium text-foreground">
-                                {deleteItem?.name}
-                            </span>
-                            ? This action will remove it from the active stream list.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-
-                        <AlertDialogAction onClick={handleDelete}>
-                            Delete Stream
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <StatusTabs
+              options={statusTabs}
+              value={statusFilter}
+              onChange={(value: StatusFilter) => setStatusFilter(value)}
+              disabled={isLoading}
+              className="lg:ml-auto"
+            />
+          </div>
         </div>
-    );
-}
+
+        <div className="px-6">
+          {isLoading ? (
+            <ListingSkeleton columns={columns.length} rows={paginatedData.length} />
+          ) : (
+            <DataTable
+              columns={columns}
+              data={paginatedData as Record<string, unknown>[]}
+              onEdit={statusFilter !== "trash" ? handleEditClick : undefined}
+              onDelete={statusFilter !== "trash" ? handleDeleteClick : undefined}
+              onRestore={statusFilter === "trash" ? handleRestoreClick : undefined}
+              onPermanentDelete={statusFilter === "trash" ? handleDeleteClick : undefined}
+            />
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-border flex items-center justify-between">
+          <span className="text-sm text-muted-foreground">
+            Showing {paginatedData.length} of {filtered.length} streams
+          </span>
+
+          <Pagination
+            currentPage={page}
+            totalPages={Math.max(1, Math.ceil(filtered.length / 10))}
+            onPageChange={setPage}
+          />
+        </div>
+      </div>
+
+      <FormModal
+        isOpen={addOpen}
+        onClose={() => setAddOpen(false)}
+        onSubmit={handleAdd}
+        title="Add New Stream"
+        fields={fields}
+        submitLabel="Add Stream"
+      />
+
+      <FormModal
+        isOpen={!!editItem}
+        onClose={() => setEditItem(null)}
+        onSubmit={handleEdit}
+        title="Edit Stream"
+        fields={fields}
+        initialValues={editInitialValues}
+        submitLabel="Save Changes"
+      />
+
+      <ConfirmModal
+        isOpen={!!deleteItem}
+        onClose={() => setDeleteItem(null)}
+        onConfirm={handleDelete}
+        title="Delete Stream"
+        description={`Are you sure you want to move "${deleteItem?.name ?? ""
+          }" to trash? You can restore it later.`}
+        confirmLabel="Move to Trash"
+      />
+
+      <ConfirmModal
+        isOpen={!!restoreItem}
+        onClose={() => setRestoreItem(null)}
+        onConfirm={handleRestore}
+        title="Restore Stream"
+        description={`Are you sure you want to restore "${restoreItem?.name ?? ""
+          }"? It will be moved back to the active list.`}
+        confirmLabel="Restore Stream"
+      />
+
+      <ConfirmModal
+        isOpen={!!permanentDeleteItem}
+        onClose={() => setPermanentDeleteItem(null)}
+        onConfirm={handlePermanentDelete}
+        title="Permanently Delete Stream"
+        description={`Are you sure you want to permanently delete "${permanentDeleteItem?.name ?? ""
+          }"? This action cannot be undone.`}
+        confirmLabel="Delete Permanently"
+        variant="danger"
+      />
+    </div>
+  );
+};
+
+export default Streams;

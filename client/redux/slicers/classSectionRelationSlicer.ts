@@ -10,7 +10,7 @@ export interface ClassSectionRelation {
   section_name: string;
   section_stream?: string | null;
 
-  teacher_id: number;
+  teacher_id: number | null;
   teacher_name: string;
   employee_code?: string | null;
 

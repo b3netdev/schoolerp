@@ -6,7 +6,7 @@ import { setSections, addSection, updateSection, deleteSection } from "../../red
 interface addsectionpayload {
     id?: number;
     name: string;
-    stream: string;
+    stream_id: string;
     status?: string;
     description?: string;
 }

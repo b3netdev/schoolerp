@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Plus, Search } from "lucide-react";
 import { DataTable, Column } from "@/components/tables/DataTable";
 import { FormModal, FieldDef, FormValues } from "@/components/common/FormModal";
@@ -8,6 +8,7 @@ import { Pagination } from "@/components/common/Pagination";
 import { PageHeader } from "@/components/common/PageHeader";
 import { parents as initialParents } from "@/data/dummyData";
 import useSection from "@/hooks/useSection";
+import useStream from "@/hooks/useStream";
 import { useAppSelector } from "../../redux/hooks";
 import { StatusTabs, StatusTabOption } from "@/components/common/StatusTabs";
 import { ListingSkeleton } from "@/components/tables/ListingSkeleton";
@@ -15,48 +16,17 @@ import { ListingSkeleton } from "@/components/tables/ListingSkeleton";
 type Section = {
   id?: number;
   name: string;
-  stream: string;
+  stream_id: string;
+  stream_name?: string;
   status: string;
   description: string;
 };
 
 const columns: Column[] = [
   { key: "name", label: "Section Name", type: "avatar-text" },
-  { key: "stream", label: "Stream Name" },
+  { key: "stream_name", label: "Stream Name" },
   { key: "description", label: "Description" },
   { key: "status", label: "Status", type: "status" },
-];
-
-const fields: FieldDef[] = [
-  {
-    key: "name",
-    label: "Section Name",
-    required: true,
-    placeholder: "A",
-  },
-  {
-    key: "stream",
-    label: "Stream Name",
-    required: false,
-    placeholder: "Physics",
-  },
-  {
-    key: "status",
-    label: "Status",
-    required: false,
-    type: "select",
-    options: [
-      { label: "Active", value: "active" },
-      { label: "Inactive", value: "inactive" },
-    ],
-  },
-  {
-    key: "description",
-    label: "Description",
-    required: false,
-    placeholder: "description",
-    type: "textarea"
-  },
 ];
 
 const initialSections: Section[] = (
@@ -64,7 +34,7 @@ const initialSections: Section[] = (
 ).map((item, index) => ({
   id: Number(item.id ?? index + 1),
   name: String(item.name ?? ""),
-  stream: String(item.stream ?? ""),
+  stream_id: String(item.stream_id ?? ""),
   status: String(item.status ?? "active"),
   description: String(item.description ?? ""),
 }));
@@ -92,12 +62,14 @@ const statusTabs: StatusTabOption<StatusFilter>[] = [
 
 const Sections = () => {
   const { getSection, addsection, updatesection, deletesection, restoresection, hardDeletesection } = useSection();
+  const { getStreams } = useStream();
 
   const [data, setData] = useState<Section[]>([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
   const { sections } = useAppSelector((state) => state.section);
+  const { streams } = useAppSelector((state) => state.stream);
 
   const [editItem, setEditItem] = useState<Section | null>(null);
   const [deleteItem, setDeleteItem] = useState<Section | null>(null);
@@ -119,34 +91,85 @@ const Sections = () => {
     }
   };
 
+  console.log("Sections data:", sections);
+
   useEffect(() => {
     loadSections(statusFilter);
+    getStreams("all"); // Fetch all streams to display names in list
   }, [statusFilter]);
 
 
   useEffect(() => {
     if (Array.isArray(sections)) {
       const formattedSections: Section[] = sections.map(
-        (item: Partial<Section>, index: number) => ({
-          id: Number(item.id ?? index + 1),
-          name: String(item.name ?? ""),
-          stream: String(item.stream ?? ""),
-          status: String(item.status ?? "active"),
-          description: String(item?.description ?? ""),
-        })
+        (item: Partial<Section>, index: number) => {
+          const stream = streams.find(s => String(s.id) === String(item.stream_id));
+          return {
+            id: Number(item.id ?? index + 1),
+            name: String(item.name ?? ""),
+            stream_id: String(item.stream_id ?? ""),
+            stream_name: stream?.name ?? "Unknown",
+            status: String(item.status ?? "active"),
+            description: String(item?.description ?? ""),
+          };
+        }
       );
 
       setData(formattedSections);
     }
-  }, [sections]);
+  }, [sections, streams]);
 
   const filtered = data.filter(
     (section) =>
       section.name.toLowerCase().includes(search.toLowerCase()) ||
-      section.stream.toLowerCase().includes(search.toLowerCase())
+      section.stream_name?.toLowerCase().includes(search.toLowerCase())
   );
 
   const paginatedData = filtered.slice((page - 1) * 10, page * 10);
+
+  // Create stream options for dropdown
+  const streamOptions = useMemo(() => {
+    return streams
+      .filter(stream => stream.status === "active")
+      .map(stream => ({
+        label: stream.name,
+        value: String(stream.id)
+      }));
+  }, [streams]);
+
+  // Define fields with dynamic stream options
+  const fields: FieldDef[] = [
+    {
+      key: "name",
+      label: "Section Name",
+      required: true,
+      placeholder: "A",
+    },
+    {
+      key: "stream_id",
+      label: "Stream Name",
+      required: true,
+      type: "select",
+      options: streamOptions,
+    },
+    {
+      key: "status",
+      label: "Status",
+      required: false,
+      type: "select",
+      options: [
+        { label: "Active", value: "active" },
+        { label: "Inactive", value: "inactive" },
+      ],
+    },
+    {
+      key: "description",
+      label: "Description",
+      required: false,
+      placeholder: "description",
+      type: "textarea"
+    },
+  ];
 
   const handleDelete = async () => {
     if (!deleteItem) return;
@@ -177,7 +200,7 @@ const Sections = () => {
     const payload = {
       id: editItem.id,
       name: String(values.name),
-      stream: String(values.stream),
+      stream_id: String(values.stream_id),
       status: String(values.status) || "active",
       description: String(values.description)
     }
@@ -190,7 +213,7 @@ const Sections = () => {
   const handleAdd = async (values: FormValues) => {
     const payload = {
       name: String(values.name),
-      stream: String(values.stream),
+      stream_id: String(values.stream_id),
       status: String(values.status) || "active",
       description: String(values.description)
     };
@@ -239,7 +262,7 @@ const Sections = () => {
   const editInitialValues: FormValues | undefined = editItem
     ? {
       name: editItem.name,
-      stream: editItem.stream,
+      stream_id: editItem.stream_id,
       status: editItem.status,
       description: editItem.description,
     }

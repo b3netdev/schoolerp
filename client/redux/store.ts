@@ -7,6 +7,8 @@ import teacherReducer from "./slicers/teacherSlice"
 import classSectionRelationReducer from "./slicers/classSectionRelationSlicer"
 import StreamReducer from "./slicers/stream.Slicer"
 import academicSessionReducer from "./slicers/AcademicSessionSlicer"
+import studentReducer from "./slicers/studentSlicer"
+import studentAuthReducer from "./slicers/studentAuthSlicer"
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -16,7 +18,9 @@ export const store = configureStore({
     teacher: teacherReducer,
     classSection: classSectionRelationReducer,
     stream: StreamReducer,
-    academicSession: academicSessionReducer
+    academicSession: academicSessionReducer,
+    student: studentReducer,
+    studentAuth: studentAuthReducer,
   },
 });
 

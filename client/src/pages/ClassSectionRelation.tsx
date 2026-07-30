@@ -6,8 +6,12 @@ import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
 import { Pagination } from "@/components/common/Pagination";
 import { PageHeader } from "@/components/common/PageHeader";
+import { StatusTabs, StatusTabOption } from "@/components/common/StatusTabs";
+import { ListingSkeleton } from "@/components/tables/ListingSkeleton";
 import { useAppSelector } from "../../redux/hooks";
-import useClassSection from "@/hooks/useClassSection";
+import useClassSection, {
+  ClassSectionRelationStatusFilter,
+} from "@/hooks/useClassSection";
 import useTeacher from "@/hooks/useTeacher";
 import useSection from "@/hooks/useSection";
 import useClass from "@/hooks/useClass";
@@ -22,17 +26,13 @@ type ClassSectionRelationItem = {
   section_name: string;
   section_stream?: string | null;
 
-  teacher_id: number;
+  teacher_id: number | null;
   teacher_name: string;
   employee_code?: string | null;
 
   created_at?: string;
   updated_at?: string;
-};
-
-type OptionItem = {
-  id: number;
-  label: string;
+  deleted_at?: string | null;
 };
 
 const columns: Column[] = [
@@ -41,18 +41,19 @@ const columns: Column[] = [
   { key: "teacher_name", label: "Teacher" },
 ];
 
-function findOptionIdByLabel(list: OptionItem[], label: string): number {
-  const selectedItem = list.find((item) => item.label === label);
+const statusTabs: StatusTabOption<ClassSectionRelationStatusFilter>[] = [
+  { value: "all", label: "All" },
+  { value: "trash", label: "Trash" },
+];
 
-  return selectedItem ? selectedItem.id : 0;
-}
+function describeRelation(
+  item: ClassSectionRelationItem | null
+): string {
+  if (!item) return "";
 
-function findOptionLabel(list: OptionItem[], id: number): string {
-  return list.find((item) => item.id === id)?.label || "";
-}
+  const teacherLabel = item.teacher_name || "no teacher assigned";
 
-function makeOptionValue(id: number, label: string): string {
-  return label;
+  return `${item.class_name} - ${item.section_name} - ${teacherLabel}`;
 }
 
 export default function ClassSectionRelation() {
@@ -61,10 +62,10 @@ export default function ClassSectionRelation() {
     addClassSection,
     updateClassSection,
     deleteClassSection,
+    restoreClassSection,
+    hardDeleteClassSection,
   } = useClassSection();
-  const {
-    getTeachers,
-  } = useTeacher();
+  const { getTeachers } = useTeacher();
   const { getSection } = useSection();
   const { getClasses } = useClass();
 
@@ -72,12 +73,9 @@ export default function ClassSectionRelation() {
   const { sections } = useAppSelector((state) => state.section);
   const { classes } = useAppSelector((state) => state.class);
 
-
   const { classSectionRelations } = useAppSelector(
     (state) => state.classSection
   );
-
-
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -88,33 +86,59 @@ export default function ClassSectionRelation() {
   const [deleteItem, setDeleteItem] =
     useState<ClassSectionRelationItem | null>(null);
 
+  const [restoreItem, setRestoreItem] =
+    useState<ClassSectionRelationItem | null>(null);
+
+  const [permanentDeleteItem, setPermanentDeleteItem] =
+    useState<ClassSectionRelationItem | null>(null);
+
   const [addOpen, setAddOpen] = useState(false);
+
+  const [statusFilter, setStatusFilter] =
+    useState<ClassSectionRelationStatusFilter>("all");
+  const [isLoading, setIsLoading] = useState(false);
 
   const itemsPerPage = 10;
 
+  const loadRelations = async (status: ClassSectionRelationStatusFilter) => {
+    try {
+      setIsLoading(true);
+      await getClassSections(status);
+    } catch (error) {
+      console.error("Failed to fetch class section relations:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    getClassSections();
+    loadRelations(statusFilter);
+  }, [statusFilter]);
+
+  useEffect(() => {
     getTeachers("active");
     getSection();
-    getClasses()
+    getClasses();
   }, []);
 
-  const classOptions: OptionItem[] = classes.map((item) => ({
-    id: Number(item.id),
-    label: String(item.class_name ?? ""),
-  }));
+  const classOptions = classes
+    .filter((item) => item.status !== "inactive")
+    .map((item) => ({
+      label: String(item.class_name ?? ""),
+      value: String(item.id),
+    }));
 
-  const sectionOptions: OptionItem[] = sections.map((item) => ({
-    id: Number(item.id),
-    label: item.stream
-      ? `${item.name} (${item.stream})`
-      : String(item.name ?? ""),
-  }));
+  const sectionOptions = sections
+    .filter((item) => item.status !== "inactive")
+    .map((item) => ({
+      label: String(item.name ?? ""),
+      value: String(item.id),
+    }));
 
-  const teacherOptions: OptionItem[] = teachers.map((item) => ({
-    id: Number(item.id),
+  const teacherOptions = teachers.map((item) => ({
     label: `${item.first_name} ${item.last_name || ""}${item.employee_code ? ` (${item.employee_code})` : ""
       }`.trim(),
+    value: String(item.id),
   }));
 
   const fields: FieldDef[] = [
@@ -123,31 +147,30 @@ export default function ClassSectionRelation() {
       label: "Class",
       type: "select",
       required: true,
+      options: classOptions,
     },
     {
       key: "section_id",
       label: "Section",
       type: "select",
       required: true,
+      options: sectionOptions,
     },
     {
       key: "teacher_id",
       label: "Teacher",
       type: "select",
-      required: true,
+      required: false,
+      options: teacherOptions,
     },
   ];
-  const buildRelationPayload = (values: FormValues) => {
-    const classId = findOptionIdByLabel(classOptions, String(values.class_id));
-    const sectionId = findOptionIdByLabel(sectionOptions, String(values.section_id));
-    const teacherId = findOptionIdByLabel(teacherOptions, String(values.teacher_id));
 
-    return {
-      class_id: classId,
-      section_id: sectionId,
-      teacher_id: teacherId,
-    };
-  };
+  const buildRelationPayload = (values: FormValues) => ({
+    class_id: Number(values.class_id),
+    section_id: Number(values.section_id),
+    teacher_id: values.teacher_id ? Number(values.teacher_id) : null,
+  });
+
   const filtered = classSectionRelations.filter((item) => {
     const keyword = search.toLowerCase();
 
@@ -167,12 +190,12 @@ export default function ClassSectionRelation() {
 
   const handleAdd = async (values: FormValues) => {
     const payload = buildRelationPayload(values);
-    console.log(payload, "PAYLOAD")
 
     const result = await addClassSection(payload);
 
     if (result) {
       setAddOpen(false);
+      await loadRelations(statusFilter);
     }
   };
 
@@ -188,6 +211,7 @@ export default function ClassSectionRelation() {
 
     if (result) {
       setEditItem(null);
+      await loadRelations(statusFilter);
     }
   };
 
@@ -198,10 +222,35 @@ export default function ClassSectionRelation() {
 
     if (result) {
       setDeleteItem(null);
+      await loadRelations(statusFilter);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (!restoreItem) return;
+
+    const result = await restoreClassSection(restoreItem.id);
+
+    if (result) {
+      setRestoreItem(null);
+      await loadRelations(statusFilter);
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!permanentDeleteItem) return;
+
+    const result = await hardDeleteClassSection(permanentDeleteItem.id);
+
+    if (result) {
+      setPermanentDeleteItem(null);
+      await loadRelations(statusFilter);
     }
   };
 
   const handleEditClick = (row: Record<string, unknown>) => {
+    if (statusFilter === "trash") return;
+
     const rowId = Number(row.id);
 
     const selectedItem = classSectionRelations.find(
@@ -220,16 +269,32 @@ export default function ClassSectionRelation() {
       (item) => item.id === rowId
     );
 
-    if (selectedItem) {
+    if (!selectedItem) return;
+
+    if (statusFilter === "trash") {
+      setPermanentDeleteItem(selectedItem as ClassSectionRelationItem);
+    } else {
       setDeleteItem(selectedItem as ClassSectionRelationItem);
+    }
+  };
+
+  const handleRestoreClick = (row: Record<string, unknown>) => {
+    const rowId = Number(row.id);
+
+    const selectedItem = classSectionRelations.find(
+      (item) => item.id === rowId
+    );
+
+    if (selectedItem) {
+      setRestoreItem(selectedItem as ClassSectionRelationItem);
     }
   };
 
   const editInitialValues: FormValues | undefined = editItem
     ? {
-      class_id: makeOptionValue(editItem.class_id, editItem.class_name),
-      section_id: makeOptionValue(editItem.section_id, editItem.section_name),
-      teacher_id: makeOptionValue(editItem.teacher_id, editItem.teacher_name),
+      class_id: String(editItem.class_id),
+      section_id: String(editItem.section_id),
+      teacher_id: editItem.teacher_id ? String(editItem.teacher_id) : "",
     }
     : undefined;
 
@@ -254,41 +319,59 @@ export default function ClassSectionRelation() {
 
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         <div className="p-5 border-b border-border">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <div className="flex flex-col lg:flex-row gap-4 lg:items-center">
+            <div className="relative max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 
-            <input
-              type="search"
-              placeholder="Search class, section, teacher..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
+              <input
+                type="search"
+                placeholder="Search class, section, teacher..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full h-9 pl-9 pr-4 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                data-testid="class-section-relation-search"
+              />
+            </div>
+            <StatusTabs
+              options={statusTabs}
+              value={statusFilter}
+              onChange={(value) => {
+                setStatusFilter(value);
                 setPage(1);
               }}
-              className="w-full h-9 pl-9 pr-4 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-              data-testid="class-section-relation-search"
+              disabled={isLoading}
+              className="lg:ml-auto"
             />
           </div>
         </div>
 
         <div className="px-6">
-          <DataTable
-            columns={columns}
-            data={paginatedData.map((item) => ({
-              id: item.id,
-              class_id: item.class_id,
-              class_name: item.class_name,
-              section_id: item.section_id,
-              section_name: item.section_name,
-              teacher_id: item.teacher_id,
-              teacher_name: item.teacher_name,
-              employee_code: item.employee_code,
-              created_at: item.created_at,
-              updated_at: item.updated_at,
-            }))}
-            onEdit={handleEditClick}
-            onDelete={handleDeleteClick}
-          />
+          {isLoading ? (
+            <ListingSkeleton columns={columns.length} rows={paginatedData.length} />
+          ) : (
+            <DataTable
+              columns={columns}
+              data={paginatedData.map((item) => ({
+                id: item.id,
+                class_id: item.class_id,
+                class_name: item.class_name,
+                section_id: item.section_id,
+                section_name: item.section_name,
+                teacher_id: item.teacher_id,
+                teacher_name: item.teacher_name || "Not assigned",
+                employee_code: item.employee_code,
+                created_at: item.created_at,
+                updated_at: item.updated_at,
+              }))}
+              onEdit={statusFilter !== "trash" ? handleEditClick : undefined}
+              onDelete={statusFilter !== "trash" ? handleDeleteClick : undefined}
+              onRestore={statusFilter === "trash" ? handleRestoreClick : undefined}
+              onPermanentDelete={statusFilter === "trash" ? handleDeleteClick : undefined}
+            />
+          )}
         </div>
 
         <div className="px-6 py-4 border-t border-border flex items-center justify-between">
@@ -328,11 +411,33 @@ export default function ClassSectionRelation() {
         onClose={() => setDeleteItem(null)}
         onConfirm={handleDelete}
         title="Delete Relation"
-        description={`Are you sure you want to remove "${deleteItem
-          ? `${deleteItem.class_name} - ${deleteItem.section_name} - ${deleteItem.teacher_name}`
-          : ""
-          }" from the system? This action cannot be undone.`}
-        confirmLabel="Delete Relation"
+        description={`Are you sure you want to move "${describeRelation(
+          deleteItem
+        )}" to trash? You can restore it later.`}
+        confirmLabel="Move to Trash"
+      />
+
+      <ConfirmModal
+        isOpen={!!restoreItem}
+        onClose={() => setRestoreItem(null)}
+        onConfirm={handleRestore}
+        title="Restore Relation"
+        description={`Are you sure you want to restore "${describeRelation(
+          restoreItem
+        )}"? It will be moved back to the active list.`}
+        confirmLabel="Restore Relation"
+      />
+
+      <ConfirmModal
+        isOpen={!!permanentDeleteItem}
+        onClose={() => setPermanentDeleteItem(null)}
+        onConfirm={handlePermanentDelete}
+        title="Permanently Delete Relation"
+        description={`Are you sure you want to permanently delete "${describeRelation(
+          permanentDeleteItem
+        )}"? This action cannot be undone.`}
+        confirmLabel="Delete Permanently"
+        variant="danger"
       />
     </div>
   );

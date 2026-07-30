@@ -32,6 +32,8 @@ import ComingSoon from "./components/common/ommingSoon";
 import ClassSectionRelation from "./pages/ClassSectionRelation";
 import Streams from "./pages/Stream";
 import { Toaster } from "./components/ui/sonner";
+import StudentSignin from "./pages/student/StudentSignin";
+import StudentDashboard from "./pages/student/StudentDashboard";
 
 const queryClient = new QueryClient();
 
@@ -51,6 +53,15 @@ function App() {
               {/* Public */}
               <Route path="/" element={<Home />} />
               <Route path="/admin/signin" element={<AdminSignin />} />
+
+              {/*
+                Separate student portal: its own cookies, its own auth
+                controller/routes, its own redux slice — deliberately not
+                integrated into the /:portal + ProtectedRoute system below,
+                which is wired to the single admin/teacher auth cookie.
+              */}
+              <Route path="/student-portal/signin" element={<StudentSignin />} />
+              <Route path="/student-portal/dashboard" element={<StudentDashboard />} />
 
               {/* Role based protected area */}
               <Route
@@ -98,7 +109,7 @@ function App() {
                 <Route
                   element={<ProtectedRoute allowedRoles={["admin"]} />}
                 >
-                  <Route path="students" element={<ComingSoon />} />
+                  <Route path="students" element={<Students />} />
                    <Route path="academic-sessions" element={<AcademicSession />} />
                   <Route path="teachers" element={<Teachers />} />
                   <Route path="fees" element={<ComingSoon />} />

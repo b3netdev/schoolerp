@@ -1,14 +1,21 @@
 import express from "express";
 import { ClassSectionRelationController } from "../controllers/class-section-relation.controller.js";
+import { isAuthenticated } from "../middlewares/auth.middleware.js";
+import { withAcademicYearContext } from "../middlewares/academicYearContext.middleware.js";
 
 const router = express.Router();
+
+// class_section_relation.academic_year_id is NOT NULL, so every route here
+// needs the trusted academic year resolved from the JWT before it can touch
+// the query builder.
+router.use(isAuthenticated, withAcademicYearContext);
 
 router.get(
   "/get-class-section-relations",
   ClassSectionRelationController.getAll,
 );
 
-router.get("/get-class-section-relation/:id",ClassSectionRelationController.getById,);
+router.get("/get-class-section-relation/:id", ClassSectionRelationController.getById);
 
 router.post(
   "/add-class-section-relation",
@@ -23,6 +30,16 @@ router.post(
 router.delete(
   "/delete-class-section-relation/:id",
   ClassSectionRelationController.delete,
+);
+
+router.patch(
+  "/restore-class-section-relation/:id",
+  ClassSectionRelationController.restore,
+);
+
+router.delete(
+  "/hard-delete-class-section-relation/:id",
+  ClassSectionRelationController.hardDelete,
 );
 
 export default router;

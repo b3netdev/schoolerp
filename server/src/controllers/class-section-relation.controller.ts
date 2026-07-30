@@ -2,16 +2,70 @@ import { Request, Response, NextFunction } from "express";
 import {
   ClassSectionRelationModel,
   ClassSectionRelationPayload,
+  ClassSectionRelationStatusFilter,
   ClassSectionRelationUpdatePayload,
+  DuplicateClassSectionError,
+  InvalidClassSectionReferenceError,
 } from "../models/class-section-relation.model.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import { AppError } from "../utils/AppError.js";
 
+const VALID_STATUS_FILTERS: ClassSectionRelationStatusFilter[] = [
+  "all",
+  "trash",
+];
+
+const parseStatusFilter = (
+  value: unknown,
+): ClassSectionRelationStatusFilter => {
+  return VALID_STATUS_FILTERS.includes(
+    value as ClassSectionRelationStatusFilter,
+  )
+    ? (value as ClassSectionRelationStatusFilter)
+    : "all";
+};
+
+// Teacher is optional: absent/undefined means "leave unchanged" on update,
+// null/empty string means "no teacher assigned".
+const parseOptionalTeacherId = (
+  value: unknown,
+): number | null | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (value === null || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const handleKnownModelErrors = (
+  error: unknown,
+  next: NextFunction,
+): void => {
+  if (error instanceof DuplicateClassSectionError) {
+    next(new AppError(error.message, 409));
+    return;
+  }
+
+  if (error instanceof InvalidClassSectionReferenceError) {
+    next(new AppError(error.message, 400));
+    return;
+  }
+
+  next(error);
+};
+
 export class ClassSectionRelationController {
-  // Get all class-section-teacher relations
+  // Get all class-section-teacher relations, optionally filtered by ?status=all|trash
   static getAll = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
-      const relations = await ClassSectionRelationModel.findAll();
+      const status = parseStatusFilter(req.query.status);
+      const relations = await ClassSectionRelationModel.findByStatus(status);
 
       res.status(200).json({
         success: true,
@@ -53,7 +107,6 @@ export class ClassSectionRelationController {
 
       const classId = Number(class_id);
       const sectionId = Number(section_id);
-      const teacherId = Number(teacher_id);
 
       if (!classId || Number.isNaN(classId)) {
         return next(new AppError("Class is required.", 400));
@@ -63,21 +116,21 @@ export class ClassSectionRelationController {
         return next(new AppError("Section is required.", 400));
       }
 
-      if (!teacherId || Number.isNaN(teacherId)) {
-        return next(new AppError("Teacher is required.", 400));
+      try {
+        const relation = await ClassSectionRelationModel.create({
+          class_id: classId,
+          section_id: sectionId,
+          teacher_id: parseOptionalTeacherId(teacher_id) ?? null,
+        });
+
+        res.status(201).json({
+          success: true,
+          message: "Class section relation created successfully.",
+          data: relation,
+        });
+      } catch (error) {
+        handleKnownModelErrors(error, next);
       }
-
-      const relation = await ClassSectionRelationModel.create({
-        class_id: classId,
-        section_id: sectionId,
-        teacher_id: teacherId,
-      });
-
-      res.status(201).json({
-        success: true,
-        message: "Class section relation created successfully.",
-        data: relation,
-      });
     }
   );
 
@@ -99,25 +152,29 @@ export class ClassSectionRelationController {
         );
       }
 
-      const relation = await ClassSectionRelationModel.update(id, {
-        class_id: class_id ? Number(class_id) : undefined,
-        section_id: section_id ? Number(section_id) : undefined,
-        teacher_id: teacher_id ? Number(teacher_id) : undefined,
-      });
+      try {
+        const relation = await ClassSectionRelationModel.update(id, {
+          class_id: class_id ? Number(class_id) : undefined,
+          section_id: section_id ? Number(section_id) : undefined,
+          teacher_id: parseOptionalTeacherId(teacher_id),
+        });
 
-      if (!relation) {
-        return next(new AppError("Class section relation not found.", 404));
+        if (!relation) {
+          return next(new AppError("Class section relation not found.", 404));
+        }
+
+        res.status(200).json({
+          success: true,
+          message: "Class section relation updated successfully.",
+          data: relation,
+        });
+      } catch (error) {
+        handleKnownModelErrors(error, next);
       }
-
-      res.status(200).json({
-        success: true,
-        message: "Class section relation updated successfully.",
-        data: relation,
-      });
     }
   );
 
-  // Delete class-section-teacher relation
+  // Soft delete (move to trash) a class-section-teacher relation
   static delete = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const id = Number(req.params.id);
@@ -134,9 +191,38 @@ export class ClassSectionRelationController {
 
       res.status(200).json({
         success: true,
-        message: "Class section relation deleted successfully.",
+        message: "Class section relation moved to trash successfully.",
         data: relation,
       });
+    }
+  );
+
+  // Restore a trashed class-section-teacher relation
+  static restore = catchAsync(
+    async (req: Request, res: Response, next: NextFunction) => {
+      const id = Number(req.params.id);
+
+      if (!id || Number.isNaN(id)) {
+        return next(new AppError("Invalid relation ID.", 400));
+      }
+
+      try {
+        const relation = await ClassSectionRelationModel.restore(id);
+
+        if (!relation) {
+          return next(
+            new AppError("Class section relation not found in trash.", 404),
+          );
+        }
+
+        res.status(200).json({
+          success: true,
+          message: "Class section relation restored successfully.",
+          data: relation,
+        });
+      } catch (error) {
+        handleKnownModelErrors(error, next);
+      }
     }
   );
 

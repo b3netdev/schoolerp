@@ -3,7 +3,7 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 export interface Section {
   id: number;
   name: string;
-  stream: string;
+  stream_id: string;
   status: string;
   description: string;
 }
@@ -26,7 +26,8 @@ const sectionSlice = createSlice({
       const newSection: Section = {
         id: Date.now(),
         name: action.payload.name,
-        stream: action.payload.stream,
+        stream_id: action.payload.stream_id,
+        status: action.payload.status,
         description: action.payload.description
       };
 

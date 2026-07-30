@@ -5,6 +5,7 @@ import cors from "cors";
 import { corsOptions } from "./utils/cors.js";
 import { dbConnection } from "./config/database.js";
 import { errorHandler } from "./middlewares/error.middleware.js";
+import { initAcademicYearTableRegistry } from "./db/academic-year-registry.js";
 // import routers 
 import AuthRouter from "./routes/auth.route.js";
 import AcademicSessionRouter from "./routes/academic-session.route.js"
@@ -15,10 +16,12 @@ import TeachersRouter from "./routes/teachers.route.js"
 import ClassSectionRelationRouter from "./routes/classs-section-relation.route.js"
 import StreamRouter from "./routes/stream.route.js"
 import AlreadyExisteBy from "./routes/helper.route.js"
+import StudentRouter from "./routes/student.route.js"
+import StudentClassRelationRouter from "./routes/student-class-relation.route.js"
+import StudentAuthRouter from "./routes/student-auth.route.js"
 
 import cookieParser from "cookie-parser";
 const app = express();
-dbConnection();
 
 app.use(cors(corsOptions));
 app.use(express.json());
@@ -40,6 +43,9 @@ app.use(`/${process.env.API_VERSION}/teacher`, TeachersRouter);
 app.use(`/${process.env.API_VERSION}/class-section`, ClassSectionRelationRouter);
 app.use(`/${process.env.API_VERSION}/stream`, StreamRouter);
 app.use(`/${process.env.API_VERSION}/check-exists`, AlreadyExisteBy);
+app.use(`/${process.env.API_VERSION}/student`, StudentRouter);
+app.use(`/${process.env.API_VERSION}/student-class-relation`, StudentClassRelationRouter);
+app.use(`/${process.env.API_VERSION}/student-auth`, StudentAuthRouter);
 
 
 app.use(errorHandler);
@@ -47,6 +53,25 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on localhost:${PORT}`);
+const start = async () => {
+  const connected = await dbConnection();
+
+  if (!connected) {
+    console.error("Refusing to start: database connection failed");
+    process.exit(1);
+  }
+
+  // Populated once, cached in-process, never queried per-request.
+  // Use refreshAcademicYearTableRegistry() after a migration adds/removes
+  // an academic_year_id column on a live process, instead of restarting.
+  await initAcademicYearTableRegistry();
+
+  app.listen(PORT, () => {
+    console.log(`Server running on localhost:${PORT}`);
+  });
+};
+
+start().catch((error) => {
+  console.error("Failed to start server:", error);
+  process.exit(1);
 });

@@ -19,6 +19,8 @@ export interface StreamUpdatePayload {
     status?: string;
 }
 
+type StreamStatus = "active" | "inactive" | null;
+
 const tableName = "stream";
 export type StreamStatusFilter = "all" | "active" | "inactive" | "trash";
 
@@ -78,7 +80,7 @@ export class StreamModel {
             .whereNull("deleted_at")
             .update(updateData);
 
-        return result || null;
+        return result[0] || null;
     }
 
     static async delete(id: number): Promise<Stream | null> {
@@ -88,7 +90,7 @@ export class StreamModel {
             .whereNull("deleted_at")
             .softDelete();
 
-        return result || null;
+        return result[0] || null;
     }
 
     static async restore(id: number): Promise<Stream | null> {
@@ -98,7 +100,7 @@ export class StreamModel {
             .whereNotNull("deleted_at")
             .restore();
 
-        return result || null;
+        return result[0] || null;
     }
 
     static async hardDelete(id: number): Promise<boolean> {
@@ -107,6 +109,6 @@ export class StreamModel {
             .where("id", "=", id)
             .delete();
 
-        return result;
+        return result > 0;
     }
 }

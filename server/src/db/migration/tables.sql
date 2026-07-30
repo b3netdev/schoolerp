@@ -7,6 +7,7 @@ CREATE TABLE users (
     email VARCHAR(255),
     password VARCHAR(255),
     role VARCHAR(20),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_At TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_At TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITHOUT TIME ZONE
@@ -45,7 +46,7 @@ CREATE TABLE class_section_relation (
 
     class_id BIGINT NOT NULL,
     section_id BIGINT NOT NULL,
-    teacher_id BIGINT NOT NULL,
+    teacher_id BIGINT,
     academic_year_id BIGINT NOT NULL,
 
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -101,7 +102,7 @@ CREATE TABLE public.class_section_relation (
 
     class_id INTEGER NOT NULL,
     section_id INTEGER NOT NULL,
-    teacher_id INTEGER NOT NULL,
+    teacher_id INTEGER,
     academic_year_id INTEGER NOT NULL,
 
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -276,15 +277,6 @@ AND deleted_at IS NULL;
 
 
 
---create students
-create table students(
-id  serial primary key,
-first_name varchar(50) not null,
-last_name varchar(50),
-email varchar(50) unique,
-password text,
-status varchar(20) check(status in ('active', 'inactive')),
-phone varchar(15),
-created_at timestamp without time zone now(),
-updated_at timestamp without time zone
-);
+-- students, student_meta, student_class_relation, student_refresh_tokens:
+-- see migrations/0005_student_module.sql (this stub predated that schema
+-- and didn't match what's actually deployed).

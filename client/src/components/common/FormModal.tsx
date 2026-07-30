@@ -64,6 +64,9 @@ export interface FieldDef {
   placeholder?: string;
 
   checkExistAt?: CheckExistConfig[];
+
+  /** Groups fields under a heading when a form has many fields (e.g. "Personal Information"). Fields without a section render first, ungrouped, exactly as before. */
+  section?: string;
 }
 
 
@@ -181,16 +184,25 @@ export function FormModal({
 
     cancelFieldCheck(field.key);
 
-    updateFieldStatus(field.key, {
-      state: "checking",
-      message: `Checking ${field.label.toLowerCase()}...`,
-    });
+    /*
+     * Stay idle while the user is still actively typing — only switch to
+     * "checking" once they've paused for `delay`ms, right before the
+     * request actually fires. Setting "checking" here instead would flash
+     * the checking indicator on every keystroke, well before any request
+     * is even scheduled.
+     */
+    updateFieldStatus(field.key, EMPTY_CHECK_STATUS);
 
     const currentRequestVersion =
       requestVersions.current[field.key];
 
     debounceTimers.current[field.key] = setTimeout(
       async () => {
+        updateFieldStatus(field.key, {
+          state: "checking",
+          message: `Checking ${field.label.toLowerCase()}...`,
+        });
+
         try {
           const result = await checkExists({
             field: field.key,
@@ -301,7 +313,21 @@ export function FormModal({
       fieldStatuses
     ).some((status) => status.state === "checking");
 
-    if (hasInvalidField || hasCheckingField) {
+    /*
+     * A field can have a check scheduled-but-not-yet-"checking" (still
+     * inside its debounce window) right after the user stops typing and
+     * immediately hits submit. Block on that too, not just the visible
+     * "checking" status, so a duplicate value can't slip through during
+     * that window.
+     */
+    const hasPendingCheck =
+      Object.keys(debounceTimers.current).length > 0;
+
+    if (
+      hasInvalidField ||
+      hasCheckingField ||
+      hasPendingCheck
+    ) {
       return;
     }
 
@@ -331,114 +357,102 @@ export function FormModal({
   ).some((status) => status.state === "checking");
 
   const isSubmitDisabled =
-    hasInvalidField || hasCheckingField;
+    hasInvalidField ||
+    hasCheckingField ||
+    Object.keys(debounceTimers.current).length > 0;
 
-  return (
-    <Modal
-      isOpen={isOpen}
-      onClose={handleClose}
-      title={title}
-      size="lg"
-    >
-      <form
-        onSubmit={handleSubmit}
-        data-testid="form-modal"
-        className="flex max-h-[75vh] flex-col"
+  const renderField = (field: FieldDef) => {
+    const fieldStatus =
+      fieldStatuses[field.key] ??
+      EMPTY_CHECK_STATUS;
+
+    const inputBorderClass =
+      fieldStatus.state === "valid"
+        ? "border-green-500 focus:ring-green-500/30"
+        : fieldStatus.state === "invalid"
+          ? "border-red-500 focus:ring-red-500/30"
+          : "border-border focus:ring-primary/30";
+
+    const stringValue =
+      typeof values[field.key] === "string"
+        ? (values[field.key] as string)
+        : "";
+
+    const checkboxValue =
+      values[field.key] === true;
+
+    return (
+      <div
+        key={field.key}
+        className={
+          field.type === "textarea"
+            ? "sm:col-span-2"
+            : ""
+        }
       >
-        <div className="overflow-y-auto pr-2">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {fields.map((field) => {
-              const fieldStatus =
-                fieldStatuses[field.key] ??
-                EMPTY_CHECK_STATUS;
+        {/*
+         * Normal label.
+         * Checkbox has its own inline label below.
+         */}
+        {field.type !== "checkbox" && (
+          <label
+            htmlFor={`field-${field.key}`}
+            className="mb-1.5 block text-sm font-medium text-foreground"
+          >
+            {field.label}
 
-              const inputBorderClass =
-                fieldStatus.state === "valid"
-                  ? "border-green-500 focus:ring-green-500/30"
-                  : fieldStatus.state === "invalid"
-                    ? "border-red-500 focus:ring-red-500/30"
-                    : "border-border focus:ring-primary/30";
+            {field.required && (
+              <span className="ml-0.5 text-red-500">
+                *
+              </span>
+            )}
+          </label>
+        )}
+        {field.type === 'checkbox' && (
+          <label
+          htmlFor={`field-${field.key}`}
+          className="mb-1.5 block text-sm font-medium text-foreground"
+          >
+            {field.label}
+            {field.required && (
+              <span className="ml-0.5 text-red-500">*</span>
+            )}
+          </label>
+        )}
 
-              const stringValue =
-                typeof values[field.key] === "string"
-                  ? (values[field.key] as string)
-                  : "";
+        {field.type === "checkbox" ? (
+          <label
+            htmlFor={`field-${field.key}`}
+            className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 py-2"
+          >
+            <input
+              id={`field-${field.key}`}
+              type="checkbox"
+              checked={checkboxValue}
+              onChange={(event) =>
+                handleChange(
+                  field,
+                  event.target.checked
+                )
+              }
+              required={field.required}
+              className="h-4 w-4 cursor-pointer rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
+              data-testid={`field-${field.key}`}
+            />
 
-              const checkboxValue =
-                values[field.key] === true;
+            <span className="text-sm font-medium text-foreground">
+              {field.label}
 
-              return (
-                <div
-                  key={field.key}
-                  className={
-                    field.type === "textarea"
-                      ? "sm:col-span-2"
-                      : ""
-                  }
-                >
-                  {/*
-                   * Normal label.
-                   * Checkbox has its own inline label below.
-                   */}
-                  {field.type !== "checkbox" && (
-                    <label
-                      htmlFor={`field-${field.key}`}
-                      className="mb-1.5 block text-sm font-medium text-foreground"
-                    >
-                      {field.label}
-
-                      {field.required && (
-                        <span className="ml-0.5 text-red-500">
-                          *
-                        </span>
-                      )}
-                    </label>
-                  )}
-                  {field.type === 'checkbox' && (
-                    <label
-                    htmlFor={`field-${field.key}`}
-                    className="mb-1.5 block text-sm font-medium text-foreground"
-                    >
-                      {field.label}
-                      {field.required && (
-                        <span className="ml-0.5 text-red-500">*</span>
-                      )}
-                    </label>
-                  )}
-
-                  {field.type === "checkbox" ? (
-                    <label
-                      htmlFor={`field-${field.key}`}
-                      className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 py-2"
-                    >
-                      <input
-                        id={`field-${field.key}`}
-                        type="checkbox"
-                        checked={checkboxValue}
-                        onChange={(event) =>
-                          handleChange(
-                            field,
-                            event.target.checked
-                          )
-                        }
-                        required={field.required}
-                        className="h-4 w-4 cursor-pointer rounded border-border text-primary focus:ring-2 focus:ring-primary/30"
-                        data-testid={`field-${field.key}`}
-                      />
-
-                      <span className="text-sm font-medium text-foreground">
-                        {field.label}
-
-                        {field.required && (
-                          <span className="ml-0.5 text-red-500">
-                            *
-                          </span>
-                        )}
-                      </span>
-                    </label>
-                  ) : field.type === "select" &&
-                    field.options ? (
-                    <select
+              {field.required && (
+                <span className="ml-0.5 text-red-500">
+                  *
+                </span>
+              )}
+            </span>
+          </label>
+        ) : field.type === "select" &&
+          field.options ? (
+          <select
   id={`field-${field.key}`}
   value={stringValue}
   onChange={(event) =>
@@ -459,73 +473,130 @@ export function FormModal({
     </option>
   ))}
 </select>
-                  ) : field.type === "textarea" ? (
-                    <textarea
-                      id={`field-${field.key}`}
-                      value={stringValue}
-                      onChange={(event) =>
-                        handleChange(
-                          field,
-                          event.target.value
-                        )
-                      }
-                      required={field.required}
-                      placeholder={
-                        field.placeholder ??
-                        `Enter ${field.label.toLowerCase()}`
-                      }
-                      rows={4}
-                      className={`block w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${inputBorderClass}`}
-                      data-testid={`field-${field.key}`}
-                    />
-                  ) : (
-                    <input
-                      id={`field-${field.key}`}
-                      type={field.type ?? "text"}
-                      value={stringValue}
-                      onChange={(event) =>
-                        handleChange(
-                          field,
-                          event.target.value
-                        )
-                      }
-                      required={field.required}
-                      placeholder={
-                        field.placeholder ??
-                        `Enter ${field.label.toLowerCase()}`
-                      }
-                      className={`h-9 w-full rounded-lg border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${inputBorderClass}`}
-                      data-testid={`field-${field.key}`}
-                    />
-                  )}
+        ) : field.type === "textarea" ? (
+          <textarea
+            id={`field-${field.key}`}
+            value={stringValue}
+            onChange={(event) =>
+              handleChange(
+                field,
+                event.target.value
+              )
+            }
+            required={field.required}
+            placeholder={
+              field.placeholder ??
+              `Enter ${field.label.toLowerCase()}`
+            }
+            rows={4}
+            className={`block w-full resize-none rounded-lg border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${inputBorderClass}`}
+            data-testid={`field-${field.key}`}
+          />
+        ) : (
+          <input
+            id={`field-${field.key}`}
+            type={field.type ?? "text"}
+            value={stringValue}
+            onChange={(event) =>
+              handleChange(
+                field,
+                event.target.value
+              )
+            }
+            required={field.required}
+            placeholder={
+              field.placeholder ??
+              `Enter ${field.label.toLowerCase()}`
+            }
+            className={`h-9 w-full rounded-lg border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 ${inputBorderClass}`}
+            data-testid={`field-${field.key}`}
+          />
+        )}
 
-                  {fieldStatus.state === "checking" && (
-                    <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-blue-600">
-                      <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+        {fieldStatus.state === "checking" && (
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-blue-600">
+            <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
 
-                      <span>{fieldStatus.message}</span>
-                    </div>
-                  )}
-
-                  {fieldStatus.state === "valid" && (
-                    <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-green-600">
-                      <CircleCheck className="h-3.5 w-3.5" />
-
-                      <span>{fieldStatus.message}</span>
-                    </div>
-                  )}
-
-                  {fieldStatus.state === "invalid" && (
-                    <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-red-600">
-                      <CircleX className="h-3.5 w-3.5" />
-
-                      <span>{fieldStatus.message}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            <span>{fieldStatus.message}</span>
           </div>
+        )}
+
+        {fieldStatus.state === "valid" && (
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-green-600">
+            <CircleCheck className="h-3.5 w-3.5" />
+
+            <span>{fieldStatus.message}</span>
+          </div>
+        )}
+
+        {fieldStatus.state === "invalid" && (
+          <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-red-600">
+            <CircleX className="h-3.5 w-3.5" />
+
+            <span>{fieldStatus.message}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const ungroupedFields = fields.filter((field) => !field.section);
+
+  const sectionedFields = fields.reduce<
+    { section: string; fields: FieldDef[] }[]
+  >((groups, field) => {
+    if (!field.section) {
+      return groups;
+    }
+
+    const existingGroup = groups.find(
+      (group) => group.section === field.section
+    );
+
+    if (existingGroup) {
+      existingGroup.fields.push(field);
+    } else {
+      groups.push({ section: field.section, fields: [field] });
+    }
+
+    return groups;
+  }, []);
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title={title}
+      size="lg"
+    >
+      <form
+        onSubmit={handleSubmit}
+        data-testid="form-modal"
+        className="flex max-h-[75vh] flex-col"
+      >
+        <div className="overflow-y-auto pr-2">
+          {ungroupedFields.length > 0 && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {ungroupedFields.map(renderField)}
+            </div>
+          )}
+
+          {sectionedFields.map((group, index) => (
+            <div
+              key={group.section}
+              className={
+                index > 0 || ungroupedFields.length > 0 ? "mt-6" : ""
+              }
+            >
+              <h4 className="mb-3 text-sm font-semibold text-foreground">
+                {group.section}
+              </h4>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {group.fields.map(renderField)}
+              </div>
+            </div>
+          ))}
         </div>
 
         <div className="mt-6 flex items-center justify-end gap-2 border-t border-border bg-card pt-5">

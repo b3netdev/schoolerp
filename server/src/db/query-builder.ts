@@ -1,9 +1,24 @@
 import type {
   QueryResult,
   QueryResultRow,
+  PoolClient,
 } from "pg";
 
 import pool from "../config/database.js";
+import {
+  getActiveDbClient,
+  getCurrentAcademicYearId,
+  isScopeBypassed,
+  runInTransactionContext,
+  withoutAcademicYearScope as withoutAcademicYearScopeContext,
+} from "../context/academic-year-context.js";
+import { tableHasAcademicYearColumn } from "./academic-year-registry.js";
+
+/** Resolves to the transaction client when inside db.transaction(), else the pool. */
+const getExecutor = (): Pick<
+  PoolClient,
+  "query"
+> => getActiveDbClient() ?? pool;
 
 export type DatabaseValue =
   | string
@@ -256,6 +271,8 @@ export class QueryBuilder<
   private limitValue?: number;
   private offsetValue?: number;
 
+  private scopeBypassed = false;
+
   constructor(
     table: string,
     alias?: string,
@@ -268,6 +285,82 @@ export class QueryBuilder<
 
     this.tableName = table;
     this.tableAlias = alias;
+  }
+
+  /**
+   * Escape hatch for authorized cross-year reports/admin tooling: this
+   * query builder instance will not filter by, nor auto-inject,
+   * academic_year_id, regardless of what's in the request context.
+   */
+  withoutAcademicYearScope(): this {
+    this.scopeBypassed = true;
+    return this;
+  }
+
+  private isScopeBypassedForThisQuery(): boolean {
+    return (
+      this.scopeBypassed || isScopeBypassed()
+    );
+  }
+
+  /**
+   * Resolves whether reads/writes against this table should be filtered by
+   * (or stamped with) the current academic year. Throws when the table is
+   * academic-year scoped but no year is available and scoping hasn't been
+   * explicitly bypassed — this forces callers to be intentional (via
+   * withoutAcademicYearScope()) rather than silently reading/writing
+   * across all years.
+   */
+  private resolveAcademicYearScope(
+    action: "query" | "insert",
+  ): number | null {
+    if (
+      !tableHasAcademicYearColumn(
+        this.tableName,
+      )
+    ) {
+      return null;
+    }
+
+    if (this.isScopeBypassedForThisQuery()) {
+      return null;
+    }
+
+    const academicYearId =
+      getCurrentAcademicYearId();
+
+    if (academicYearId === null) {
+      throw new Error(
+        `Table "${this.tableName}" is academic-year scoped, but no ` +
+          `academic year is available in the current context for this ${action}. ` +
+          "Ensure the request went through the academic-year context " +
+          "middleware, or call withoutAcademicYearScope() for intentional " +
+          "cross-year access.",
+      );
+    }
+
+    return academicYearId;
+  }
+
+  private applyAcademicYearOnWrite<
+    D extends Record<
+      string,
+      DatabaseValue | undefined
+    >,
+  >(data: D): D {
+    const academicYearId =
+      this.resolveAcademicYearScope("insert");
+
+    if (academicYearId === null) {
+      return data;
+    }
+
+    // Always overwrite: a caller-supplied academic_year_id (e.g. forwarded
+    // from a request body) must never be trusted over the JWT-derived value.
+    return {
+      ...data,
+      academic_year_id: academicYearId,
+    };
   }
 
   select(...columns: string[]): this {
@@ -850,7 +943,7 @@ export class QueryBuilder<
       .join("");
   }
 
-  private buildWhereClause(
+  private buildUserWhereConditionsSql(
     params: unknown[],
   ): string {
     if (
@@ -934,7 +1027,70 @@ export class QueryBuilder<
         },
       );
 
-    return ` WHERE ${clauses.join("")}`;
+    return clauses.join("");
+  }
+
+  /**
+   * Qualifies with the table alias (or table name) so the automatic
+   * academic_year_id filter is never ambiguous in a joined query.
+   */
+  private buildAcademicYearWhereSql(
+    params: unknown[],
+  ): string {
+    const academicYearId =
+      this.resolveAcademicYearScope("query");
+
+    if (academicYearId === null) {
+      return "";
+    }
+
+    params.push(academicYearId);
+
+    const qualifiedColumn = `${
+      this.tableAlias ?? this.tableName
+    }.academic_year_id`;
+
+    return `${quoteIdentifier(
+      qualifiedColumn,
+    )} = $${params.length}`;
+  }
+
+  private buildWhereClause(
+    params: unknown[],
+  ): string {
+    const scopeSql =
+      this.buildAcademicYearWhereSql(
+        params,
+      );
+
+    const userSql =
+      this.buildUserWhereConditionsSql(
+        params,
+      );
+
+    const clauses: string[] = [];
+
+    if (scopeSql) {
+      clauses.push(scopeSql);
+    }
+
+    if (userSql) {
+      // Parenthesized so the scope filter always ANDs with the *entire*
+      // user-supplied condition set, even when it mixes AND/OR.
+      clauses.push(
+        this.whereConditions.length > 1
+          ? `(${userSql})`
+          : userSql,
+      );
+    }
+
+    if (clauses.length === 0) {
+      return "";
+    }
+
+    return ` WHERE ${clauses.join(
+      " AND ",
+    )}`;
   }
 
   private buildOrderClause(): string {
@@ -1020,7 +1176,7 @@ export class QueryBuilder<
       this.buildSelectQuery();
 
     const result =
-      await pool.query<T>(
+      await getExecutor().query<T>(
         sql,
         params,
       );
@@ -1078,7 +1234,7 @@ export class QueryBuilder<
     sql += ") AS exists";
 
     const result =
-      await pool.query<{
+      await getExecutor().query<{
         exists: boolean;
       }>(
         sql,
@@ -1112,7 +1268,7 @@ export class QueryBuilder<
     sql += this.buildWhereClause(params);
 
     const result =
-      await pool.query<{
+      await getExecutor().query<{
         count: number;
       }>(
         sql,
@@ -1128,8 +1284,13 @@ export class QueryBuilder<
       DatabaseValue | undefined
     >,
   ): Promise<T> {
+    const scopedData =
+      this.applyAcademicYearOnWrite(
+        data,
+      );
+
     const entries =
-      Object.entries(data).filter(
+      Object.entries(scopedData).filter(
         (
           entry,
         ): entry is [
@@ -1171,7 +1332,7 @@ export class QueryBuilder<
       " RETURNING *";
 
     const result =
-      await pool.query<T>(
+      await getExecutor().query<T>(
         sql,
         values,
       );
@@ -1199,10 +1360,19 @@ export class QueryBuilder<
       return [];
     }
 
+    const scopedRows = rows.map(
+      (row) =>
+        this.applyAcademicYearOnWrite(
+          row,
+        ),
+    );
+
     const columns =
-      Object.keys(rows[0]).filter(
+      Object.keys(
+        scopedRows[0],
+      ).filter(
         (column) =>
-          rows[0][column] !==
+          scopedRows[0][column] !==
           undefined,
       );
 
@@ -1218,7 +1388,7 @@ export class QueryBuilder<
 
     const params: unknown[] = [];
 
-    const valueGroups = rows.map(
+    const valueGroups = scopedRows.map(
       (row) => {
         const placeholders =
           columns.map((column) => {
@@ -1250,7 +1420,7 @@ export class QueryBuilder<
       " RETURNING *";
 
     const result =
-      await pool.query<T>(
+      await getExecutor().query<T>(
         sql,
         params,
       );
@@ -1314,7 +1484,7 @@ export class QueryBuilder<
     sql += " RETURNING *";
 
     const result =
-      await pool.query<T>(
+      await getExecutor().query<T>(
         sql,
         params,
       );
@@ -1342,7 +1512,7 @@ export class QueryBuilder<
     sql += this.buildWhereClause(params);
 
     const result =
-      await pool.query(
+      await getExecutor().query(
         sql,
         params,
       );
@@ -1371,7 +1541,7 @@ export class QueryBuilder<
     sql += " RETURNING *";
 
     const result =
-      await pool.query<T>(
+      await getExecutor().query<T>(
         sql,
         params,
       );
@@ -1401,7 +1571,7 @@ export const query = async <
   text: string,
   params: unknown[] = [],
 ): Promise<QueryResult<T>> => {
-  return pool.query<T>(
+  return getExecutor().query<T>(
     text,
     params,
   );
@@ -1415,7 +1585,7 @@ export const queryOne = async <
   params: unknown[] = [],
 ): Promise<T | null> => {
   const result =
-    await pool.query<T>(
+    await getExecutor().query<T>(
       text,
       params,
     );
@@ -1430,7 +1600,7 @@ export const queryValue = async <
   params: unknown[] = [],
 ): Promise<TValue | null> => {
   const result =
-    await pool.query<QueryResultRow>(
+    await getExecutor().query<QueryResultRow>(
       text,
       params,
     );
@@ -1472,13 +1642,74 @@ export const db = {
     params: unknown[] = [],
   ): Promise<T[]> {
     const result =
-      await pool.query<T>(
+      await getExecutor().query<T>(
         text,
         params,
       );
 
     return result.rows;
   },
+
+  /**
+   * Runs `fn` inside a single PostgreSQL transaction (BEGIN/COMMIT/ROLLBACK).
+   * Every `db.table()` / `db.query()` call made anywhere inside `fn` — at
+   * the top level or several calls deep in a model/service — automatically
+   * runs on the same connection via the academic-year AsyncLocalStorage
+   * context, with no need to thread a transaction handle through the call
+   * chain. The current academic-year scope carries over unchanged.
+   *
+   * Usage stays identical to a non-transactional call:
+   *   await db.transaction(async () => {
+   *     await db.table("a").insert(...);
+   *     await db.table("b").insert(...);
+   *   });
+   */
+  async transaction<R>(
+    fn: () => Promise<R>,
+  ): Promise<R> {
+    // Already inside a transaction (e.g. one model calling another that
+    // also wraps itself in db.transaction()): join it instead of opening a
+    // second connection, which would run independently of the outer one
+    // and commit/rollback on its own regardless of what the outer call does.
+    if (getActiveDbClient()) {
+      return fn();
+    }
+
+    const client =
+      await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const result =
+        await runInTransactionContext(
+          client,
+          fn,
+        );
+
+      await client.query("COMMIT");
+
+      return result;
+    } catch (error) {
+      await client
+        .query("ROLLBACK")
+        .catch(() => {
+          // rollback failure shouldn't mask the original error
+        });
+
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  /**
+   * Explicit escape hatch for authorized cross-year reports/admin tooling.
+   * Every db.table() query made inside `fn` skips academic-year filtering
+   * and auto-injection, regardless of the ambient request context.
+   */
+  withoutAcademicYearScope:
+    withoutAcademicYearScopeContext,
 
   query,
   queryOne,

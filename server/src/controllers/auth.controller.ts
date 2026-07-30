@@ -39,6 +39,9 @@ export const adminLogin = catchAsync(
       return next(new AppError("Email or password is required", 400));
     const DefaultAcademicSession = await AcademicSessionModel.getDefaultSession();
     //console.log("DefaultAcademicSession", DefaultAcademicSession);
+    if (!DefaultAcademicSession) {
+      return next(new AppError("No default academic session is configured", 500));
+    }
     const user = await UserModel.findByEmail(email);
     if (!user) return next(new AppError("Wrong email or password", 401));
     const ispasswordMatch = await bcrypt.compare(password, user.password);
@@ -53,15 +56,16 @@ export const adminLogin = catchAsync(
         email: user.email,
         role: user.role,
         default_academic_session: DefaultAcademicSession,
+        academic_year_id: DefaultAcademicSession.id,
       },
       process.env.JWT_SECRET as string,
       {
         expiresIn,
       },
     );
-    
+
     const isProduction = process.env.NODE_ENV === "production";
-    
+
     res.cookie("authtoken", token, {
       httpOnly: true,
       secure: isProduction,
@@ -79,6 +83,70 @@ export const adminLogin = catchAsync(
         email: user.email,
         role: user.role,
         default_academic_session: DefaultAcademicSession,
+        academic_year_id: DefaultAcademicSession.id,
+      },
+    });
+  },
+);
+
+/**
+ * Re-issues the auth cookie with a new `academic_year_id` claim. This is
+ * the only supported way to change which academic year a session's
+ * queries are scoped to — the client can never set academic_year_id
+ * directly, since the query builder trusts it exclusively from this JWT.
+ */
+export const switchAcademicSession = catchAsync(
+  async (req: any, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return next(new AppError("Unable to get user", 401));
+    }
+
+    const academicSessionId = Number(req.body.academic_session_id);
+    if (!academicSessionId || Number.isNaN(academicSessionId)) {
+      return next(new AppError("academic_session_id is required", 400));
+    }
+
+    const session = await AcademicSessionModel.findById(academicSessionId);
+    if (!session) {
+      return next(new AppError("Academic session not found", 404));
+    }
+    if (session.status !== "active") {
+      return next(new AppError("Cannot switch to an inactive academic session", 400));
+    }
+
+    const expiresIn = (process.env.JWT_EXPIRES_IN ||
+      "7d") as SignOptions["expiresIn"];
+
+    const token = jwt.sign(
+      {
+        id: req.user.id,
+        email: req.user.email,
+        role: req.user.role,
+        default_academic_session: session,
+        academic_year_id: session.id,
+      },
+      process.env.JWT_SECRET as string,
+      {
+        expiresIn,
+      },
+    );
+
+    const isProduction = process.env.NODE_ENV === "production";
+
+    res.cookie("authtoken", token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? "strict" : "lax",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: "/",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Academic session switched successfully",
+      data: {
+        academic_year_id: session.id,
+        academic_session: session,
       },
     });
   },

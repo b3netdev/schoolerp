@@ -1,4 +1,4 @@
-import { query } from "../db/query.js";
+import { db } from "../db/query-builder.js";
 
 export interface ClassSectionRelation {
   id: number;
@@ -10,12 +10,15 @@ export interface ClassSectionRelation {
   section_name: string;
   section_stream?: string | null;
 
-  teacher_id?: number | null;
-  teacher_name?: string | null;
+  teacher_id: number | null;
+  teacher_name: string;
   employee_code?: string | null;
+
+  academic_year_id: number;
 
   created_at: Date;
   updated_at: Date;
+  deleted_at?: Date | null;
 }
 
 export interface ClassSectionRelationPayload {
@@ -30,155 +33,243 @@ export interface ClassSectionRelationUpdatePayload {
   teacher_id?: number | null;
 }
 
+export type ClassSectionRelationStatusFilter = "all" | "trash";
+
+/** class_id + section_id is already taken for the current academic year. */
+export class DuplicateClassSectionError extends Error {
+  constructor() {
+    super(
+      "This class and section are already assigned for the current academic year.",
+    );
+    this.name = "DuplicateClassSectionError";
+  }
+}
+
+/** class_id / section_id / teacher_id does not reference an existing row. */
+export class InvalidClassSectionReferenceError extends Error {
+  constructor() {
+    super("Class, section or teacher not found.");
+    this.name = "InvalidClassSectionReferenceError";
+  }
+}
+
 const tableName = "class_section_relation";
+const alias = "csr";
+
+// pg unique_violation / foreign_key_violation error codes.
+const isUniqueViolation = (error: unknown): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  (error as { code?: string }).code === "23505";
+
+const isForeignKeyViolation = (error: unknown): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  (error as { code?: string }).code === "23503";
+
+const rethrowKnownConstraintErrors = (error: unknown): never => {
+  if (isUniqueViolation(error)) {
+    throw new DuplicateClassSectionError();
+  }
+
+  if (isForeignKeyViolation(error)) {
+    throw new InvalidClassSectionReferenceError();
+  }
+
+  throw error;
+};
+
+type JoinedRow = {
+  id: number;
+  class_id: number;
+  class_name: string;
+  section_id: number;
+  section_name: string;
+  section_stream: string | null;
+  teacher_id: number | null;
+  teacher_first_name: string | null;
+  teacher_last_name: string | null;
+  employee_code: string | null;
+  academic_year_id: number;
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date | null;
+};
+
+const toClassSectionRelation = (
+  row: JoinedRow,
+): ClassSectionRelation => ({
+  id: row.id,
+  class_id: row.class_id,
+  class_name: row.class_name,
+  section_id: row.section_id,
+  section_name: row.section_name,
+  section_stream: row.section_stream,
+  teacher_id: row.teacher_id,
+  teacher_name: `${row.teacher_first_name ?? ""} ${
+    row.teacher_last_name ?? ""
+  }`.trim(),
+  employee_code: row.employee_code,
+  academic_year_id: row.academic_year_id,
+  created_at: row.created_at,
+  updated_at: row.updated_at,
+  deleted_at: row.deleted_at,
+});
+
+/** Base select used by every listing/lookup — auto-scoped to the current academic year. */
+const joinedQuery = () =>
+  db
+    .table<JoinedRow>(tableName, alias)
+    .select(
+      `${alias}.id`,
+      `${alias}.class_id`,
+      `${alias}.section_id`,
+      `${alias}.teacher_id`,
+      `${alias}.academic_year_id`,
+      `${alias}.created_at`,
+      `${alias}.updated_at`,
+      `${alias}.deleted_at`,
+    )
+    .selectAs("classes.class_name", "class_name")
+    .selectAs("section.name", "section_name")
+    .selectAs("stream.name", "section_stream")
+    .selectAs("teachers.first_name", "teacher_first_name")
+    .selectAs("teachers.last_name", "teacher_last_name")
+    .selectAs("teachers.employee_code", "employee_code")
+    .join("classes", `${alias}.class_id`, "=", "classes.id")
+    .join("section", `${alias}.section_id`, "=", "section.id")
+    .leftJoin("stream", "section.stream_id", "=", "stream.id")
+    .leftJoin("teachers", `${alias}.teacher_id`, "=", "teachers.id");
 
 export class ClassSectionRelationModel {
+  static async findByStatus(
+    statusFilter: ClassSectionRelationStatusFilter = "all",
+  ): Promise<ClassSectionRelation[]> {
+    let query = joinedQuery();
+
+    query =
+      statusFilter === "trash"
+        ? query.whereNotNull(`${alias}.deleted_at`)
+        : query.whereNull(`${alias}.deleted_at`);
+
+    const rows = await query.orderBy(`${alias}.id`, "DESC").get();
+
+    return rows.map(toClassSectionRelation);
+  }
+
   static async findAll(): Promise<ClassSectionRelation[]> {
-    const result = await query<ClassSectionRelation>(
-      `
-      SELECT
-        csr.id,
-
-        csr.class_id,
-        c.class_name,
-
-        csr.section_id,
-        s.name AS section_name,
-        s.stream AS section_stream,
-
-        csr.teacher_id,
-        CONCAT(t.first_name, ' ', COALESCE(t.last_name, '')) AS teacher_name,
-        t.employee_code,
-
-        csr.created_at,
-        csr.updated_at
-      FROM ${tableName} csr
-      INNER JOIN classes c ON c.id = csr.class_id
-      INNER JOIN section s ON s.id = csr.section_id
-      LEFT JOIN teachers t ON t.id = csr.teacher_id
-      ORDER BY csr.id DESC
-      `
-    );
-
-    return result.rows;
+    return this.findByStatus("all");
   }
 
   static async findById(id: number): Promise<ClassSectionRelation | null> {
-    const result = await query<ClassSectionRelation>(
-      `
-      SELECT
-        csr.id,
+    const row = await joinedQuery()
+      .where(`${alias}.id`, "=", id)
+      .whereNull(`${alias}.deleted_at`)
+      .first();
 
-        csr.class_id,
-        c.class_name,
+    return row ? toClassSectionRelation(row) : null;
+  }
 
-        csr.section_id,
-        s.name AS section_name,
-        s.stream AS section_stream,
+  private static async findByIdIncludingTrashed(
+    id: number,
+  ): Promise<ClassSectionRelation | null> {
+    const row = await joinedQuery()
+      .where(`${alias}.id`, "=", id)
+      .first();
 
-        csr.teacher_id,
-        CONCAT(t.first_name, ' ', COALESCE(t.last_name, '')) AS teacher_name,
-        t.employee_code,
-
-        csr.created_at,
-        csr.updated_at
-      FROM ${tableName} csr
-      INNER JOIN classes c ON c.id = csr.class_id
-      INNER JOIN section s ON s.id = csr.section_id
-      LEFT JOIN teachers t ON t.id = csr.teacher_id
-      WHERE csr.id = $1
-      LIMIT 1
-      `,
-      [id]
-    );
-
-    return result.rows[0] || null;
+    return row ? toClassSectionRelation(row) : null;
   }
 
   static async create(
-    data: ClassSectionRelationPayload
+    data: ClassSectionRelationPayload,
   ): Promise<ClassSectionRelation> {
-    const result = await query<{ id: number }>(
-      `
-      INSERT INTO ${tableName}
-        (class_id, section_id, teacher_id)
-      VALUES
-        ($1, $2, $3)
-      RETURNING id
-      `,
-      [
-        data.class_id,
-        data.section_id,
-        data.teacher_id ?? null,
-      ]
-    );
+    try {
+      const inserted = await db
+        .table<{ id: number }>(tableName)
+        .insert({
+          class_id: data.class_id,
+          section_id: data.section_id,
+          teacher_id: data.teacher_id ?? null,
+        });
 
-    const createdRelation = await this.findById(result.rows[0].id);
+      const created = await this.findById(inserted.id);
 
-    if (!createdRelation) {
-      throw new Error("Class section relation created but not found");
+      if (!created) {
+        throw new Error("Class section relation created but not found");
+      }
+
+      return created;
+    } catch (error) {
+      return rethrowKnownConstraintErrors(error);
     }
-
-    return createdRelation;
   }
 
   static async update(
     id: number,
-    data: ClassSectionRelationUpdatePayload
+    data: ClassSectionRelationUpdatePayload,
   ): Promise<ClassSectionRelation | null> {
-    const result = await query<{ id: number }>(
-      `
-      UPDATE ${tableName}
-      SET
-        class_id = COALESCE($1, class_id),
-        section_id = COALESCE($2, section_id),
-        teacher_id = COALESCE($3, teacher_id),
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = $4
-      RETURNING id
-      `,
-      [
-        data.class_id ?? null,
-        data.section_id ?? null,
-        data.teacher_id ?? null,
-        id,
-      ]
-    );
+    const updateData: Record<string, number | null> = {};
+    if (data.class_id !== undefined) updateData.class_id = data.class_id;
+    if (data.section_id !== undefined) updateData.section_id = data.section_id;
+    // teacher_id may be explicitly null to unassign the teacher.
+    if (data.teacher_id !== undefined) updateData.teacher_id = data.teacher_id;
 
-    if (!result.rows[0]) {
-      return null;
+    try {
+      const updated = await db
+        .table<{ id: number }>(tableName)
+        .where("id", "=", id)
+        .whereNull("deleted_at")
+        .update(updateData);
+
+      if (!updated[0]) {
+        return null;
+      }
+
+      return this.findById(updated[0].id);
+    } catch (error) {
+      return rethrowKnownConstraintErrors(error);
     }
-
-    return this.findById(result.rows[0].id);
   }
 
   static async delete(id: number): Promise<ClassSectionRelation | null> {
-    const existingRelation = await this.findById(id);
-
-    if (!existingRelation) {
+    const existing = await this.findById(id);
+    if (!existing) {
       return null;
     }
 
-    await query(
-      `
-      DELETE FROM ${tableName}
-      WHERE id = $1
-      `,
-      [id]
-    );
+    await db
+      .table(tableName)
+      .where("id", "=", id)
+      .whereNull("deleted_at")
+      .softDelete();
 
-    return existingRelation;
+    return this.findByIdIncludingTrashed(id);
+  }
+
+  static async restore(id: number): Promise<ClassSectionRelation | null> {
+    try {
+      const restored = await db
+        .table<{ id: number }>(tableName)
+        .where("id", "=", id)
+        .whereNotNull("deleted_at")
+        .restore();
+
+      if (!restored[0]) {
+        return null;
+      }
+
+      return this.findById(restored[0].id);
+    } catch (error) {
+      return rethrowKnownConstraintErrors(error);
+    }
   }
 
   static async hardDelete(id: number): Promise<boolean> {
-    const result = await query(
-      `
-      DELETE FROM ${tableName}
-      WHERE id = $1
-      `,
-      [id]
-    );
+    const deletedCount = await db
+      .table(tableName)
+      .where("id", "=", id)
+      .delete();
 
-    return (result.rowCount ?? 0) > 0;
+    return deletedCount > 0;
   }
 }

@@ -64,7 +64,7 @@ export class SectionController {
     next: NextFunction,
   ): Promise<void> {
     try {
-      const { name, stream, status, description } = req.body as SectionPayload;
+      const { name, stream_id, status, description } = req.body as SectionPayload;
 
       if (!name) {
         return next(new AppError("Name is required", 400));
@@ -72,7 +72,7 @@ export class SectionController {
 
       const section = await SectionModel.create({
         name: name.trim(),
-        stream: stream.trim(),
+        stream_id: stream_id.trim(),
         status: status?.trim() || "active",
         description: description?.trim() || ""
       });
@@ -103,9 +103,9 @@ export class SectionController {
         return;
       }
 
-      const { name, stream, status, description } = req.body as SectionUpdatePayload;
+      const { name, stream_id, status, description } = req.body as SectionUpdatePayload;
 
-      if (!name && !stream && !status && !description) {
+      if (!name && !stream_id && !status && !description) {
         return next(
           new AppError("At least one field is required to change", 400),
         );
@@ -113,7 +113,7 @@ export class SectionController {
 
       const section = await SectionModel.update(id, {
         name: name?.trim(),
-        stream: stream?.trim(),
+        stream_id: stream_id?.trim(),
         status: status?.trim(),
         description: description?.trim()
       });

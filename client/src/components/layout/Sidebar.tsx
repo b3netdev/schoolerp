@@ -224,7 +224,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 overflow-y-auto sidebar-scrollbar">
           <p className="px-3 mb-2 text-xs font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
             Main Menu
           </p>

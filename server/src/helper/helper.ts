@@ -4,6 +4,7 @@ import { catchAsync } from "../utils/catchAsync.js";
 import { Request, Response, NextFunction } from "express";
 import { TeacherModel, TeacherPayload, TeacherUpdatePayload } from "../models/teachers.model.js";
 import { AcademicSessionModel } from "../models/AcademicSession.model.js";
+import { StudentModel } from "../models/student.model.js";
 
 const alreadyExistsBy = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -18,15 +19,21 @@ const alreadyExistsBy = catchAsync(
       return next(new AppError("The 'at' field must be a string.", 400));
     }
     
-    let selectedModel: typeof TeacherModel | typeof AcademicSessionModel;
+    let selectedModel:
+      | typeof TeacherModel
+      | typeof AcademicSessionModel
+      | typeof StudentModel;
     const normalizedAt = at.trim().toLowerCase();
-    
+
     switch (normalizedAt) {
       case "teacher":
         selectedModel = TeacherModel;
         break;
       case "academic_session":
         selectedModel = AcademicSessionModel;
+        break;
+      case "student":
+        selectedModel = StudentModel;
         break;
       default:
         return next(new AppError(`Invalid model: ${at}`, 400));

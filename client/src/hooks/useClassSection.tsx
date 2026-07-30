@@ -11,16 +11,20 @@ export interface ClassSectionRelationPayload {
   id?: number;
   class_id: number;
   section_id: number;
-  teacher_id: number;
+  teacher_id: number | null;
 }
+
+export type ClassSectionRelationStatusFilter = "all" | "trash";
 
 const useClassSection = () => {
   const dispatch = useAppDispatch();
 
-  const getClassSections = async () => {
+  const getClassSections = async (
+    status: ClassSectionRelationStatusFilter = "all"
+  ) => {
     try {
       const result = await api.get(
-        "/class-section/get-class-section-relations"
+        `/class-section/get-class-section-relations?status=${status}`
       );
 
       if (result?.data?.success) {
@@ -78,11 +82,43 @@ const useClassSection = () => {
     }
   };
 
+  const restoreClassSection = async (id: number) => {
+    try {
+      const result = await api.patch(
+        `/class-section/restore-class-section-relation/${id}`
+      );
+
+      if (result?.data?.success) {
+        dispatch(deleteClassSectionRelation(id));
+        return true;
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const hardDeleteClassSection = async (id: number) => {
+    try {
+      const result = await api.delete(
+        `/class-section/hard-delete-class-section-relation/${id}`
+      );
+
+      if (result?.data?.success) {
+        dispatch(deleteClassSectionRelation(id));
+        return true;
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
   return {
     getClassSections,
     addClassSection,
     updateClassSection,
     deleteClassSection,
+    restoreClassSection,
+    hardDeleteClassSection,
   };
 };
 

@@ -9,6 +9,9 @@ interface JwtPayload {
   email: string;
   role: string;
   default_academic_session: string;
+  // Trusted, server-issued current academic year. Never accept this value
+  // from request body/query/headers — it must only ever come from here.
+  academic_year_id: number;
 }
 
 export const isAuthenticated = catchAsync(
@@ -45,6 +48,7 @@ export const isAuthenticated = catchAsync(
       email: user.email,
       role: user.role,
       default_academic_session: decoded.default_academic_session,
+      academic_year_id: decoded.academic_year_id,
     };
     next();
   },

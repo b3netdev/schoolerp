@@ -136,3 +136,33 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+/* Custom Scrollbar for Sidebar */
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 8px 0;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--sidebar-foreground) / 0.2);
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--sidebar-foreground) / 0.35);
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb:active {
+  background: hsl(var(--sidebar-foreground) / 0.5);
+}
+
+/* Firefox scrollbar styling */
+.sidebar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--sidebar-foreground) / 0.2) transparent;
+}

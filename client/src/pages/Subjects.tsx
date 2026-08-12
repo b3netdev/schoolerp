@@ -1,206 +1,378 @@
-import { useState } from "react";
-import { Plus, Search, BookOpen } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Plus, Search } from "lucide-react";
+import api from "@/lib/api";
+
 import { DataTable, Column } from "@/components/tables/DataTable";
-import { FormModal, FieldDef } from "@/components/common/FormModal";
+import {
+  FormModal,
+  FieldDef,
+  FormValues,
+} from "@/components/common/FormModal";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
+import { Pagination } from "@/components/common/Pagination";
 import { PageHeader } from "@/components/common/PageHeader";
-import { EmptyState } from "@/components/common/EmptyState";
-import { subjects as initialSubjects } from "@/data/dummyData";
+import {
+  StatusTabs,
+  StatusTabOption,
+} from "@/components/common/StatusTabs";
+import { ListingSkeleton } from "@/components/tables/ListingSkeleton";
+import { useAppSelector } from "../../redux/hooks";
+import useClassSection from "@/hooks/useClassSection";
 
-type Subject = typeof initialSubjects[0];
+type SubjectStatusFilter = "all" | "trash";
 
-const statusOptions = ["All", "Active", "Inactive"];
-
-const columns: Column[] = [
-  { key: "name", label: "Subject Name", type: "avatar-text" },
-  { key: "code", label: "Code" },
-  { key: "teacher", label: "Teacher" },
-  { key: "classes", label: "Classes" },
-  { key: "maxMarks", label: "Max Marks" },
-  { key: "passMarks", label: "Pass Marks" },
-  { key: "status", label: "Status", type: "badge" },
-  { key: "actions", label: "Actions", type: "actions" },
-];
-
-const fields: FieldDef[] = [
-  { key: "name", label: "Subject Name", required: true, placeholder: "e.g. Mathematics" },
-  { key: "code", label: "Subject Code", required: true, placeholder: "e.g. MTH101" },
-  {
-    key: "teacher", label: "Assigned Teacher", type: "select",
-    options: ["Marie Curie", "Isaac Newton", "Jane Goodall", "W. Shakespeare", "Dr. A. Turing", "C. Darwin", "L. da Vinci", "F. Nightingale", "Ada Lovelace"],
-  },
-  {
-    key: "classes", label: "Applicable Classes", type: "select",
-    options: ["All Grades", "Grade 9–10", "Grade 10–12", "Grade 11–12", "Grade 9–12"],
-  },
-  { key: "maxMarks", label: "Max Marks", placeholder: "100" },
-  { key: "passMarks", label: "Pass Marks", placeholder: "33" },
-  { key: "description", label: "Description", placeholder: "Brief description of the subject" },
-  {
-    key: "status", label: "Status", type: "select",
-    options: ["Active", "Inactive"],
-  },
-];
-
-/** Use a book icon color based on subject name */
-const ICON_COLORS = [
-  "bg-blue-100 text-blue-600",
-  "bg-purple-100 text-purple-600",
-  "bg-emerald-100 text-emerald-600",
-  "bg-amber-100 text-amber-600",
-  "bg-rose-100 text-rose-600",
-  "bg-cyan-100 text-cyan-600",
-];
-
-function getIconColor(name: string) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return ICON_COLORS[Math.abs(h) % ICON_COLORS.length];
+interface Subject {
+  id: number;
+  class_section_id: number;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
 }
 
+interface ClassSectionRelation {
+  id: number;
+  class_id: number;
+  class_name: string;
+  section_id: number;
+  section_name: string;
+  section_stream: string | null;
+  teacher_id: number | null;
+  teacher_name: string;
+  employee_code: string | null;
+  academic_year_id: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at: string | null;
+}
+
+type SubjectTableRow = Subject & {
+  class_section_name: string;
+};
+
+const SUBJECTS_API = "/subjects";
+
+const statusTabs: StatusTabOption<SubjectStatusFilter>[] = [
+  { value: "all", label: "All" },
+  { value: "trash", label: "Trash" },
+];
+
+const columns: Column[] = [
+  { key: "name", label: "Subject Name" },
+  { key: "class_section_name", label: "Class & Section" },
+  { key: "description", label: "Description" },
+];
+
 export default function Subjects() {
-  const [data, setData] = useState<Subject[]>(initialSubjects);
+  const { classSectionRelations } = useAppSelector(
+    (state) => state.classSection,
+  );
+
+  const { getClassSections } = useClassSection();
+
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [statusFilter, setStatusFilter] =
+    useState<SubjectStatusFilter>("all");
+
   const [addOpen, setAddOpen] = useState(false);
   const [editItem, setEditItem] = useState<Subject | null>(null);
   const [deleteItem, setDeleteItem] = useState<Subject | null>(null);
+  const [restoreItem, setRestoreItem] = useState<Subject | null>(null);
+  const [permanentDeleteItem, setPermanentDeleteItem] =
+    useState<Subject | null>(null);
 
-  const filtered = data.filter(s => {
-    const matchSearch =
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.code.toLowerCase().includes(search.toLowerCase()) ||
-      s.teacher.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "All" || s.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
+  const itemsPerPage = 10;
 
-  const handleAdd = (values: Record<string, string>) => {
-    setData(prev => [
+  useEffect(() => {
+    void getClassSections("all");
+  }, []);
+
+  const loadSubjects = async (status: SubjectStatusFilter) => {
+    try {
+      setIsLoading(true);
+
+      const response = await api.get(`${SUBJECTS_API}/get-subjects`, {
+        params: { status },
+      });
+
+      setSubjects(response.data?.data ?? []);
+    } catch (error) {
+      console.error("Failed to fetch subjects:", error);
+      setSubjects([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadSubjects(statusFilter);
+  }, [statusFilter]);
+
+  const classSectionOptions = useMemo(() => {
+    return (classSectionRelations as ClassSectionRelation[])
+      .filter((relation) => !relation.deleted_at)
+      .map((relation) => ({
+        value: String(relation.id),
+        label: `Class ${relation.class_name} - Section ${relation.section_name}${
+          relation.section_stream ? ` (${relation.section_stream})` : ""
+        }`,
+      }));
+  }, [classSectionRelations]);
+
+  const subjectFields: FieldDef[] = useMemo(
+    () => [
       {
-        id: Date.now(),
-        name: values.name,
-        code: values.code,
-        teacher: values.teacher || "Unassigned",
-        classes: values.classes || "All Grades",
-        maxMarks: Number(values.maxMarks) || 100,
-        passMarks: Number(values.passMarks) || 33,
-        status: values.status || "Active",
-        description: values.description || "",
+        key: "class_section_id",
+        label: "Class & Section",
+        type: "select",
+        required: true,
+        options: classSectionOptions,
       },
-      ...prev,
-    ]);
+      {
+        key: "name",
+        label: "Subject Name",
+        type: "text",
+        required: true,
+        placeholder: "Enter subject name",
+      },
+      {
+        key: "description",
+        label: "Description",
+        type: "textarea",
+        placeholder: "Enter subject description",
+      },
+    ],
+    [classSectionOptions],
+  );
+
+  const tableData: SubjectTableRow[] = useMemo(() => {
+    return subjects.map((subject) => {
+      const classSection = classSectionOptions.find(
+        (option) => Number(option.value) === Number(subject.class_section_id),
+      );
+
+      return {
+        ...subject,
+        class_section_name: classSection?.label ?? "N/A",
+      };
+    });
+  }, [subjects, classSectionOptions]);
+
+  const filteredSubjects = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+
+    if (!keyword) return tableData;
+
+    return tableData.filter((subject) => {
+      return (
+        subject.name.toLowerCase().includes(keyword) ||
+        subject.description?.toLowerCase().includes(keyword) ||
+        subject.class_section_name.toLowerCase().includes(keyword)
+      );
+    });
+  }, [search, tableData]);
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredSubjects.length / itemsPerPage),
+  );
+
+  const paginatedData = filteredSubjects.slice(
+    (page - 1) * itemsPerPage,
+    page * itemsPerPage,
+  );
+
+  const handleAdd = async (values: FormValues) => {
+    try {
+      await api.post(`${SUBJECTS_API}/add-subject`, {
+        class_section_id: Number(values.class_section_id),
+        name: String(values.name ?? "").trim(),
+        description: String(values.description ?? "").trim() || null,
+      });
+
+      setAddOpen(false);
+      await loadSubjects(statusFilter);
+    } catch (error) {
+      console.error("Failed to add subject:", error);
+    }
   };
 
-  const handleEdit = (values: Record<string, string>) => {
+  const handleEdit = async (values: FormValues) => {
     if (!editItem) return;
-    setData(prev =>
-      prev.map(s =>
-        s.id === editItem.id
-          ? { ...s, ...values, maxMarks: Number(values.maxMarks) || s.maxMarks, passMarks: Number(values.passMarks) || s.passMarks }
-          : s
-      )
-    );
+
+    try {
+      await api.post(`${SUBJECTS_API}/update-subject/${editItem.id}`, {
+        class_section_id: Number(values.class_section_id),
+        name: String(values.name ?? "").trim(),
+        description: String(values.description ?? "").trim() || null,
+      });
+
+      setEditItem(null);
+      await loadSubjects(statusFilter);
+    } catch (error) {
+      console.error("Failed to update subject:", error);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteItem) return;
-    setData(prev => prev.filter(s => s.id !== deleteItem.id));
+
+    try {
+      await api.delete(`${SUBJECTS_API}/delete-subject/${deleteItem.id}`);
+      setDeleteItem(null);
+      await loadSubjects(statusFilter);
+    } catch (error) {
+      console.error("Failed to delete subject:", error);
+    }
   };
 
-  const activeCount = data.filter(s => s.status === "Active").length;
+  const handleRestore = async () => {
+    if (!restoreItem) return;
+
+    try {
+      await api.post(`${SUBJECTS_API}/restore-subject/${restoreItem.id}`);
+      setRestoreItem(null);
+      await loadSubjects(statusFilter);
+    } catch (error) {
+      console.error("Failed to restore subject:", error);
+    }
+  };
+
+  const handlePermanentDelete = async () => {
+    if (!permanentDeleteItem) return;
+
+    try {
+      await api.delete(
+        `${SUBJECTS_API}/permanent-delete-subject/${permanentDeleteItem.id}`,
+      );
+
+      setPermanentDeleteItem(null);
+      await loadSubjects(statusFilter);
+    } catch (error) {
+      console.error("Failed to permanently delete subject:", error);
+    }
+  };
+
+  const getSubjectFromRow = (row: Record<string, unknown>) => {
+    return subjects.find((subject) => subject.id === Number(row.id));
+  };
+
+  const editInitialValues: FormValues | undefined = editItem
+    ? {
+        class_section_id: String(editItem.class_section_id),
+        name: editItem.name,
+        description: editItem.description ?? "",
+      }
+    : undefined;
 
   return (
     <div>
       <Breadcrumb items={[{ label: "Subjects" }]} />
+
       <PageHeader
         title="Subjects"
-        description={`${activeCount} active subjects across all classes`}
+        description={`${subjects.length} subject records`}
         action={
           <button
+            type="button"
             onClick={() => setAddOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
-            data-testid="add-subject-btn"
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
-            <Plus className="w-4 h-4" /> Add Subject
+            <Plus className="h-4 w-4" />
+            Add Subject
           </button>
         }
       />
 
-      {/* Stat strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        {[
-          { label: "Total Subjects", value: data.length, color: "bg-blue-50 border-blue-100 text-blue-700" },
-          { label: "Active", value: data.filter(s => s.status === "Active").length, color: "bg-emerald-50 border-emerald-100 text-emerald-700" },
-          { label: "Inactive", value: data.filter(s => s.status === "Inactive").length, color: "bg-red-50 border-red-100 text-red-700" },
-          { label: "Teachers Assigned", value: new Set(data.map(s => s.teacher)).size, color: "bg-purple-50 border-purple-100 text-purple-700" },
-        ].map(stat => (
-          <div key={stat.label} className={`rounded-xl border px-4 py-3 ${stat.color}`}>
-            <p className="text-2xl font-bold leading-none">{stat.value}</p>
-            <p className="text-xs mt-1 opacity-80">{stat.label}</p>
-          </div>
-        ))}
-      </div>
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div className="border-b border-border p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+            <div className="relative max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
 
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
-        {/* Search + filter bar */}
-        <div className="p-5 border-b border-border flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="search"
-              placeholder="Search by name, code or teacher..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full h-9 pl-9 pr-4 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-              data-testid="subject-search"
+              <input
+                type="search"
+                placeholder="Search subjects..."
+                value={search}
+                onChange={(event) => {
+                  setSearch(event.target.value);
+                  setPage(1);
+                }}
+                className="h-9 w-full rounded-lg bg-muted pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+
+            <StatusTabs
+              options={statusTabs}
+              value={statusFilter}
+              disabled={isLoading}
+              className="lg:ml-auto"
+              onChange={(value) => {
+                setStatusFilter(value);
+                setPage(1);
+              }}
             />
-          </div>
-          <div className="flex gap-1">
-            {statusOptions.map(s => (
-              <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  statusFilter === s
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-                data-testid={`subject-filter-${s.toLowerCase()}`}
-              >
-                {s}
-              </button>
-            ))}
           </div>
         </div>
 
         <div className="px-6">
-          {filtered.length === 0 ? (
-            <EmptyState
-              icon={<BookOpen className="w-7 h-7" />}
-              title="No subjects found"
-              description="No subjects match your current search or filter."
-            />
+          {isLoading ? (
+            <ListingSkeleton columns={columns.length} rows={itemsPerPage} />
           ) : (
             <DataTable
               columns={columns}
-              data={filtered.map(s => ({
-                ...s,
-                name: s.name,
-                maxMarks: String(s.maxMarks),
-                passMarks: String(s.passMarks),
-              })) as unknown as Record<string, unknown>[]}
-              onEdit={row => setEditItem(data.find(s => s.id === (row as unknown as Subject).id) ?? null)}
-              onDelete={row => setDeleteItem(data.find(s => s.id === (row as unknown as Subject).id) ?? null)}
+              data={paginatedData as unknown as Record<string, unknown>[]}
+              onEdit={
+                statusFilter === "all"
+                  ? (row) => {
+                      const subject = getSubjectFromRow(row);
+                      if (subject) setEditItem(subject);
+                    }
+                  : undefined
+              }
+              onDelete={
+                statusFilter === "all"
+                  ? (row) => {
+                      const subject = getSubjectFromRow(row);
+                      if (subject) setDeleteItem(subject);
+                    }
+                  : undefined
+              }
+              onRestore={
+                statusFilter === "trash"
+                  ? (row) => {
+                      const subject = getSubjectFromRow(row);
+                      if (subject) setRestoreItem(subject);
+                    }
+                  : undefined
+              }
+              onPermanentDelete={
+                statusFilter === "trash"
+                  ? (row) => {
+                      const subject = getSubjectFromRow(row);
+                      if (subject) setPermanentDeleteItem(subject);
+                    }
+                  : undefined
+              }
             />
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-border">
+        <div className="flex items-center justify-between border-t border-border px-6 py-4">
           <span className="text-sm text-muted-foreground">
-            Showing {filtered.length} of {data.length} subjects
+            Showing {paginatedData.length} of {filteredSubjects.length} subjects
           </span>
+
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
         </div>
       </div>
 
@@ -209,27 +381,52 @@ export default function Subjects() {
         onClose={() => setAddOpen(false)}
         onSubmit={handleAdd}
         title="Add New Subject"
-        fields={fields}
+        fields={subjectFields}
         submitLabel="Add Subject"
       />
 
       <FormModal
-        isOpen={!!editItem}
+        isOpen={Boolean(editItem)}
         onClose={() => setEditItem(null)}
         onSubmit={handleEdit}
         title="Edit Subject"
-        fields={fields}
-        initialValues={editItem ? { ...editItem, maxMarks: String(editItem.maxMarks), passMarks: String(editItem.passMarks) } : {}}
+        fields={subjectFields}
+        initialValues={editInitialValues}
         submitLabel="Save Changes"
       />
 
       <ConfirmModal
-        isOpen={!!deleteItem}
+        isOpen={Boolean(deleteItem)}
         onClose={() => setDeleteItem(null)}
         onConfirm={handleDelete}
         title="Delete Subject"
-        description={`Are you sure you want to remove "${deleteItem?.name}" (${deleteItem?.code})? This cannot be undone.`}
-        confirmLabel="Delete Subject"
+        description={`Are you sure you want to move "${
+          deleteItem?.name ?? ""
+        }" to trash? You can restore it later.`}
+        confirmLabel="Move to Trash"
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(restoreItem)}
+        onClose={() => setRestoreItem(null)}
+        onConfirm={handleRestore}
+        title="Restore Subject"
+        description={`Are you sure you want to restore "${
+          restoreItem?.name ?? ""
+        }"?`}
+        confirmLabel="Restore Subject"
+      />
+
+      <ConfirmModal
+        isOpen={Boolean(permanentDeleteItem)}
+        onClose={() => setPermanentDeleteItem(null)}
+        onConfirm={handlePermanentDelete}
+        title="Permanently Delete Subject"
+        description={`Are you sure you want to permanently delete "${
+          permanentDeleteItem?.name ?? ""
+        }"? This action cannot be undone.`}
+        confirmLabel="Delete Permanently"
+        variant="danger"
       />
     </div>
   );

@@ -41,7 +41,7 @@ create table section (
 
 --class_section relation
 
-CREATE TABLE class_section_relation (
+CREATE TABLE     (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
     class_id BIGINT NOT NULL,
@@ -277,6 +277,42 @@ AND deleted_at IS NULL;
 
 
 
--- students, student_meta, student_class_relation, student_refresh_tokens:
--- see migrations/0005_student_module.sql (this stub predated that schema
--- and didn't match what's actually deployed).
+
+
+--Subjects table
+
+CREATE TABLE subjects (
+    id SERIAL PRIMARY KEY,
+
+    class_section_id INT NOT NULL,
+
+    name VARCHAR(100) NOT NULL,
+    description TEXT DEFAULT NULL,
+
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NULL,
+
+    CONSTRAINT fk_subjects_class_section
+        FOREIGN KEY (class_section_id)
+        REFERENCES class_section_relation(id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+);
+
+-- Index for faster filtering/joining by class_section_id
+CREATE INDEX idx_subjects_class_section_id
+ON subjects(class_section_id);
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE TRIGGER trg_subjects_updated_at
+BEFORE UPDATE ON subjects
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();

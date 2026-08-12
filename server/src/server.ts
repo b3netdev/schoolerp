@@ -19,7 +19,7 @@ import AlreadyExisteBy from "./routes/helper.route.js"
 import StudentRouter from "./routes/student.route.js"
 import StudentClassRelationRouter from "./routes/student-class-relation.route.js"
 import StudentAuthRouter from "./routes/student-auth.route.js"
-
+import SubjectRouter from "./routes/subject.route.js"
 import cookieParser from "cookie-parser";
 const app = express();
 
@@ -46,6 +46,7 @@ app.use(`/${process.env.API_VERSION}/check-exists`, AlreadyExisteBy);
 app.use(`/${process.env.API_VERSION}/student`, StudentRouter);
 app.use(`/${process.env.API_VERSION}/student-class-relation`, StudentClassRelationRouter);
 app.use(`/${process.env.API_VERSION}/student-auth`, StudentAuthRouter);
+app.use(`/${process.env.API_VERSION}/subjects`, SubjectRouter);
 
 
 app.use(errorHandler);

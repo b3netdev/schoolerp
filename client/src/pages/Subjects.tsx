@@ -118,7 +118,7 @@ export default function Subjects() {
       .filter((relation) => !relation.deleted_at)
       .map((relation) => ({
         value: String(relation.id),
-        label: `Class ${relation.class_name} - Section ${relation.section_name}${
+        label: ` ${relation.class_name} -  ${relation.section_name}${
           relation.section_stream ? ` (${relation.section_stream})` : ""
         }`,
       }));

@@ -5,7 +5,7 @@ import { AcademicSessionModel } from "../models/AcademicSession.model.js";
 import { AppError } from "../utils/AppError.js";
 import bcrypt from "bcrypt";
 import jwt, { SignOptions } from "jsonwebtoken";
-import session from "express-session";
+
 
 export const createAdmin = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {

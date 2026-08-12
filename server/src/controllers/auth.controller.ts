@@ -89,12 +89,6 @@ export const adminLogin = catchAsync(
   },
 );
 
-/**
- * Re-issues the auth cookie with a new `academic_year_id` claim. This is
- * the only supported way to change which academic year a session's
- * queries are scoped to — the client can never set academic_year_id
- * directly, since the query builder trusts it exclusively from this JWT.
- */
 export const switchAcademicSession = catchAsync(
   async (req: any, res: Response, next: NextFunction) => {
     if (!req.user) {

@@ -5,9 +5,7 @@ import { withAcademicYearContext } from "../middlewares/academicYearContext.midd
 
 const router = express.Router();
 
-// class_section_relation.academic_year_id is NOT NULL, so every route here
-// needs the trusted academic year resolved from the JWT before it can touch
-// the query builder.
+
 router.use(isAuthenticated, withAcademicYearContext);
 
 router.get(

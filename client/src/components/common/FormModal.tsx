@@ -104,17 +104,12 @@ export function FormModal({
 
   const { checkExists } = useCheck();
 
-  /*
-   * Separate debounce timer for every field.
-   */
+
   const debounceTimers = useRef<
     Record<string, ReturnType<typeof setTimeout>>
   >({});
 
-  /*
-   * Prevent an older API response from replacing
-   * the result of a newer request.
-   */
+ 
   const requestVersions = useRef<Record<string, number>>(
     {}
   );
@@ -134,9 +129,7 @@ export function FormModal({
     setFieldStatuses({});
   }, [isOpen, fields, initialValues]);
 
-  /*
-   * Clear debounce timers when component unmounts.
-   */
+  
   useEffect(() => {
     return () => {
       Object.values(debounceTimers.current).forEach(
@@ -164,11 +157,6 @@ export function FormModal({
       clearTimeout(timer);
       delete debounceTimers.current[fieldKey];
     }
-
-    /*
-     * Increase the version so that any old response
-     * for this field will be ignored.
-     */
     requestVersions.current[fieldKey] =
       (requestVersions.current[fieldKey] ?? 0) + 1;
   };
@@ -184,13 +172,7 @@ export function FormModal({
 
     cancelFieldCheck(field.key);
 
-    /*
-     * Stay idle while the user is still actively typing — only switch to
-     * "checking" once they've paused for `delay`ms, right before the
-     * request actually fires. Setting "checking" here instead would flash
-     * the checking indicator on every keystroke, well before any request
-     * is even scheduled.
-     */
+   
     updateFieldStatus(field.key, EMPTY_CHECK_STATUS);
 
     const currentRequestVersion =
@@ -211,10 +193,7 @@ export function FormModal({
             at: field.checkExistAt![0].at,
           });
 
-          /*
-           * Ignore an old response when the user
-           * has already entered a newer value.
-           */
+         
           if (
             requestVersions.current[field.key] !==
             currentRequestVersion
@@ -222,10 +201,7 @@ export function FormModal({
             return;
           }
 
-          /*
-           * Assumes success: true means the value
-           * is available.
-           */
+         
           if (result?.success) {
             updateFieldStatus(field.key, {
               state: "valid",
@@ -270,18 +246,11 @@ export function FormModal({
       [field.key]: value,
     }));
 
-    /*
-     * Checkbox values are boolean and should not
-     * trigger duplicate checking.
-     */
+  
     if (typeof value !== "string") {
       return;
     }
 
-    /*
-     * Fields without duplicate-checking configuration
-     * do not need to call the API.
-     */
     if (!field.checkExistAt?.length) {
       return;
     }
@@ -313,13 +282,6 @@ export function FormModal({
       fieldStatuses
     ).some((status) => status.state === "checking");
 
-    /*
-     * A field can have a check scheduled-but-not-yet-"checking" (still
-     * inside its debounce window) right after the user stops typing and
-     * immediately hits submit. Block on that too, not just the visible
-     * "checking" status, so a duplicate value can't slip through during
-     * that window.
-     */
     const hasPendingCheck =
       Object.keys(debounceTimers.current).length > 0;
 
@@ -390,10 +352,7 @@ export function FormModal({
             : ""
         }
       >
-        {/*
-         * Normal label.
-         * Checkbox has its own inline label below.
-         */}
+       
         {field.type !== "checkbox" && (
           <label
             htmlFor={`field-${field.key}`}

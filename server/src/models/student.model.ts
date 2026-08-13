@@ -15,6 +15,10 @@ export interface Student {
   is_active: boolean;
   created_at: Date;
   updated_at: Date;
+  class_section_id?: number;
+  class_name?: string;
+  section_name?: string;
+
   deleted_at?: Date | null;
 }
 
@@ -73,6 +77,7 @@ export interface StudentUpdateData {
   hashedPassword?: string;
   status?: string;
   meta?: StudentMetaInput;
+   class_section_id?: number;
 }
 
 export type StudentStatusFilter = "all" | "active" | "inactive" | "trash";
@@ -264,23 +269,73 @@ export class StudentModel {
   static async findByStatus(
     status: StudentStatusFilter = "all",
   ): Promise<StudentWithMeta[]> {
-    let query = db.table<Student>(tableName);
+    let whereClause = `
+    s.deleted_at IS NULL
+  `;
+
+    const values: string[] = [];
 
     if (status === "trash") {
-      query = query.whereNotNull("deleted_at");
-    } else {
-      query = query.whereNull("deleted_at");
+      whereClause = `
+      s.deleted_at IS NOT NULL
+    `;
+    } else if (status !== "all") {
+      values.push(status);
 
-      if (status !== "all") {
-        query = query.where("status", "=", status);
-      }
+      whereClause = `
+      s.deleted_at IS NULL
+      AND s.status = $1
+    `;
     }
 
-    const rows = await query.orderBy("id", "DESC").get();
-    const metaByStudent = await fetchMetaForStudentIds(rows.map((r) => r.id));
+    const result = await db.query<
+      Student & {
+        class_section_id: number | null;
+        class_name: string | null;
+        section_name: string | null;
+      }
+    >(
+      `
+      SELECT
+        s.*,
+        sc.class_section_id,
+        c.class_name,
+        sec.name AS section_name
+      FROM students AS s
+
+      LEFT JOIN student_class_relation AS sc
+        ON s.id = sc.student_id
+        AND sc.deleted_at IS NULL
+
+      LEFT JOIN class_section_relation AS csr
+        ON sc.class_section_id = csr.id
+        AND csr.deleted_at IS NULL
+
+      LEFT JOIN classes AS c
+        ON c.id = csr.class_id
+        AND c.deleted_at IS NULL
+
+      LEFT JOIN section AS sec
+        ON sec.id = csr.section_id
+        AND sec.deleted_at IS NULL
+
+      WHERE ${whereClause}
+      ORDER BY s.id DESC
+    `,
+      values,
+    );
+
+    const rows = result.rows;
+
+    const metaByStudent = await fetchMetaForStudentIds(
+      rows.map((row) => row.id),
+    );
 
     return rows.map((row) => ({
       ...toStudent(row),
+      class_section_id: row.class_section_id ?? undefined,
+      class_name: row.class_name ?? undefined,
+      section_name: row.section_name ?? undefined,
       meta: metaByStudent.get(row.id) ?? {},
     }));
   }
@@ -355,48 +410,84 @@ export class StudentModel {
     });
   }
 
-  static async update(
-    id: number,
-    data: StudentUpdateData,
-  ): Promise<StudentWithMeta | null> {
-    return db.transaction(async () => {
-      const studentUpdate: Record<string, DatabaseValue | undefined> = {};
-      if (data.first_name !== undefined) studentUpdate.first_name = data.first_name;
-      if (data.last_name !== undefined) studentUpdate.last_name = data.last_name;
-      // null clears the field; undefined (checked above) means "leave unchanged".
-      if (data.email !== undefined) studentUpdate.email = data.email;
-      if (data.phone !== undefined) studentUpdate.phone = data.phone;
-      if (data.status !== undefined) studentUpdate.status = data.status;
-      if (data.hashedPassword !== undefined) studentUpdate.password = data.hashedPassword;
+static async update(
+  id: number,
+  data: StudentUpdateData,
+): Promise<StudentWithMeta | null> {
+  return db.transaction(async () => {
+    const studentUpdate: Record<string, DatabaseValue | undefined> = {};
 
-      let updatedId: number = id;
+    if (data.first_name !== undefined) {
+      studentUpdate.first_name = data.first_name;
+    }
 
-      if (Object.keys(studentUpdate).length > 0) {
-        const updated = await db
-          .table<{ id: number }>(tableName)
-          .where("id", "=", id)
-          .whereNull("deleted_at")
-          .update(studentUpdate);
+    if (data.last_name !== undefined) {
+      studentUpdate.last_name = data.last_name;
+    }
 
-        if (!updated[0]) {
-          return null;
-        }
+    // `null` clears the value. `undefined` means do not change it.
+    if (data.email !== undefined) {
+      studentUpdate.email = data.email;
+    }
 
-        updatedId = updated[0].id;
+    if (data.phone !== undefined) {
+      studentUpdate.phone = data.phone;
+    }
+
+    if (data.status !== undefined) {
+      studentUpdate.status = data.status;
+    }
+
+    if (data.hashedPassword !== undefined) {
+      studentUpdate.password = data.hashedPassword;
+    }
+
+    let updatedId = id;
+
+    if (Object.keys(studentUpdate).length > 0) {
+      const updated = await db
+        .table<{ id: number }>(tableName)
+        .where("id", "=", id)
+        .whereNull("deleted_at")
+        .update(studentUpdate);
+
+      if (!updated[0]) {
+        return null;
+      }
+
+      updatedId = updated[0].id;
+    } else {
+      const existing = await this.findById(id);
+
+      if (!existing) {
+        return null;
+      }
+    }
+
+    if (data.meta && Object.keys(data.meta).length > 0) {
+      await upsertMeta(id, data.meta);
+    }
+
+    // Create a class assignment if none exists; otherwise update it.
+    if (data.class_section_id !== undefined) {
+      const existingRelation =
+        await StudentClassRelationModel.findActiveByStudentId(id);
+
+      if (existingRelation) {
+        await StudentClassRelationModel.update(existingRelation.id, {
+          class_section_id: data.class_section_id,
+        });
       } else {
-        const existing = await this.findById(id);
-        if (!existing) {
-          return null;
-        }
+        await StudentClassRelationModel.create({
+          student_id: id,
+          class_section_id: data.class_section_id,
+        });
       }
+    }
 
-      if (data.meta && Object.keys(data.meta).length > 0) {
-        await upsertMeta(id, data.meta);
-      }
-
-      return this.findById(updatedId);
-    });
-  }
+    return this.findById(updatedId);
+  });
+}
 
   static async delete(id: number): Promise<StudentWithMeta | null> {
     const existing = await this.findById(id);

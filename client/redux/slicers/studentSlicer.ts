@@ -26,6 +26,9 @@ export interface Student {
   phone?: string | null;
   status: string;
   is_active: boolean;
+  class_section_id: 1;
+  class_name: "1";
+  section_name: "A";
 
   meta: StudentMeta;
   current_class?: StudentClassSnapshot | null;
@@ -53,7 +56,7 @@ const studentSlice = createSlice({
 
     updateStudent: (state, action: PayloadAction<Student>) => {
       const index = state.students.findIndex(
-        (student) => student.id === action.payload.id
+        (student) => student.id === action.payload.id,
       );
 
       if (index !== -1) {
@@ -63,7 +66,7 @@ const studentSlice = createSlice({
 
     deleteStudent: (state, action: PayloadAction<number>) => {
       state.students = state.students.filter(
-        (student) => student.id !== action.payload
+        (student) => student.id !== action.payload,
       );
     },
 

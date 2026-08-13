@@ -401,15 +401,22 @@ export class StudentController {
         }
         hashedPassword = await bcrypt.hash(rawPassword, 10);
       }
+      const classSectionId = Number(body.class_section_id);
+
+      const hasClassSectionUpdate =
+        Object.prototype.hasOwnProperty.call(body, "class_section_id") &&
+        Number.isInteger(classSectionId) &&
+        classSectionId > 0;
 
       const updateData: StudentUpdateData = {
         first_name: cleanString(body.first_name as string),
         last_name: cleanString(body.last_name as string),
+        class_section_id: hasClassSectionUpdate ? classSectionId : undefined,
         email: Object.prototype.hasOwnProperty.call(body, "email")
-          ? cleanString(body.email as string)?.toLowerCase() ?? null
+          ? (cleanString(body.email as string)?.toLowerCase() ?? null)
           : undefined,
         phone: Object.prototype.hasOwnProperty.call(body, "phone")
-          ? cleanString(body.phone as string) ?? null
+          ? (cleanString(body.phone as string) ?? null)
           : undefined,
         hashedPassword,
         status: validateStudentStatus(body.status as string),
@@ -503,9 +510,7 @@ export class StudentController {
       const deleted = await StudentModel.hardDelete(id);
 
       if (!deleted) {
-        return next(
-          new AppError("Student not found or already deleted", 404),
-        );
+        return next(new AppError("Student not found or already deleted", 404));
       }
 
       res.status(200).json({

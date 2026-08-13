@@ -210,6 +210,7 @@ export default function Students() {
   const { getClassSections } = useClassSection();
 
   const students = useAppSelector((state) => state.student.students);
+
   const { classSectionRelations } = useAppSelector(
     (state) => state.classSection
   );
@@ -225,6 +226,7 @@ export default function Students() {
   const [restoreItem, setRestoreItem] = useState<Student | null>(null);
   const [permanentDeleteItem, setPermanentDeleteItem] = useState<Student | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [loading , setLoading] = useState(false)
 
   const [studentCodeRules, setStudentCodeRules] = useState<StudentCodeRules>({
     generationType: "auto",
@@ -333,9 +335,8 @@ export default function Students() {
   const classSectionOptions = useMemo(
     () =>
       classSectionRelations.map((item) => ({
-        label: `${item.class_name} - ${item.section_name}${
-          item.teacher_name ? ` (${item.teacher_name})` : ""
-        }`,
+        label: `${item.class_name} - ${item.section_name}${item.teacher_name ? ` (${item.teacher_name})` : ""
+          }`,
         value: String(item.id),
       })),
     [classSectionRelations],
@@ -408,6 +409,12 @@ export default function Students() {
         placeholder: "Leave blank to keep unchanged",
       },
       {
+        key: "class_section_id",
+        label: "Class & Section",
+        type: "select",
+        options: classSectionOptions,
+      },
+      {
         key: "status",
         label: "Status",
         type: "select",
@@ -418,7 +425,7 @@ export default function Students() {
       },
       ...META_FIELDS,
     ],
-    [],
+    [classSectionOptions],
   );
 
   const tableData: StudentTableRow[] = useMemo(
@@ -460,7 +467,10 @@ export default function Students() {
   });
 
   const handleAdd = async (values: FormValues) => {
-    if (codeSettingsLoading || codeSettingsError) return;
+  if (codeSettingsLoading || codeSettingsError) return;
+
+  try {
+    setLoading(true);
 
     const payload = buildAddPayload(values);
     const result = await addStudentRecord(payload);
@@ -469,11 +479,15 @@ export default function Students() {
       setAddOpen(false);
       await loadStudents(statusFilter);
     }
-  };
+  } finally {
+    setLoading(false);
+  }
+};
+const handleEdit = async (values: FormValues) => {
+  if (!editItem) return;
 
-  const handleEdit = async (values: FormValues) => {
-    if (!editItem) return;
-
+  try {
+    setLoading(true);
     const payload = {
       id: editItem.id,
       first_name: String(values.first_name ?? "").trim(),
@@ -482,6 +496,9 @@ export default function Students() {
       phone: String(values.phone ?? "").trim() || undefined,
       password: String(values.password ?? "").trim() || undefined,
       status: String(values.status ?? "active"),
+      class_section_id: values.class_section_id
+        ? Number(values.class_section_id)
+        : undefined,
       meta: buildMetaPayload(values),
     };
 
@@ -491,8 +508,10 @@ export default function Students() {
       setEditItem(null);
       await loadStudents(statusFilter);
     }
-  };
-
+  } finally {
+    setLoading(false);
+  }
+};
   const handleDelete = async () => {
     if (!deleteItem) return;
     const result = await deleteStudentRecord(deleteItem.id);
@@ -523,8 +542,14 @@ export default function Students() {
   const handleEditClick = (row: Record<string, unknown>) => {
     if (statusFilter === "trash") return;
     const selected = students.find((student) => student.id === Number(row.id));
+    console.log(students)
     if (selected) setEditItem(selected);
   };
+
+
+  useEffect(() => {
+    console.log(editItem, "EDIT ITEMS")
+  }, [editItem])
 
   const handleDeleteClick = (row: Record<string, unknown>) => {
     const selected = students.find((student) => student.id === Number(row.id));
@@ -542,25 +567,34 @@ export default function Students() {
     if (selected) setRestoreItem(selected);
   };
 
-  const editInitialValues: FormValues | undefined = editItem
-    ? {
-        first_name: editItem.first_name ?? "",
-        last_name: editItem.last_name ?? "",
-        email: editItem.email ?? "",
-        phone: editItem.phone ?? "",
-        password: "",
-        status: editItem.status ?? "active",
-        ...META_FIELD_KEYS.reduce<FormValues>((values, key) => {
-          const metaValue = editItem.meta?.[key];
-          values[key] =
-            metaValue === undefined || metaValue === null
-              ? ""
-              : String(metaValue);
-          return values;
-        }, {}),
-      }
-    : undefined;
+ const editInitialValues = useMemo<FormValues | undefined>(() => {
+  if (!editItem) {
+    return undefined;
+  }
 
+  return {
+    first_name: editItem.first_name ?? "",
+    last_name: editItem.last_name ?? "",
+    email: editItem.email ?? "",
+    phone: editItem.phone ?? "",
+    password: "",
+    class_section_id: editItem.class_section_id
+      ? String(editItem.class_section_id)
+      : "",
+    status: editItem.status ?? "active",
+
+    ...META_FIELD_KEYS.reduce<FormValues>((values, key) => {
+      const metaValue = editItem.meta?.[key];
+
+      values[key] =
+        metaValue === undefined || metaValue === null
+          ? ""
+          : String(metaValue);
+
+      return values;
+    }, {}),
+  };
+}, [editItem]);
   return (
     <div>
       <Breadcrumb items={[{ label: "Students" }]} />
@@ -663,6 +697,7 @@ export default function Students() {
         fields={editFields}
         initialValues={editInitialValues}
         submitLabel="Save Changes"
+        isSubmitting={loading}
       />
 
       <ConfirmModal

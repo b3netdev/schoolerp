@@ -43,17 +43,17 @@ export interface FieldDef {
   label: string;
 
   type?:
-    | "text"
-    | "email"
-    | "tel"
-    | "select"
-    | "textarea"
-    | "number"
-    | "date"
-    | "password"
-    | "file"
-    | "url"
-    | "checkbox";
+  | "text"
+  | "email"
+  | "tel"
+  | "select"
+  | "textarea"
+  | "number"
+  | "date"
+  | "password"
+  | "file"
+  | "url"
+  | "checkbox";
 
   options?: {
     label: string;
@@ -78,6 +78,7 @@ export interface FormModalProps {
   fields: FieldDef[];
   initialValues?: FormValues;
   submitLabel?: string;
+  isSubmitting?: boolean;
 }
 
 const EMPTY_INITIAL_VALUES: FormValues = {};
@@ -95,6 +96,7 @@ export function FormModal({
   fields,
   initialValues = EMPTY_INITIAL_VALUES,
   submitLabel = "Save",
+  isSubmitting = false,
 }: FormModalProps) {
   const [values, setValues] = useState<FormValues>({});
 
@@ -109,7 +111,7 @@ export function FormModal({
     Record<string, ReturnType<typeof setTimeout>>
   >({});
 
- 
+
   const requestVersions = useRef<Record<string, number>>(
     {}
   );
@@ -129,7 +131,7 @@ export function FormModal({
     setFieldStatuses({});
   }, [isOpen, fields, initialValues]);
 
-  
+
   useEffect(() => {
     return () => {
       Object.values(debounceTimers.current).forEach(
@@ -172,7 +174,7 @@ export function FormModal({
 
     cancelFieldCheck(field.key);
 
-   
+
     updateFieldStatus(field.key, EMPTY_CHECK_STATUS);
 
     const currentRequestVersion =
@@ -193,7 +195,7 @@ export function FormModal({
             at: field.checkExistAt![0].at,
           });
 
-         
+
           if (
             requestVersions.current[field.key] !==
             currentRequestVersion
@@ -201,7 +203,7 @@ export function FormModal({
             return;
           }
 
-         
+
           if (result?.success) {
             updateFieldStatus(field.key, {
               state: "valid",
@@ -246,7 +248,7 @@ export function FormModal({
       [field.key]: value,
     }));
 
-  
+
     if (typeof value !== "string") {
       return;
     }
@@ -269,31 +271,27 @@ export function FormModal({
     debounceCheckExists(field, value);
   };
 
-  const handleSubmit = (
-    event: FormEvent<HTMLFormElement>
+  const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>,
   ) => {
     event.preventDefault();
 
-    const hasInvalidField = Object.values(
-      fieldStatuses
-    ).some((status) => status.state === "invalid");
+    const hasInvalidField = Object.values(fieldStatuses).some(
+      (status) => status.state === "invalid",
+    );
 
-    const hasCheckingField = Object.values(
-      fieldStatuses
-    ).some((status) => status.state === "checking");
+    const hasCheckingField = Object.values(fieldStatuses).some(
+      (status) => status.state === "checking",
+    );
 
     const hasPendingCheck =
       Object.keys(debounceTimers.current).length > 0;
 
-    if (
-      hasInvalidField ||
-      hasCheckingField ||
-      hasPendingCheck
-    ) {
+    if (hasInvalidField || hasCheckingField || hasPendingCheck || isSubmitting) {
       return;
     }
 
-    onSubmit(values);
+    await onSubmit(values);
   };
 
   const handleClose = () => {
@@ -319,6 +317,7 @@ export function FormModal({
   ).some((status) => status.state === "checking");
 
   const isSubmitDisabled =
+    isSubmitting ||
     hasInvalidField ||
     hasCheckingField ||
     Object.keys(debounceTimers.current).length > 0;
@@ -352,7 +351,7 @@ export function FormModal({
             : ""
         }
       >
-       
+
         {field.type !== "checkbox" && (
           <label
             htmlFor={`field-${field.key}`}
@@ -369,8 +368,8 @@ export function FormModal({
         )}
         {field.type === 'checkbox' && (
           <label
-          htmlFor={`field-${field.key}`}
-          className="mb-1.5 block text-sm font-medium text-foreground"
+            htmlFor={`field-${field.key}`}
+            className="mb-1.5 block text-sm font-medium text-foreground"
           >
             {field.label}
             {field.required && (
@@ -412,26 +411,26 @@ export function FormModal({
         ) : field.type === "select" &&
           field.options ? (
           <select
-  id={`field-${field.key}`}
-  value={stringValue}
-  onChange={(event) =>
-    handleChange(field, event.target.value)
-  }
-  required={field.required}
-  className={`h-9 w-full rounded-lg border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 ${inputBorderClass}`}
-  data-testid={`field-${field.key}`}
->
-  <option value="">Select {field.label}</option>
+            id={`field-${field.key}`}
+            value={stringValue}
+            onChange={(event) =>
+              handleChange(field, event.target.value)
+            }
+            required={field.required}
+            className={`h-9 w-full rounded-lg border bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 ${inputBorderClass}`}
+            data-testid={`field-${field.key}`}
+          >
+            <option value="">Select {field.label}</option>
 
-  {field.options?.map((option) => (
-    <option
-      key={String(option.value)}
-      value={String(option.value)}
-    >
-      {option.label}
-    </option>
-  ))}
-</select>
+            {field.options?.map((option) => (
+              <option
+                key={String(option.value)}
+                value={String(option.value)}
+              >
+                {option.label}
+              </option>
+            ))}
+          </select>
         ) : field.type === "textarea" ? (
           <textarea
             id={`field-${field.key}`}
@@ -562,8 +561,8 @@ export function FormModal({
           <button
             type="button"
             onClick={handleClose}
-            className="rounded-lg bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80"
-            data-testid="form-cancel"
+            disabled={isSubmitting}
+            className="rounded-lg bg-muted px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/80 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Cancel
           </button>
@@ -572,13 +571,15 @@ export function FormModal({
             type="submit"
             disabled={isSubmitDisabled}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-            data-testid="form-submit"
           >
-            <Save className="h-4 w-4" />
+            {isSubmitting && <LoaderCircle className="h-4 w-4 animate-spin" />}
+            {!isSubmitting && <Save className="h-4 w-4" />}
 
-            {hasCheckingField
-              ? "Checking..."
-              : submitLabel}
+            {isSubmitting
+              ? "Saving..."
+              : hasCheckingField
+                ? "Checking..."
+                : submitLabel}
           </button>
         </div>
       </form>

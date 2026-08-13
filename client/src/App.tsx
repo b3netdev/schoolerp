@@ -34,6 +34,7 @@ import Streams from "./pages/Stream";
 import { Toaster } from "./components/ui/sonner";
 import StudentSignin from "./pages/student/StudentSignin";
 import StudentDashboard from "./pages/student/StudentDashboard";
+import StudentClassRelation from "./pages/StudentClassRelation";
 
 const queryClient = new QueryClient();
 
@@ -111,6 +112,7 @@ function App() {
                 >
                   <Route path="students" element={<Students />} />
                    <Route path="academic-sessions" element={<AcademicSession />} />
+                   <Route path="student-class" element={<StudentClassRelation />} />
                   <Route path="teachers" element={<Teachers />} />
                   <Route path="fees" element={<ComingSoon />} />
                   <Route path="section" element={<Section />} />

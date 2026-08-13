@@ -84,6 +84,12 @@ const mainNav: NavItem[] = [
     roles: ["admin", "teacher", "student"],
   },
   {
+    path: "student-class",
+    icon: LibraryBig,
+    label: "Student Class",
+    roles: ["admin"],
+  },
+  {
     path: "streams",
     icon: LibraryBig,
     label: "Streams",

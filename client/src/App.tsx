@@ -51,20 +51,10 @@ function App() {
 
           <BrowserRouter>
             <Routes>
-              {/* Public */}
               <Route path="/" element={<Home />} />
               <Route path="/admin/signin" element={<AdminSignin />} />
-
-              {/*
-                Separate student portal: its own cookies, its own auth
-                controller/routes, its own redux slice — deliberately not
-                integrated into the /:portal + ProtectedRoute system below,
-                which is wired to the single admin/teacher auth cookie.
-              */}
               <Route path="/student-portal/signin" element={<StudentSignin />} />
               <Route path="/student-portal/dashboard" element={<StudentDashboard />} />
-
-              {/* Role based protected area */}
               <Route
                 path="/:portal"
                 element={

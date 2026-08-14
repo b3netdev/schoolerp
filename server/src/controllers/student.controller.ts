@@ -301,10 +301,7 @@ export class StudentController {
       const hasClassAssignment =
         Number.isInteger(classSectionId) && classSectionId > 0;
 
-      // student_meta is a dynamic key/value store (see student.model.ts) —
-      // whatever the caller nests under `meta` is stored as-is, with the
-      // value's JS type (string/number/boolean/object) recorded alongside
-      // it so it round-trips correctly. No fixed set of profile fields.
+     
       const meta =
         body.meta && typeof body.meta === "object"
           ? (body.meta as StudentCreateData["meta"])

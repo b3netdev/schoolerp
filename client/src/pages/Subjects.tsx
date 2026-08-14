@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Search } from "lucide-react";
-import api from "@/lib/api";
+import { toast } from "sonner";
 
-import { DataTable, Column } from "@/components/tables/DataTable";
+import api from "@/lib/api";
+import { DataTable, type Column } from "@/components/tables/DataTable";
 import {
   FormModal,
-  FieldDef,
-  FormValues,
+  type FieldDef,
+  type FormValues,
 } from "@/components/common/FormModal";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
@@ -14,23 +15,26 @@ import { Pagination } from "@/components/common/Pagination";
 import { PageHeader } from "@/components/common/PageHeader";
 import {
   StatusTabs,
-  StatusTabOption,
+  type StatusTabOption,
 } from "@/components/common/StatusTabs";
 import { ListingSkeleton } from "@/components/tables/ListingSkeleton";
-import { useAppSelector } from "../../redux/hooks";
+
+import {
+  useAppDispatch,
+  useAppSelector,
+} from "../../redux/hooks";
+
+import {
+  addSubject,
+  updateSubject,
+  deleteSubject,
+  setSubjects,
+  type Subject,
+} from "../../redux/slicers/subjectSlicer";
+
 import useClassSection from "@/hooks/useClassSection";
 
 type SubjectStatusFilter = "all" | "trash";
-
-interface Subject {
-  id: number;
-  class_section_id: number;
-  name: string;
-  description: string | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-}
 
 interface ClassSectionRelation {
   id: number;
@@ -66,16 +70,22 @@ const columns: Column[] = [
 ];
 
 export default function Subjects() {
+  const dispatch = useAppDispatch();
+
+  const subjects = useAppSelector(
+    (state) => state.subject.subjects,
+  );
+
   const { classSectionRelations } = useAppSelector(
     (state) => state.classSection,
   );
 
   const { getClassSections } = useClassSection();
 
-  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+
   const [statusFilter, setStatusFilter] =
     useState<SubjectStatusFilter>("all");
 
@@ -96,14 +106,18 @@ export default function Subjects() {
     try {
       setIsLoading(true);
 
-      const response = await api.get(`${SUBJECTS_API}/get-subjects`, {
-        params: { status },
-      });
+      const response = await api.get(
+        `${SUBJECTS_API}/get-subjects`,
+        {
+          params: { status },
+        },
+      );
 
-      setSubjects(response.data?.data ?? []);
+      dispatch(setSubjects(response.data?.data ?? []));
     } catch (error) {
       console.error("Failed to fetch subjects:", error);
-      setSubjects([]);
+      dispatch(setSubjects([]));
+      toast.error("Unable to load subjects.");
     } finally {
       setIsLoading(false);
     }
@@ -118,8 +132,12 @@ export default function Subjects() {
       .filter((relation) => !relation.deleted_at)
       .map((relation) => ({
         value: String(relation.id),
-        label: ` ${relation.class_name} -  ${relation.section_name}${
-          relation.section_stream ? ` (${relation.section_stream})` : ""
+        label: `Class ${relation.class_name} - Section ${
+          relation.section_name
+        }${
+          relation.section_stream
+            ? ` (${relation.section_stream})`
+            : ""
         }`,
       }));
   }, [classSectionRelations]);
@@ -153,12 +171,12 @@ export default function Subjects() {
   const tableData: SubjectTableRow[] = useMemo(() => {
     return subjects.map((subject) => {
       const classSection = classSectionOptions.find(
-        (option) => Number(option.value) === Number(subject.class_section_id),
+        (option) => Number(option.value) === subject.class_section_id,
       );
 
       return {
         ...subject,
-        class_section_name: classSection?.label ?? "N/A",
+        class_section_name: classSection?.label ?? "Not assigned",
       };
     });
   }, [subjects, classSectionOptions]);
@@ -166,7 +184,9 @@ export default function Subjects() {
   const filteredSubjects = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
-    if (!keyword) return tableData;
+    if (!keyword) {
+      return tableData;
+    }
 
     return tableData.filter((subject) => {
       return (
@@ -189,16 +209,32 @@ export default function Subjects() {
 
   const handleAdd = async (values: FormValues) => {
     try {
-      await api.post(`${SUBJECTS_API}/add-subject`, {
-        class_section_id: Number(values.class_section_id),
-        name: String(values.name ?? "").trim(),
-        description: String(values.description ?? "").trim() || null,
-      });
+      const response = await api.post(
+        `${SUBJECTS_API}/add-subject`,
+        {
+          class_section_id: Number(values.class_section_id),
+          name: String(values.name ?? "").trim(),
+          description:
+            String(values.description ?? "").trim() || null,
+        },
+      );
+
+      const createdSubject = response.data?.data as Subject;
+
+      // New subjects are active, so add it only if the active list is visible.
+      if (statusFilter === "all" && createdSubject) {
+        dispatch(addSubject(createdSubject));
+      }
+
+      toast.success(
+        response.data?.message || "Subject added successfully.",
+      );
 
       setAddOpen(false);
-      await loadSubjects(statusFilter);
-    } catch (error) {
-      console.error("Failed to add subject:", error);
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Unable to add subject.",
+      );
     }
   };
 
@@ -206,16 +242,31 @@ export default function Subjects() {
     if (!editItem) return;
 
     try {
-      await api.post(`${SUBJECTS_API}/update-subject/${editItem.id}`, {
-        class_section_id: Number(values.class_section_id),
-        name: String(values.name ?? "").trim(),
-        description: String(values.description ?? "").trim() || null,
-      });
+      const response = await api.post(
+        `${SUBJECTS_API}/update-subject/${editItem.id}`,
+        {
+          class_section_id: Number(values.class_section_id),
+          name: String(values.name ?? "").trim(),
+          description:
+            String(values.description ?? "").trim() || null,
+        },
+      );
+
+      const updatedSubject = response.data?.data as Subject;
+
+      if (updatedSubject) {
+        dispatch(updateSubject(updatedSubject));
+      }
+
+      toast.success(
+        response.data?.message || "Subject updated successfully.",
+      );
 
       setEditItem(null);
-      await loadSubjects(statusFilter);
-    } catch (error) {
-      console.error("Failed to update subject:", error);
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Unable to update subject.",
+      );
     }
   };
 
@@ -223,11 +274,23 @@ export default function Subjects() {
     if (!deleteItem) return;
 
     try {
-      await api.delete(`${SUBJECTS_API}/delete-subject/${deleteItem.id}`);
+      const response = await api.delete(
+        `${SUBJECTS_API}/delete-subject/${deleteItem.id}`,
+      );
+
+      // Remove from the active list immediately.
+      dispatch(deleteSubject(deleteItem.id));
+
+      toast.success(
+        response.data?.message || "Subject moved to trash.",
+      );
+
       setDeleteItem(null);
-      await loadSubjects(statusFilter);
-    } catch (error) {
-      console.error("Failed to delete subject:", error);
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message ||
+          "Unable to move subject to trash.",
+      );
     }
   };
 
@@ -235,11 +298,22 @@ export default function Subjects() {
     if (!restoreItem) return;
 
     try {
-      await api.post(`${SUBJECTS_API}/restore-subject/${restoreItem.id}`);
+      const response = await api.post(
+        `${SUBJECTS_API}/restore-subject/${restoreItem.id}`,
+      );
+
+      // The restored item no longer belongs in the Trash list.
+      dispatch(deleteSubject(restoreItem.id));
+
+      toast.success(
+        response.data?.message || "Subject restored successfully.",
+      );
+
       setRestoreItem(null);
-      await loadSubjects(statusFilter);
-    } catch (error) {
-      console.error("Failed to restore subject:", error);
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message || "Unable to restore subject.",
+      );
     }
   };
 
@@ -247,28 +321,45 @@ export default function Subjects() {
     if (!permanentDeleteItem) return;
 
     try {
-      await api.delete(
+      const response = await api.delete(
         `${SUBJECTS_API}/permanent-delete-subject/${permanentDeleteItem.id}`,
       );
 
+      dispatch(deleteSubject(permanentDeleteItem.id));
+
+      toast.success(
+        response.data?.message ||
+          "Subject permanently deleted successfully.",
+      );
+
       setPermanentDeleteItem(null);
-      await loadSubjects(statusFilter);
-    } catch (error) {
-      console.error("Failed to permanently delete subject:", error);
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message ||
+          "Unable to permanently delete subject.",
+      );
     }
   };
 
-  const getSubjectFromRow = (row: Record<string, unknown>) => {
-    return subjects.find((subject) => subject.id === Number(row.id));
+  const getSubjectFromRow = (
+    row: Record<string, unknown>,
+  ): Subject | undefined => {
+    return subjects.find(
+      (subject) => subject.id === Number(row.id),
+    );
   };
 
-  const editInitialValues: FormValues | undefined = editItem
-    ? {
-        class_section_id: String(editItem.class_section_id),
-        name: editItem.name,
-        description: editItem.description ?? "",
-      }
-    : undefined;
+  const editInitialValues = useMemo<FormValues | undefined>(() => {
+    if (!editItem) {
+      return undefined;
+    }
+
+    return {
+      class_section_id: String(editItem.class_section_id),
+      name: editItem.name,
+      description: editItem.description ?? "",
+    };
+  }, [editItem]);
 
   return (
     <div>
@@ -322,16 +413,24 @@ export default function Subjects() {
 
         <div className="px-6">
           {isLoading ? (
-            <ListingSkeleton columns={columns.length} rows={itemsPerPage} />
+            <ListingSkeleton
+              columns={columns.length}
+              rows={itemsPerPage}
+            />
           ) : (
             <DataTable
               columns={columns}
-              data={paginatedData as unknown as Record<string, unknown>[]}
+              data={
+                paginatedData as unknown as Record<string, unknown>[]
+              }
               onEdit={
                 statusFilter === "all"
                   ? (row) => {
                       const subject = getSubjectFromRow(row);
-                      if (subject) setEditItem(subject);
+
+                      if (subject) {
+                        setEditItem(subject);
+                      }
                     }
                   : undefined
               }
@@ -339,7 +438,10 @@ export default function Subjects() {
                 statusFilter === "all"
                   ? (row) => {
                       const subject = getSubjectFromRow(row);
-                      if (subject) setDeleteItem(subject);
+
+                      if (subject) {
+                        setDeleteItem(subject);
+                      }
                     }
                   : undefined
               }
@@ -347,7 +449,10 @@ export default function Subjects() {
                 statusFilter === "trash"
                   ? (row) => {
                       const subject = getSubjectFromRow(row);
-                      if (subject) setRestoreItem(subject);
+
+                      if (subject) {
+                        setRestoreItem(subject);
+                      }
                     }
                   : undefined
               }
@@ -355,7 +460,10 @@ export default function Subjects() {
                 statusFilter === "trash"
                   ? (row) => {
                       const subject = getSubjectFromRow(row);
-                      if (subject) setPermanentDeleteItem(subject);
+
+                      if (subject) {
+                        setPermanentDeleteItem(subject);
+                      }
                     }
                   : undefined
               }

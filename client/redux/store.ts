@@ -9,6 +9,7 @@ import StreamReducer from "./slicers/stream.Slicer"
 import academicSessionReducer from "./slicers/AcademicSessionSlicer"
 import studentReducer from "./slicers/studentSlicer"
 import studentAuthReducer from "./slicers/studentAuthSlicer"
+import subjectReducer from "./slicers/subjectSlicer"
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -21,6 +22,7 @@ export const store = configureStore({
     academicSession: academicSessionReducer,
     student: studentReducer,
     studentAuth: studentAuthReducer,
+    subject:subjectReducer
   },
 });
 

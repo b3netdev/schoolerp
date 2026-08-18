@@ -1,8 +1,10 @@
 import { Response, NextFunction, Request } from "express";
-import jwt from "jsonwebtoken";
+import jwt, { JwtPayload } from "jsonwebtoken";
 import { AppError } from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
 import { StudentModel } from "../models/student.model.js";
+import { TeacherModel } from "../models/teachers.model.js";
+import { UserModel } from "../models/user.model.js";
 
 export interface StudentAccessTokenPayload {
   id: number;
@@ -61,3 +63,27 @@ export const isStudentAuthenticated = catchAsync(
     next();
   },
 );
+
+export const setAttended = catchAsync(
+  async (req: any, res: Response, next: NextFunction) => {
+    const token = req.cookies?.authtoken;
+
+    if (!token) {
+      return next(new AppError("Please login first", 401));
+    }
+
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!jwtSecret) {
+      return next(new AppError("JWT secret is missing", 500));
+    }
+
+    const decoded = jwt.verify(token, jwtSecret) as JwtPayload;
+    if (decoded.role == "admin") req.admin_id = decoded.id;
+    if (decoded.role == "teacher") req.teacher_id = decoded.id;
+    req.academic_year_id= decoded.academic_year_id,
+    next();
+  },
+);
+
+

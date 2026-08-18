@@ -9,8 +9,7 @@ interface JwtPayload {
   email: string;
   role: string;
   default_academic_session: string;
-  // Trusted, server-issued current academic year. Never accept this value
-  // from request body/query/headers — it must only ever come from here.
+
   academic_year_id: number;
 }
 

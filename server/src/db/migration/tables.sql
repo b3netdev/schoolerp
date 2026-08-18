@@ -320,26 +320,87 @@ EXECUTE FUNCTION update_updated_at_column();
 
 
 --student_attendence table
-create table student_attendence(
-id serial PRIMARY KEY,
-student_id INT NOT NULL,
-attend_by INT NOT NULL,
-class_section_id INT NOT NULL,
-attendance_date DATE NOT NULL DEFAULT CURRENT_DATE
-attended VARCHAR(10) NOT  NULL CHECK(attended in ('p','a')) DEFAULT 'a',
-created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-deleted_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NULL,
+CREATE TABLE student_attendence (
+    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
 
-CONSTRAINT fk_student_attendence FOREIGN KEY (student_id) REFERENCES students(id),
-CONSTRAINT fk_class_section FOREIGN KEY (class_section_id) REFERENCES class_section_relation(id),
-CONSTRAINT fk_attend_by FOREIGN KEY (attend_by) REFERENCES teachers(id),
+    student_id INTEGER NOT NULL,
+	academic_year_id INTEGER NOT NULL,
+    subject_id INTEGER,
 
-)
+    admin_id INTEGER NULL,
+    teacher_id INTEGER NULL,
 
-CREATE UNIQUE INDEX uq_student_daily_attendance
-ON student_attendence (
+    class_section_id INTEGER NOT NULL,
+
+    attendance_date DATE NOT NULL DEFAULT CURRENT_DATE,
+
+    attended VARCHAR(20)
+        DEFAULT null
+        CHECK (attended IN ('present', 'absent')),
+
+    created_at TIMESTAMP WITHOUT TIME ZONE
+        NOT NULL
+        DEFAULT CURRENT_TIMESTAMP,
+
+    updated_at TIMESTAMP WITHOUT TIME ZONE
+        NOT NULL
+        DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_student_attendance_student
+        FOREIGN KEY (student_id)
+        REFERENCES students(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_student_attendance_class_section
+        FOREIGN KEY (class_section_id)
+        REFERENCES class_section_relation(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_student_attendance_admin
+        FOREIGN KEY (admin_id)
+        REFERENCES users(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_student_attendance_teacher
+        FOREIGN KEY (teacher_id)
+        REFERENCES teachers(id)
+        ON DELETE RESTRICT,
+
+	CONSTRAINT fk_academic_session_id
+		FOREIGN KEY (academic_year_id)
+		REFERENCES academic_session(id)
+		ON DELETE RESTRICT,
+    CONSTRAINT fk_student_attendance_subject
+FOREIGN KEY (subject_id)
+REFERENCES public.subject(id)
+CONSTRAINT uq_student_attendance
+UNIQUE (
     student_id,
+    academic_year_id,
+    class_section_id,
+    attendance_date
+),
+
+    CONSTRAINT chk_attendance_actor
+        CHECK (
+            (
+                admin_id IS NOT NULL
+                AND teacher_id IS NULL
+            )
+            OR
+            (
+                admin_id IS NULL
+                AND teacher_id IS NOT NULL
+            )
+        )
+);
+
+
+
+CREATE UNIQUE INDEX uq_student_attendence_daily
+ON public.student_attendence (
+    student_id,
+    academic_year_id,
     class_section_id,
     attendance_date
 );

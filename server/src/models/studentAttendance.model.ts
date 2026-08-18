@@ -2,15 +2,23 @@ import { query } from "../db/query.js";
 
 const tableName = "student_attendence";
 
-export type AttendanceStatus = "p" | "a";
+export type AttendanceStatus = "present" | "absent";
 
 export interface StudentAttendance {
   id: number;
+
   student_id: number;
-  attend_by: number;
+  academic_year_id: number;
+
+  admin_id: number | null;
+  teacher_id: number | null;
+
   class_section_id: number;
+
   attendance_date: string;
-  attended: AttendanceStatus;
+
+  attended: AttendanceStatus | null;
+
   created_at: Date;
   updated_at: Date;
 }
@@ -22,24 +30,25 @@ export interface AttendanceRow {
 
 export interface BulkAttendancePayload {
   class_section_id: number;
-  attend_by: number;
+  academic_year_id: number;
+
+  admin_id: number | null;
+  teacher_id: number | null;
+
   attendance_date: string;
   attendance: AttendanceRow[];
 }
 
 export class StudentAttendanceModel {
-  /**
-   * Insert/update attendance for multiple students.
-   *
-   * Requires unique constraint/index on:
-   * student_id + class_section_id + attendance_date
-   */
+
   static async bulkUpsert(
-    payload: BulkAttendancePayload
+    payload: BulkAttendancePayload,
   ): Promise<StudentAttendance[]> {
     const {
       class_section_id,
-      attend_by,
+      academic_year_id,
+      admin_id,
+      teacher_id,
       attendance_date,
       attendance,
     } = payload;
@@ -48,55 +57,66 @@ export class StudentAttendanceModel {
       return [];
     }
 
-    const values: any[] = [];
+    const values: unknown[] = [];
     const placeholders: string[] = [];
 
     attendance.forEach((row, index) => {
-      const offset = index * 5;
+      const offset = index * 7;
 
-      placeholders.push(
-        `(
+      placeholders.push(`
+        (
           $${offset + 1},
           $${offset + 2},
           $${offset + 3},
           $${offset + 4},
-          $${offset + 5}
-        )`
-      );
+          $${offset + 5},
+          $${offset + 6},
+          $${offset + 7}
+        )
+      `);
 
       values.push(
         row.student_id,
-        attend_by,
+        academic_year_id,
+        admin_id,
+        teacher_id,
         class_section_id,
         attendance_date,
-        row.attended
+        row.attended,
       );
     });
 
     const sql = `
       INSERT INTO ${tableName} (
         student_id,
-        attend_by,
+        academic_year_id,
+        admin_id,
+        teacher_id,
         class_section_id,
         attendance_date,
         attended
       )
-      VALUES ${placeholders.join(",")}
-      
+      VALUES ${placeholders.join(", ")}
+
       ON CONFLICT (
         student_id,
+        academic_year_id,
         class_section_id,
         attendance_date
       )
       DO UPDATE SET
         attended = EXCLUDED.attended,
-        attend_by = EXCLUDED.attend_by,
+        admin_id = EXCLUDED.admin_id,
+        teacher_id = EXCLUDED.teacher_id,
         updated_at = CURRENT_TIMESTAMP
 
       RETURNING *;
     `;
 
-    const result = await query<StudentAttendance>(sql, values);
+    const result = await query<StudentAttendance>(
+      sql,
+      values,
+    );
 
     return result.rows;
   }
@@ -106,17 +126,17 @@ export class StudentAttendanceModel {
    */
   static async findByClassAndDate(
     classSectionId: number,
-    attendanceDate: string
+    attendanceDate: string,
   ): Promise<StudentAttendance[]> {
     const result = await query<StudentAttendance>(
       `
-      SELECT *
-      FROM ${tableName}
-      WHERE class_section_id = $1
-        AND attendance_date = $2
-      ORDER BY student_id ASC
+        SELECT *
+        FROM ${tableName}
+        WHERE class_section_id = $1
+          AND attendance_date = $2
+        ORDER BY student_id ASC
       `,
-      [classSectionId, attendanceDate]
+      [classSectionId, attendanceDate],
     );
 
     return result.rows;
@@ -126,39 +146,46 @@ export class StudentAttendanceModel {
    * Get attendance history of a student.
    */
   static async findByStudent(
-    studentId: number
+    studentId: number,
   ): Promise<StudentAttendance[]> {
     const result = await query<StudentAttendance>(
       `
-      SELECT *
-      FROM ${tableName}
-      WHERE student_id = $1
-      ORDER BY attendance_date DESC
+        SELECT *
+        FROM ${tableName}
+        WHERE student_id = $1
+        ORDER BY attendance_date DESC
       `,
-      [studentId]
+      [studentId],
     );
 
     return result.rows;
   }
 
   /**
-   * Get single student's attendance for a date.
+   * Get single student attendance.
    */
   static async findStudentAttendance(
     studentId: number,
     classSectionId: number,
-    attendanceDate: string
+    academicYearId: number,
+    attendanceDate: string,
   ): Promise<StudentAttendance | null> {
     const result = await query<StudentAttendance>(
       `
-      SELECT *
-      FROM ${tableName}
-      WHERE student_id = $1
-        AND class_section_id = $2
-        AND attendance_date = $3
-      LIMIT 1
+        SELECT *
+        FROM ${tableName}
+        WHERE student_id = $1
+          AND class_section_id = $2
+          AND academic_year_id = $3
+          AND attendance_date = $4
+        LIMIT 1
       `,
-      [studentId, classSectionId, attendanceDate]
+      [
+        studentId,
+        classSectionId,
+        academicYearId,
+        attendanceDate,
+      ],
     );
 
     return result.rows[0] || null;
@@ -169,15 +196,15 @@ export class StudentAttendanceModel {
    */
   static async deleteByClassAndDate(
     classSectionId: number,
-    attendanceDate: string
+    attendanceDate: string,
   ): Promise<number> {
     const result = await query(
       `
-      DELETE FROM ${tableName}
-      WHERE class_section_id = $1
-        AND attendance_date = $2
+        DELETE FROM ${tableName}
+        WHERE class_section_id = $1
+          AND attendance_date = $2
       `,
-      [classSectionId, attendanceDate]
+      [classSectionId, attendanceDate],
     );
 
     return result.rowCount || 0;

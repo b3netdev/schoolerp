@@ -92,7 +92,7 @@ function App() {
                   <Route path="classes" element={<Classes />} />
                    <Route path="academic-sessions" element={<AcademicSession />} />
                   <Route path="exams" element={<ComingSoon />} />
-                  <Route path="attendance" element={<ComingSoon />} />
+                  <Route path="attendance" element={<Attendance />} />
                   <Route path="marks-entry" element={<ComingSoon />} />
                   <Route path="notices" element={<ComingSoon />} />
                 </Route>

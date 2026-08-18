@@ -1,16 +1,29 @@
 import { Router } from "express";
 
 import { StudentAttendanceController } from "../controllers/studentAttendance.controller.js";
-
+import { setAttended } from "../middlewares/studentAuth.middleware.js";
 
 const router = Router();
 
-router.post( "/submit-attendence", StudentAttendanceController.bulkSave);
+router.post(
+  "/submit-attendence",
+  setAttended,
+  StudentAttendanceController.bulkSave,
+);
 
-router.get( "/class/:classSectionId", StudentAttendanceController.getClassAttendance);
+router.get(
+  "/class/:classSectionId",
+  StudentAttendanceController.getClassAttendance,
+);
 
-router.get( "/student/:studentId", StudentAttendanceController.getStudentAttendance);
+router.get(
+  "/student/:studentId",
+  StudentAttendanceController.getStudentAttendance,
+);
 
-router.delete( "/class/:classSectionId", StudentAttendanceController.deleteClassAttendance);
+router.delete(
+  "/class/:classSectionId",
+  StudentAttendanceController.deleteClassAttendance,
+);
 
 export default router;

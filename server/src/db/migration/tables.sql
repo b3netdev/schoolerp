@@ -316,3 +316,30 @@ CREATE TRIGGER trg_subjects_updated_at
 BEFORE UPDATE ON subjects
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
+
+
+
+--student_attendence table
+create table student_attendence(
+id serial PRIMARY KEY,
+student_id INT NOT NULL,
+attend_by INT NOT NULL,
+class_section_id INT NOT NULL,
+attendance_date DATE NOT NULL DEFAULT CURRENT_DATE
+attended VARCHAR(10) NOT  NULL CHECK(attended in ('p','a')) DEFAULT 'a',
+created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+deleted_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NULL,
+
+CONSTRAINT fk_student_attendence FOREIGN KEY (student_id) REFERENCES students(id),
+CONSTRAINT fk_class_section FOREIGN KEY (class_section_id) REFERENCES class_section_relation(id),
+CONSTRAINT fk_attend_by FOREIGN KEY (attend_by) REFERENCES teachers(id),
+
+)
+
+CREATE UNIQUE INDEX uq_student_daily_attendance
+ON student_attendence (
+    student_id,
+    class_section_id,
+    attendance_date
+);

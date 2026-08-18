@@ -27,8 +27,7 @@ const DEFAULT_STATUS_MESSAGES: Record<number, string> = {
     500: "Something went wrong on our end. Please try again later.",
 };
 
-// Methods that represent a mutation (add/update/delete). GET/HEAD/OPTIONS
-// requests are reads and never trigger a success toast on their own.
+
 const MUTATING_METHODS = new Set(["post", "put", "patch", "delete"]);
 
 api.interceptors.response.use(

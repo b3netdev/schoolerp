@@ -165,11 +165,11 @@ const tabs: TabItem[] = [
     label: "Students",
     icon: <GraduationCap className="h-4 w-4" />,
   },
-  {
-    id: "security",
-    label: "Security",
-    icon: <Shield className="h-4 w-4" />,
-  },
+  // {
+  //   id: "security",
+  //   label: "Security",
+  //   icon: <Shield className="h-4 w-4" />,
+  // },
   {
     id: "notifications",
     label: "Notifications",
@@ -263,22 +263,22 @@ const settingsFields: SettingField[] = [
     type: "number",
   },
   // Security
-  {
-    name: "Two Factor Authentication",
-    field_key: "two_factor_authentication",
-    setting_group: "security",
-    type: "select",
-    options: [
-      { label: "Enabled", value: "true" },
-      { label: "Disabled", value: "false" },
-    ],
-  },
-  {
-    name: "Password Minimum Length",
-    field_key: "password_minimum_length",
-    setting_group: "security",
-    type: "number",
-  },
+  // {
+  //   name: "Two Factor Authentication",
+  //   field_key: "two_factor_authentication",
+  //   setting_group: "security",
+  //   type: "select",
+  //   options: [
+  //     { label: "Enabled", value: "true" },
+  //     { label: "Disabled", value: "false" },
+  //   ],
+  // },
+  // {
+  //   name: "Password Minimum Length",
+  //   field_key: "password_minimum_length",
+  //   setting_group: "security",
+  //   type: "number",
+  // },
 
   // Notifications
   {

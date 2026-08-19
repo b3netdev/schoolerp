@@ -34,7 +34,7 @@ type FieldCheckStatus = {
  * Normal fields contain strings.
  * Checkbox fields contain boolean values.
  */
-export type FormValue = string | boolean;
+export type FormValue = string | boolean | number;
 
 export type FormValues = Record<string, FormValue>;
 

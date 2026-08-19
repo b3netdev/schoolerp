@@ -9,6 +9,7 @@ interface addsectionpayload {
     stream_id: string;
     status?: string;
     description?: string;
+    display_order?:number | null
 }
 
 const useSection = () => {

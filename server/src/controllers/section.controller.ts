@@ -1,51 +1,87 @@
 import { NextFunction, Request, Response } from "express";
+
 import {
   SectionModel,
   SectionPayload,
   SectionUpdatePayload,
 } from "../models/section.model.js";
+
 import { AppError } from "../utils/AppError.js";
+import { catchAsync } from "../utils/catchAsync.js";
 
 export class SectionController {
-  static async findAll(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
-    try {
-      const status = req.query.status as string || "all";
-      const sections = await SectionModel.findByStatus(status);
+  /**
+   * GET ALL SECTIONS
+   */
+  static findAll = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const status =
+        (req.query.status as string) || "all";
+
+      const allowedStatuses = [
+        "all",
+        "active",
+        "inactive",
+        "trash",
+      ];
+
+      if (!allowedStatuses.includes(status)) {
+        return next(
+          new AppError(
+            "Invalid section status filter",
+            400,
+          ),
+        );
+      }
+
+      const sections =
+        await SectionModel.findByStatus(status);
 
       res.status(200).json({
         success: true,
         message: "Sections fetched successfully",
         data: sections,
       });
-    } catch (error) {
-      return next(new AppError("Failed to fetch section data", 500));
-    }
-  }
+    },
+  );
 
-  static async findById(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
-    try {
+  /**
+   * GET SECTION BY ID
+   */
+  static findById = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
       const id = Number(req.params.id);
 
-      if (!id || Number.isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          message: "Invalid section ID",
-        });
-        return;
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return next(
+          new AppError(
+            "Invalid section ID",
+            400,
+          ),
+        );
       }
 
-      const section = await SectionModel.findById(id);
+      const section =
+        await SectionModel.findById(id);
 
       if (!section) {
-        return next(new AppError("Failed to fetch section data", 500));
+        return next(
+          new AppError(
+            "Section not found",
+            404,
+          ),
+        );
       }
 
       res.status(200).json({
@@ -53,190 +89,361 @@ export class SectionController {
         message: "Section fetched successfully",
         data: section,
       });
-    } catch (error) {
-      return next(new AppError("Failed to fetch section data", 500));
-    }
-  }
+    },
+  );
 
-  static async create(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
-    try {
-      const { name, stream_id, status, description } = req.body as SectionPayload;
+  /**
+   * CREATE SECTION
+   */
+  static create = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const {
+        name,
+        stream_id,
+        status,
+        description,
+        display_order,
+      } = req.body as SectionPayload;
 
-      if (!name) {
-        return next(new AppError("Name is required", 400));
-      }
-
-      const section = await SectionModel.create({
-        name: name.trim(),
-        stream_id: stream_id.trim(),
-        status: status?.trim() || "active",
-        description: description?.trim() || ""
-      });
-
-      res.status(201).json({
-        success: true,
-        message: "Section created successfully",
-        data: section,
-      });
-    } catch (error) {
-      return next(new AppError("Failed to create section", 500));
-    }
-  }
-
-  static async update(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
-    try {
-      const id = req.body.id;
-
-      if (!id || Number.isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          message: "Invalid section ID",
-        });
-        return;
-      }
-
-      const { name, stream_id, status, description } = req.body as SectionUpdatePayload;
-
-      if (!name && !stream_id && !status && !description) {
+      /*
+       * Name validation
+       */
+      if (
+        !name ||
+        typeof name !== "string" ||
+        !name.trim()
+      ) {
         return next(
-          new AppError("At least one field is required to change", 400),
+          new AppError(
+            "Section name is required",
+            400,
+          ),
         );
       }
 
-      const section = await SectionModel.update(id, {
-        name: name?.trim(),
-        stream_id: stream_id?.trim(),
-        status: status?.trim(),
-        description: description?.trim()
+      /*
+       * Stream validation
+       */
+      if (
+        !stream_id ||
+        !String(stream_id).trim()
+      ) {
+        return next(
+          new AppError(
+            "Stream is required",
+            400,
+          ),
+        );
+      }
+
+      /*
+       * Display order validation
+       */
+      const displayOrder =
+        Number(display_order);
+
+      if (
+        !Number.isInteger(displayOrder) ||
+        displayOrder < 0
+      ) {
+        return next(
+          new AppError(
+            "Display order must be a valid non-negative integer",
+            400,
+          ),
+        );
+      }
+
+      const section =
+        await SectionModel.create({
+          name: name.trim(),
+
+          stream_id:
+            String(stream_id).trim(),
+
+          status:
+            status?.trim() || "active",
+
+          description:
+            description?.trim() || "",
+
+          display_order:
+            displayOrder,
+        });
+
+      res.status(201).json({
+        success: true,
+        message:
+          "Section created successfully",
+        data: section,
       });
+    },
+  );
+
+  /**
+   * UPDATE SECTION
+   */
+  static update = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const id = Number(req.body.id);
+
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return next(
+          new AppError(
+            "Invalid section ID",
+            400,
+          ),
+        );
+      }
+
+      const {
+        name,
+        stream_id,
+        status,
+        description,
+        display_order,
+      } = req.body as SectionUpdatePayload;
+
+      /*
+       * Check whether anything has actually
+       * been sent for update.
+       *
+       * Don't use:
+       *
+       * if (!name && !stream_id ...)
+       *
+       * because values such as 0 are valid.
+       */
+      if (
+        name === undefined &&
+        stream_id === undefined &&
+        status === undefined &&
+        description === undefined &&
+        display_order === undefined
+      ) {
+        return next(
+          new AppError(
+            "At least one field is required to change",
+            400,
+          ),
+        );
+      }
+
+      /*
+       * Prepare display order only if
+       * frontend actually sent it.
+       */
+      let displayOrder:
+        | number
+        | undefined;
+
+      if (display_order !== undefined) {
+        displayOrder =
+          Number(display_order);
+
+        if (
+          !Number.isInteger(
+            displayOrder,
+          ) ||
+          displayOrder < 0
+        ) {
+          return next(
+            new AppError(
+              "Display order must be a valid non-negative integer",
+              400,
+            ),
+          );
+        }
+      }
+
+      const section =
+        await SectionModel.update(id, {
+          name:
+            name !== undefined
+              ? name.trim()
+              : undefined,
+
+          stream_id:
+            stream_id !== undefined
+              ? String(
+                  stream_id,
+                ).trim()
+              : undefined,
+
+          status:
+            status !== undefined
+              ? status.trim()
+              : undefined,
+
+          description:
+            description !== undefined
+              ? description.trim()
+              : undefined,
+
+          display_order:
+            displayOrder,
+        });
 
       if (!section) {
-        return next(new AppError("Section not found", 404));
+        return next(
+          new AppError(
+            "Section not found",
+            404,
+          ),
+        );
       }
 
       res.status(200).json({
         success: true,
-        message: "Section updated successfully",
+        message:
+          "Section updated successfully",
         data: section,
       });
-    } catch (error) {
-      return next(new AppError("Failed to update section", 500));
-    }
-  }
+    },
+  );
 
-  static async delete(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
-    try {
+  /**
+   * SOFT DELETE SECTION
+   */
+  static delete = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
       const id = Number(req.params.id);
 
-      if (!id || Number.isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          message: "Invalid section ID",
-        });
-        return;
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return next(
+          new AppError(
+            "Invalid section ID",
+            400,
+          ),
+        );
       }
 
-      const section = await SectionModel.delete(id);
+      const section =
+        await SectionModel.delete(id);
 
       if (!section) {
-        res.status(404).json({
-          success: false,
-          message: "Section not found",
-        });
-        return;
+        return next(
+          new AppError(
+            "Section not found",
+            404,
+          ),
+        );
       }
 
       res.status(200).json({
         success: true,
-        message: "Section deleted successfully",
+        message:
+          "Section moved to trash successfully",
         data: section,
       });
-    } catch (error) {
-      return next(new AppError("Failed to delete section", 500));
-    }
-  }
+    },
+  );
 
-  static async restore(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
-    try {
+  /**
+   * RESTORE SECTION
+   */
+  static restore = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
       const id = Number(req.params.id);
 
-      if (!id || Number.isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          message: "Invalid section ID",
-        });
-        return;
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return next(
+          new AppError(
+            "Invalid section ID",
+            400,
+          ),
+        );
       }
 
-      const section = await SectionModel.restore(id);
+      const section =
+        await SectionModel.restore(id);
 
       if (!section) {
-        res.status(404).json({
-          success: false,
-          message: "Section not found in trash",
-        });
-        return;
+        return next(
+          new AppError(
+            "Section not found in trash",
+            404,
+          ),
+        );
       }
 
       res.status(200).json({
         success: true,
-        message: "Section restored successfully",
+        message:
+          "Section restored successfully",
         data: section,
       });
-    } catch (error) {
-      return next(new AppError("Failed to restore section", 500));
-    }
-  }
+    },
+  );
 
-  static async hardDelete(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> {
-    try {
+  /**
+   * PERMANENT DELETE SECTION
+   */
+  static hardDelete = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
       const id = Number(req.params.id);
 
-      if (!id || Number.isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          message: "Invalid section ID",
-        });
-        return;
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return next(
+          new AppError(
+            "Invalid section ID",
+            400,
+          ),
+        );
       }
 
-      const success = await SectionModel.hardDelete(id);
+      const success =
+        await SectionModel.hardDelete(id);
 
       if (!success) {
-        res.status(404).json({
-          success: false,
-          message: "Section not found",
-        });
-        return;
+        return next(
+          new AppError(
+            "Section not found",
+            404,
+          ),
+        );
       }
 
       res.status(200).json({
         success: true,
-        message: "Section permanently deleted",
-        data: { id },
+        message:
+          "Section permanently deleted",
+        data: {
+          id,
+        },
       });
-    } catch (error) {
-      return next(new AppError("Failed to permanently delete section", 500));
-    }
-  }
+    },
+  );
 }

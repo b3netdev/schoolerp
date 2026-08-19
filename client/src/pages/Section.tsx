@@ -52,6 +52,10 @@ const columns: Column[] = [
     label: "Description",
   },
   {
+    key: "display_order",
+    label: "Display order",
+  },
+  {
     key: "status",
     label: "Status",
     type: "status",

@@ -286,6 +286,7 @@ CREATE TABLE subjects (
     id SERIAL PRIMARY KEY,
 
     class_section_id INT NOT NULL,
+    display_order INT UNIQUE,
 
     name VARCHAR(100) NOT NULL,
     description TEXT DEFAULT NULL,

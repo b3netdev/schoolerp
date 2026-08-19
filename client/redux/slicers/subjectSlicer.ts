@@ -1,10 +1,16 @@
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import {
+  createSlice,
+  type PayloadAction,
+} from "@reduxjs/toolkit";
 
 export interface Subject {
   id: number;
   class_section_id: number;
   name: string;
   description: string | null;
+
+  display_order: number | null;
+
   created_at?: string;
   updated_at?: string;
   deleted_at?: string | null;
@@ -20,31 +26,66 @@ const initialState: SubjectState = {
 
 const subjectSlice = createSlice({
   name: "subject",
+
   initialState,
 
   reducers: {
-    addSubject: (state, action: PayloadAction<Subject>) => {
-      state.subjects.unshift(action.payload);
+    /**
+     * Add Subject
+     */
+    addSubject: (
+      state,
+      action: PayloadAction<Subject>,
+    ) => {
+      state.subjects.unshift(
+        action.payload,
+      );
     },
 
-    updateSubject: (state, action: PayloadAction<Subject>) => {
-      const index = state.subjects.findIndex(
-        (subject) => subject.id === action.payload.id,
-      );
+    /**
+     * Update Subject
+     */
+    updateSubject: (
+      state,
+      action: PayloadAction<Subject>,
+    ) => {
+      const index =
+        state.subjects.findIndex(
+          (subject) =>
+            subject.id ===
+            action.payload.id,
+        );
 
       if (index !== -1) {
-        state.subjects[index] = action.payload;
+        state.subjects[index] =
+          action.payload;
       }
     },
 
-    deleteSubject: (state, action: PayloadAction<number>) => {
-      state.subjects = state.subjects.filter(
-        (subject) => subject.id !== action.payload,
-      );
+    /**
+     * Remove Subject
+     */
+    deleteSubject: (
+      state,
+      action: PayloadAction<number>,
+    ) => {
+      state.subjects =
+        state.subjects.filter(
+          (subject) =>
+            subject.id !==
+            action.payload,
+        );
     },
 
-    setSubjects: (state, action: PayloadAction<Subject[]>) => {
-      state.subjects = action.payload;
+    /**
+     * Set Subject List
+     */
+    setSubjects: (
+      state,
+      action: PayloadAction<Subject[]>,
+    ) => {
+      state.subjects =
+        action.payload;
     },
   },
 });

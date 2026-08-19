@@ -59,14 +59,33 @@ type SubjectTableRow = Subject & {
 const SUBJECTS_API = "/subjects";
 
 const statusTabs: StatusTabOption<SubjectStatusFilter>[] = [
-  { value: "all", label: "All" },
-  { value: "trash", label: "Trash" },
+  {
+    value: "all",
+    label: "All",
+  },
+  {
+    value: "trash",
+    label: "Trash",
+  },
 ];
 
 const columns: Column[] = [
-  { key: "name", label: "Subject Name" },
-  { key: "class_section_name", label: "Class & Section" },
-  { key: "description", label: "Description" },
+  {
+    key: "name",
+    label: "Subject Name",
+  },
+  {
+    key: "class_section_name",
+    label: "Class & Section",
+  },
+  {
+    key: "display_order",
+    label: "Display Order",
+  },
+  {
+    key: "description",
+    label: "Description",
+  },
 ];
 
 export default function Subjects() {
@@ -90,34 +109,64 @@ export default function Subjects() {
     useState<SubjectStatusFilter>("all");
 
   const [addOpen, setAddOpen] = useState(false);
-  const [editItem, setEditItem] = useState<Subject | null>(null);
-  const [deleteItem, setDeleteItem] = useState<Subject | null>(null);
-  const [restoreItem, setRestoreItem] = useState<Subject | null>(null);
-  const [permanentDeleteItem, setPermanentDeleteItem] =
+
+  const [editItem, setEditItem] =
     useState<Subject | null>(null);
+
+  const [deleteItem, setDeleteItem] =
+    useState<Subject | null>(null);
+
+  const [restoreItem, setRestoreItem] =
+    useState<Subject | null>(null);
+
+  const [
+    permanentDeleteItem,
+    setPermanentDeleteItem,
+  ] = useState<Subject | null>(null);
 
   const itemsPerPage = 10;
 
+  /**
+   * Load class/section relations
+   */
   useEffect(() => {
     void getClassSections("all");
   }, []);
 
-  const loadSubjects = async (status: SubjectStatusFilter) => {
+  /**
+   * Load subjects
+   */
+  const loadSubjects = async (
+    status: SubjectStatusFilter,
+  ) => {
     try {
       setIsLoading(true);
 
       const response = await api.get(
         `${SUBJECTS_API}/get-subjects`,
         {
-          params: { status },
+          params: {
+            status,
+          },
         },
       );
 
-      dispatch(setSubjects(response.data?.data ?? []));
+      dispatch(
+        setSubjects(
+          response.data?.data ?? [],
+        ),
+      );
     } catch (error) {
-      console.error("Failed to fetch subjects:", error);
+      console.error(
+        "Failed to fetch subjects:",
+        error,
+      );
+
       dispatch(setSubjects([]));
-      toast.error("Unable to load subjects.");
+
+      toast.error(
+        "Unable to load subjects.",
+      );
     } finally {
       setIsLoading(false);
     }
@@ -127,11 +176,22 @@ export default function Subjects() {
     void loadSubjects(statusFilter);
   }, [statusFilter]);
 
+  /**
+   * Class Section dropdown
+   */
   const classSectionOptions = useMemo(() => {
-    return (classSectionRelations as ClassSectionRelation[])
-      .filter((relation) => !relation.deleted_at)
+    return (
+      classSectionRelations as ClassSectionRelation[]
+    )
+      .filter(
+        (relation) =>
+          !relation.deleted_at,
+      )
       .map((relation) => ({
-        value: String(relation.id),
+        value: String(
+          relation.id,
+        ),
+
         label: `Class ${relation.class_name} - Section ${
           relation.section_name
         }${
@@ -142,228 +202,527 @@ export default function Subjects() {
       }));
   }, [classSectionRelations]);
 
-  const subjectFields: FieldDef[] = useMemo(
-    () => [
-      {
-        key: "class_section_id",
-        label: "Class & Section",
-        type: "select",
-        required: true,
-        options: classSectionOptions,
-      },
-      {
-        key: "name",
-        label: "Subject Name",
-        type: "text",
-        required: true,
-        placeholder: "Enter subject name",
-      },
-      {
-        key: "description",
-        label: "Description",
-        type: "textarea",
-        placeholder: "Enter subject description",
-      },
+  /**
+   * Subject form fields
+   */
+  const subjectFields: FieldDef[] =
+    useMemo(
+      () => [
+        {
+          key: "class_section_id",
+          label: "Class & Section",
+          type: "select",
+          required: true,
+          options:
+            classSectionOptions,
+        },
+        {
+          key: "name",
+          label: "Subject Name",
+          type: "text",
+          required: true,
+          placeholder:
+            "Enter subject name",
+        },
+        {
+          key: "display_order",
+          label: "Display Order",
+          type: "number",
+          required: false,
+          placeholder:
+            "Enter display order",
+        },
+        {
+          key: "description",
+          label: "Description",
+          type: "textarea",
+          placeholder:
+            "Enter subject description",
+        },
+      ],
+      [classSectionOptions],
+    );
+
+  /**
+   * Build table data
+   */
+  const tableData:
+    SubjectTableRow[] = useMemo(
+    () => {
+      return subjects.map(
+        (subject) => {
+          const classSection =
+            classSectionOptions.find(
+              (option) =>
+                Number(
+                  option.value,
+                ) ===
+                subject.class_section_id,
+            );
+
+          return {
+            ...subject,
+
+            class_section_name:
+              classSection?.label ??
+              "Not assigned",
+
+            /**
+             * Keep NULL display
+             * order visually empty.
+             */
+            display_order:
+              subject.display_order ??
+              null,
+          };
+        },
+      );
+    },
+    [
+      subjects,
+      classSectionOptions,
     ],
-    [classSectionOptions],
   );
 
-  const tableData: SubjectTableRow[] = useMemo(() => {
-    return subjects.map((subject) => {
-      const classSection = classSectionOptions.find(
-        (option) => Number(option.value) === subject.class_section_id,
+  /**
+   * Search
+   */
+  const filteredSubjects =
+    useMemo(() => {
+      const keyword = search
+        .trim()
+        .toLowerCase();
+
+      if (!keyword) {
+        return tableData;
+      }
+
+      return tableData.filter(
+        (subject) => {
+          return (
+            subject.name
+              .toLowerCase()
+              .includes(keyword) ||
+            subject.description
+              ?.toLowerCase()
+              .includes(keyword) ||
+            subject.class_section_name
+              .toLowerCase()
+              .includes(keyword)
+          );
+        },
       );
+    }, [search, tableData]);
 
-      return {
-        ...subject,
-        class_section_name: classSection?.label ?? "Not assigned",
-      };
-    });
-  }, [subjects, classSectionOptions]);
-
-  const filteredSubjects = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-
-    if (!keyword) {
-      return tableData;
-    }
-
-    return tableData.filter((subject) => {
-      return (
-        subject.name.toLowerCase().includes(keyword) ||
-        subject.description?.toLowerCase().includes(keyword) ||
-        subject.class_section_name.toLowerCase().includes(keyword)
-      );
-    });
-  }, [search, tableData]);
-
+  /**
+   * Pagination
+   */
   const totalPages = Math.max(
     1,
-    Math.ceil(filteredSubjects.length / itemsPerPage),
+    Math.ceil(
+      filteredSubjects.length /
+        itemsPerPage,
+    ),
   );
 
-  const paginatedData = filteredSubjects.slice(
-    (page - 1) * itemsPerPage,
-    page * itemsPerPage,
-  );
+  const paginatedData =
+    filteredSubjects.slice(
+      (page - 1) * itemsPerPage,
+      page * itemsPerPage,
+    );
 
-  const handleAdd = async (values: FormValues) => {
+  /**
+   * ADD SUBJECT
+   */
+  const handleAdd = async (
+    values: FormValues,
+  ) => {
     try {
-      const response = await api.post(
-        `${SUBJECTS_API}/add-subject`,
-        {
-          class_section_id: Number(values.class_section_id),
-          name: String(values.name ?? "").trim(),
-          description:
-            String(values.description ?? "").trim() || null,
-        },
-      );
+      const rawDisplayOrder =
+        values.display_order;
 
-      const createdSubject = response.data?.data as Subject;
+      const hasDisplayOrder =
+        rawDisplayOrder !==
+          undefined &&
+        rawDisplayOrder !== null &&
+        String(
+          rawDisplayOrder,
+        ).trim() !== "";
 
-      // New subjects are active, so add it only if the active list is visible.
-      if (statusFilter === "all" && createdSubject) {
-        dispatch(addSubject(createdSubject));
+      /**
+       * Do NOT do:
+       *
+       * Number(values.display_order)
+       *
+       * because:
+       *
+       * Number("") === 0
+       */
+      const payload: {
+        class_section_id: number;
+        name: string;
+        description: string | null;
+        display_order?: number;
+      } = {
+        class_section_id: Number(
+          values.class_section_id,
+        ),
+
+        name: String(
+          values.name ?? "",
+        ).trim(),
+
+        description:
+          String(
+            values.description ??
+              "",
+          ).trim() || null,
+      };
+
+      /**
+       * Only include display_order
+       * when something was entered.
+       */
+      if (hasDisplayOrder) {
+        payload.display_order =
+          Number(
+            rawDisplayOrder,
+          );
       }
 
-      toast.success(
-        response.data?.message || "Subject added successfully.",
+      console.log(
+        "ADD SUBJECT PAYLOAD:",
+        payload,
       );
 
-      setAddOpen(false);
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message || "Unable to add subject.",
-      );
-    }
-  };
+      const response =
+        await api.post(
+          `${SUBJECTS_API}/add-subject`,
+          payload,
+        );
 
-  const handleEdit = async (values: FormValues) => {
-    if (!editItem) return;
+      const createdSubject =
+        response.data
+          ?.data as Subject;
 
-    try {
-      const response = await api.post(
-        `${SUBJECTS_API}/update-subject/${editItem.id}`,
-        {
-          class_section_id: Number(values.class_section_id),
-          name: String(values.name ?? "").trim(),
-          description:
-            String(values.description ?? "").trim() || null,
-        },
-      );
-
-      const updatedSubject = response.data?.data as Subject;
-
-      if (updatedSubject) {
-        dispatch(updateSubject(updatedSubject));
+      if (
+        statusFilter === "all" &&
+        createdSubject
+      ) {
+        dispatch(
+          addSubject(
+            createdSubject,
+          ),
+        );
       }
-
-      toast.success(
-        response.data?.message || "Subject updated successfully.",
-      );
-
-      setEditItem(null);
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message || "Unable to update subject.",
-      );
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteItem) return;
-
-    try {
-      const response = await api.delete(
-        `${SUBJECTS_API}/delete-subject/${deleteItem.id}`,
-      );
-
-      // Remove from the active list immediately.
-      dispatch(deleteSubject(deleteItem.id));
-
-      toast.success(
-        response.data?.message || "Subject moved to trash.",
-      );
-
-      setDeleteItem(null);
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message ||
-          "Unable to move subject to trash.",
-      );
-    }
-  };
-
-  const handleRestore = async () => {
-    if (!restoreItem) return;
-
-    try {
-      const response = await api.post(
-        `${SUBJECTS_API}/restore-subject/${restoreItem.id}`,
-      );
-
-      // The restored item no longer belongs in the Trash list.
-      dispatch(deleteSubject(restoreItem.id));
-
-      toast.success(
-        response.data?.message || "Subject restored successfully.",
-      );
-
-      setRestoreItem(null);
-    } catch (error: any) {
-      toast.error(
-        error?.response?.data?.message || "Unable to restore subject.",
-      );
-    }
-  };
-
-  const handlePermanentDelete = async () => {
-    if (!permanentDeleteItem) return;
-
-    try {
-      const response = await api.delete(
-        `${SUBJECTS_API}/permanent-delete-subject/${permanentDeleteItem.id}`,
-      );
-
-      dispatch(deleteSubject(permanentDeleteItem.id));
 
       toast.success(
         response.data?.message ||
-          "Subject permanently deleted successfully.",
+          "Subject added successfully.",
       );
 
-      setPermanentDeleteItem(null);
+      setAddOpen(false);
+
+      /**
+       * Reload because backend
+       * orders subjects by
+       * display_order.
+       */
+      await loadSubjects(
+        statusFilter,
+      );
     } catch (error: any) {
       toast.error(
-        error?.response?.data?.message ||
-          "Unable to permanently delete subject.",
+        error?.response?.data
+          ?.message ||
+          "Unable to add subject.",
       );
     }
   };
 
+  /**
+   * UPDATE SUBJECT
+   */
+  const handleEdit = async (
+    values: FormValues,
+  ) => {
+    if (!editItem) {
+      return;
+    }
+
+    try {
+      const rawDisplayOrder =
+        values.display_order;
+
+      const hasDisplayOrder =
+        rawDisplayOrder !==
+          undefined &&
+        rawDisplayOrder !== null &&
+        String(
+          rawDisplayOrder,
+        ).trim() !== "";
+
+      const payload: {
+        class_section_id: number;
+        name: string;
+        description: string | null;
+        display_order?: number;
+      } = {
+        class_section_id: Number(
+          values.class_section_id,
+        ),
+
+        name: String(
+          values.name ?? "",
+        ).trim(),
+
+        description:
+          String(
+            values.description ??
+              "",
+          ).trim() || null,
+      };
+
+      /**
+       * Only send display_order
+       * when input contains value.
+       *
+       * Empty field will NOT
+       * become 0.
+       */
+      if (hasDisplayOrder) {
+        payload.display_order =
+          Number(
+            rawDisplayOrder,
+          );
+      }
+
+      console.log(
+        "UPDATE SUBJECT PAYLOAD:",
+        payload,
+      );
+
+      const response =
+        await api.post(
+          `${SUBJECTS_API}/update-subject/${editItem.id}`,
+          payload,
+        );
+
+      const updatedSubject =
+        response.data
+          ?.data as Subject;
+
+      if (updatedSubject) {
+        dispatch(
+          updateSubject(
+            updatedSubject,
+          ),
+        );
+      }
+
+      toast.success(
+        response.data?.message ||
+          "Subject updated successfully.",
+      );
+
+      setEditItem(null);
+
+      /**
+       * Reload so updated
+       * display order is reflected
+       * immediately.
+       */
+      await loadSubjects(
+        statusFilter,
+      );
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data
+          ?.message ||
+          "Unable to update subject.",
+      );
+    }
+  };
+
+  /**
+   * SOFT DELETE
+   */
+  const handleDelete =
+    async () => {
+      if (!deleteItem) {
+        return;
+      }
+
+      try {
+        const response =
+          await api.delete(
+            `${SUBJECTS_API}/delete-subject/${deleteItem.id}`,
+          );
+
+        dispatch(
+          deleteSubject(
+            deleteItem.id,
+          ),
+        );
+
+        toast.success(
+          response.data?.message ||
+            "Subject moved to trash.",
+        );
+
+        setDeleteItem(null);
+      } catch (error: any) {
+        toast.error(
+          error?.response?.data
+            ?.message ||
+            "Unable to move subject to trash.",
+        );
+      }
+    };
+
+  /**
+   * RESTORE
+   */
+  const handleRestore =
+    async () => {
+      if (!restoreItem) {
+        return;
+      }
+
+      try {
+        const response =
+          await api.post(
+            `${SUBJECTS_API}/restore-subject/${restoreItem.id}`,
+          );
+
+        dispatch(
+          deleteSubject(
+            restoreItem.id,
+          ),
+        );
+
+        toast.success(
+          response.data?.message ||
+            "Subject restored successfully.",
+        );
+
+        setRestoreItem(null);
+      } catch (error: any) {
+        toast.error(
+          error?.response?.data
+            ?.message ||
+            "Unable to restore subject.",
+        );
+      }
+    };
+
+  /**
+   * PERMANENT DELETE
+   */
+  const handlePermanentDelete =
+    async () => {
+      if (
+        !permanentDeleteItem
+      ) {
+        return;
+      }
+
+      try {
+        const response =
+          await api.delete(
+            `${SUBJECTS_API}/permanent-delete-subject/${permanentDeleteItem.id}`,
+          );
+
+        dispatch(
+          deleteSubject(
+            permanentDeleteItem.id,
+          ),
+        );
+
+        toast.success(
+          response.data?.message ||
+            "Subject permanently deleted successfully.",
+        );
+
+        setPermanentDeleteItem(
+          null,
+        );
+      } catch (error: any) {
+        toast.error(
+          error?.response?.data
+            ?.message ||
+            "Unable to permanently delete subject.",
+        );
+      }
+    };
+
+  /**
+   * Find original subject
+   * using DataTable row
+   */
   const getSubjectFromRow = (
-    row: Record<string, unknown>,
+    row: Record<
+      string,
+      unknown
+    >,
   ): Subject | undefined => {
     return subjects.find(
-      (subject) => subject.id === Number(row.id),
+      (subject) =>
+        subject.id ===
+        Number(row.id),
     );
   };
 
-  const editInitialValues = useMemo<FormValues | undefined>(() => {
-    if (!editItem) {
-      return undefined;
-    }
+  /**
+   * EDIT MODAL INITIAL VALUES
+   *
+   * display_order null
+   * becomes ""
+   *
+   * so the number input
+   * remains EMPTY.
+   */
+  const editInitialValues =
+    useMemo<
+      FormValues | undefined
+    >(() => {
+      if (!editItem) {
+        return undefined;
+      }
 
-    return {
-      class_section_id: String(editItem.class_section_id),
-      name: editItem.name,
-      description: editItem.description ?? "",
-    };
-  }, [editItem]);
+      return {
+        class_section_id:
+          String(
+            editItem.class_section_id,
+          ),
+
+        name: editItem.name,
+
+        description:
+          editItem.description ??
+          "",
+
+        display_order:
+          editItem.display_order ===
+            null ||
+          editItem.display_order ===
+            undefined
+            ? ""
+            : String(
+                editItem.display_order,
+              ),
+      };
+    }, [editItem]);
 
   return (
     <div>
-      <Breadcrumb items={[{ label: "Subjects" }]} />
+      <Breadcrumb
+        items={[
+          {
+            label: "Subjects",
+          },
+        ]}
+      />
 
       <PageHeader
         title="Subjects"
@@ -371,10 +730,13 @@ export default function Subjects() {
         action={
           <button
             type="button"
-            onClick={() => setAddOpen(true)}
+            onClick={() =>
+              setAddOpen(true)
+            }
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
             <Plus className="h-4 w-4" />
+
             Add Subject
           </button>
         }
@@ -390,8 +752,14 @@ export default function Subjects() {
                 type="search"
                 placeholder="Search subjects..."
                 value={search}
-                onChange={(event) => {
-                  setSearch(event.target.value);
+                onChange={(
+                  event,
+                ) => {
+                  setSearch(
+                    event.target
+                      .value,
+                  );
+
                   setPage(1);
                 }}
                 className="h-9 w-full rounded-lg bg-muted pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -399,12 +767,23 @@ export default function Subjects() {
             </div>
 
             <StatusTabs
-              options={statusTabs}
-              value={statusFilter}
-              disabled={isLoading}
+              options={
+                statusTabs
+              }
+              value={
+                statusFilter
+              }
+              disabled={
+                isLoading
+              }
               className="lg:ml-auto"
-              onChange={(value) => {
-                setStatusFilter(value);
+              onChange={(
+                value,
+              ) => {
+                setStatusFilter(
+                  value,
+                );
+
                 setPage(1);
               }}
             />
@@ -414,55 +793,96 @@ export default function Subjects() {
         <div className="px-6">
           {isLoading ? (
             <ListingSkeleton
-              columns={columns.length}
-              rows={itemsPerPage}
+              columns={
+                columns.length
+              }
+              rows={
+                itemsPerPage
+              }
             />
           ) : (
             <DataTable
-              columns={columns}
+              columns={
+                columns
+              }
               data={
-                paginatedData as unknown as Record<string, unknown>[]
+                paginatedData as unknown as Record<
+                  string,
+                  unknown
+                >[]
               }
               onEdit={
-                statusFilter === "all"
+                statusFilter ===
+                "all"
                   ? (row) => {
-                      const subject = getSubjectFromRow(row);
+                      const subject =
+                        getSubjectFromRow(
+                          row,
+                        );
 
-                      if (subject) {
-                        setEditItem(subject);
+                      if (
+                        subject
+                      ) {
+                        setEditItem(
+                          subject,
+                        );
                       }
                     }
                   : undefined
               }
               onDelete={
-                statusFilter === "all"
+                statusFilter ===
+                "all"
                   ? (row) => {
-                      const subject = getSubjectFromRow(row);
+                      const subject =
+                        getSubjectFromRow(
+                          row,
+                        );
 
-                      if (subject) {
-                        setDeleteItem(subject);
+                      if (
+                        subject
+                      ) {
+                        setDeleteItem(
+                          subject,
+                        );
                       }
                     }
                   : undefined
               }
               onRestore={
-                statusFilter === "trash"
+                statusFilter ===
+                "trash"
                   ? (row) => {
-                      const subject = getSubjectFromRow(row);
+                      const subject =
+                        getSubjectFromRow(
+                          row,
+                        );
 
-                      if (subject) {
-                        setRestoreItem(subject);
+                      if (
+                        subject
+                      ) {
+                        setRestoreItem(
+                          subject,
+                        );
                       }
                     }
                   : undefined
               }
               onPermanentDelete={
-                statusFilter === "trash"
+                statusFilter ===
+                "trash"
                   ? (row) => {
-                      const subject = getSubjectFromRow(row);
+                      const subject =
+                        getSubjectFromRow(
+                          row,
+                        );
 
-                      if (subject) {
-                        setPermanentDeleteItem(subject);
+                      if (
+                        subject
+                      ) {
+                        setPermanentDeleteItem(
+                          subject,
+                        );
                       }
                     }
                   : undefined
@@ -473,65 +893,126 @@ export default function Subjects() {
 
         <div className="flex items-center justify-between border-t border-border px-6 py-4">
           <span className="text-sm text-muted-foreground">
-            Showing {paginatedData.length} of {filteredSubjects.length} subjects
+            Showing{" "}
+            {
+              paginatedData.length
+            }{" "}
+            of{" "}
+            {
+              filteredSubjects.length
+            }{" "}
+            subjects
           </span>
 
           <Pagination
             currentPage={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
+            totalPages={
+              totalPages
+            }
+            onPageChange={
+              setPage
+            }
           />
         </div>
       </div>
 
+      {/* Add */}
+
       <FormModal
         isOpen={addOpen}
-        onClose={() => setAddOpen(false)}
-        onSubmit={handleAdd}
+        onClose={() =>
+          setAddOpen(false)
+        }
+        onSubmit={
+          handleAdd
+        }
         title="Add New Subject"
-        fields={subjectFields}
+        fields={
+          subjectFields
+        }
         submitLabel="Add Subject"
       />
 
+      {/* Edit */}
+
       <FormModal
-        isOpen={Boolean(editItem)}
-        onClose={() => setEditItem(null)}
-        onSubmit={handleEdit}
+        isOpen={
+          Boolean(editItem)
+        }
+        onClose={() =>
+          setEditItem(null)
+        }
+        onSubmit={
+          handleEdit
+        }
         title="Edit Subject"
-        fields={subjectFields}
-        initialValues={editInitialValues}
+        fields={
+          subjectFields
+        }
+        initialValues={
+          editInitialValues
+        }
         submitLabel="Save Changes"
       />
 
+      {/* Delete */}
+
       <ConfirmModal
-        isOpen={Boolean(deleteItem)}
-        onClose={() => setDeleteItem(null)}
-        onConfirm={handleDelete}
+        isOpen={
+          Boolean(deleteItem)
+        }
+        onClose={() =>
+          setDeleteItem(null)
+        }
+        onConfirm={
+          handleDelete
+        }
         title="Delete Subject"
         description={`Are you sure you want to move "${
-          deleteItem?.name ?? ""
+          deleteItem?.name ??
+          ""
         }" to trash? You can restore it later.`}
         confirmLabel="Move to Trash"
       />
 
+      {/* Restore */}
+
       <ConfirmModal
-        isOpen={Boolean(restoreItem)}
-        onClose={() => setRestoreItem(null)}
-        onConfirm={handleRestore}
+        isOpen={
+          Boolean(restoreItem)
+        }
+        onClose={() =>
+          setRestoreItem(null)
+        }
+        onConfirm={
+          handleRestore
+        }
         title="Restore Subject"
         description={`Are you sure you want to restore "${
-          restoreItem?.name ?? ""
+          restoreItem?.name ??
+          ""
         }"?`}
         confirmLabel="Restore Subject"
       />
 
+      {/* Permanent Delete */}
+
       <ConfirmModal
-        isOpen={Boolean(permanentDeleteItem)}
-        onClose={() => setPermanentDeleteItem(null)}
-        onConfirm={handlePermanentDelete}
+        isOpen={Boolean(
+          permanentDeleteItem,
+        )}
+        onClose={() =>
+          setPermanentDeleteItem(
+            null,
+          )
+        }
+        onConfirm={
+          handlePermanentDelete
+        }
         title="Permanently Delete Subject"
         description={`Are you sure you want to permanently delete "${
-          permanentDeleteItem?.name ?? ""
+          permanentDeleteItem?.name ??
+          ""
         }"? This action cannot be undone.`}
         confirmLabel="Delete Permanently"
         variant="danger"

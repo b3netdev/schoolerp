@@ -32,7 +32,7 @@ create table section (
    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
    name VARCHAR(10),
    stream VARCHAR(20),
-   display_order INT,
+   display_order INT UNIQUE,
    description TEXT,
     created_At TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_At TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,

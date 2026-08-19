@@ -1,241 +1,506 @@
 import { NextFunction, Request, Response } from "express";
+
 import {
-    ClassModel,
-    ClassPayload,
-    ClassUpdatePayload,
+  ClassModel,
+  ClassPayload,
+  ClassUpdatePayload,
 } from "../models/classes.model.js";
+
 import { AppError } from "../utils/AppError.js";
+import { catchAsync } from "../utils/catchAsync.js";
 
 export class ClassController {
-    static async findAll(
-        req: Request,
-        res: Response,
-        next: NextFunction,
-    ): Promise<void> {
-        try {
-            const status = req.query.status as string || "all";
-            const classes = await ClassModel.findByStatus(status);
+  /**
+   * GET ALL CLASSES
+   */
+  static findAll = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const status = String(
+        req.query.status ?? "all",
+      );
 
-            res.status(200).json({
-                success: true,
-                message: "Classes fetched successfully",
-                data: classes,
-            });
-        } catch (error) {
-            return next(new AppError("Failed to fetch class data", 500));
+      const allowedStatuses = [
+        "all",
+        "active",
+        "inactive",
+        "trash",
+      ];
+
+      if (!allowedStatuses.includes(status)) {
+        return next(
+          new AppError(
+            "Invalid class status filter",
+            400,
+          ),
+        );
+      }
+
+      const classes =
+        await ClassModel.findByStatus(status);
+
+      res.status(200).json({
+        success: true,
+        message: "Classes fetched successfully",
+        data: classes,
+      });
+    },
+  );
+
+  /**
+   * GET CLASS BY ID
+   */
+  static findById = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const id = Number(req.params.id);
+
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return next(
+          new AppError(
+            "Invalid class ID",
+            400,
+          ),
+        );
+      }
+
+      const classData =
+        await ClassModel.findById(id);
+
+      if (!classData) {
+        return next(
+          new AppError(
+            "Class not found",
+            404,
+          ),
+        );
+      }
+
+      res.status(200).json({
+        success: true,
+        message:
+          "Class fetched successfully",
+        data: classData,
+      });
+    },
+  );
+
+  /**
+   * CREATE CLASS
+   */
+  static create = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const className = String(
+        req.body.class_name ?? "",
+      ).trim();
+
+      const status = String(
+        req.body.status ?? "active",
+      ).trim();
+
+      const description = String(
+        req.body.description ?? "",
+      ).trim();
+
+      /**
+       * DISPLAY ORDER
+       *
+       * Important:
+       * Number(null) === 0
+       * Number("") === 0
+       *
+       * So check first.
+       */
+      let displayOrder:
+        | number
+        | null = null;
+
+      if (
+        req.body.display_order !== undefined &&
+        req.body.display_order !== null &&
+        String(
+          req.body.display_order,
+        ).trim() !== ""
+      ) {
+        displayOrder = Number(
+          req.body.display_order,
+        );
+
+        if (
+          !Number.isInteger(
+            displayOrder,
+          ) ||
+          displayOrder < 0
+        ) {
+          return next(
+            new AppError(
+              "Display order must be a valid non-negative integer",
+              400,
+            ),
+          );
         }
-    }
+      }
 
-    static async findById(
-        req: Request,
-        res: Response,
-        next: NextFunction,
-    ): Promise<void> {
-        try {
-            const id = Number(req.params.id);
+      /**
+       * Validation
+       */
+      if (!className) {
+        return next(
+          new AppError(
+            "Class name is required",
+            400,
+          ),
+        );
+      }
 
-            if (!id || Number.isNaN(id)) {
-                res.status(400).json({
-                    success: false,
-                    message: "Invalid class ID",
-                });
-                return;
-            }
+      if (!status) {
+        return next(
+          new AppError(
+            "Class status is required",
+            400,
+          ),
+        );
+      }
 
-            const classData = await ClassModel.findById(id);
+      if (
+        !["active", "inactive"].includes(status)
+      ) {
+        return next(
+          new AppError(
+            "Invalid class status",
+            400,
+          ),
+        );
+      }
 
-            if (!classData) {
-                return next(new AppError("Class not found", 404));
-            }
+      const payload: ClassPayload = {
+        class_name: className,
+        status,
+        description,
+        display_order: displayOrder,
+      };
 
-            res.status(200).json({
-                success: true,
-                message: "Class fetched successfully",
-                data: classData,
-            });
-        } catch (error) {
-            return next(new AppError("Failed to fetch class data", 500));
+      const classData =
+        await ClassModel.create(payload);
+
+      res.status(201).json({
+        success: true,
+        message:
+          "Class created successfully",
+        data: classData,
+      });
+    },
+  );
+
+  /**
+   * UPDATE CLASS
+   */
+  static update = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const id = Number(req.body.id);
+
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return next(
+          new AppError(
+            "Invalid class ID",
+            400,
+          ),
+        );
+      }
+
+      const payload: ClassUpdatePayload = {};
+
+      /**
+       * CLASS NAME
+       */
+      if (
+        req.body.class_name !== undefined
+      ) {
+        const className = String(
+          req.body.class_name,
+        ).trim();
+
+        if (!className) {
+          return next(
+            new AppError(
+              "Class name cannot be empty",
+              400,
+            ),
+          );
         }
-    }
 
-    static async create(
-        req: Request,
-        res: Response,
-        next: NextFunction,
-    ): Promise<void> {
-        try {
-            const { class_name, status, description } = req.body as ClassPayload;
+        payload.class_name = className;
+      }
 
-            if (!class_name || !status) {
-                return next(new AppError("Class name and status are required", 400));
-            }
+      /**
+       * STATUS
+       */
+      if (
+        req.body.status !== undefined
+      ) {
+        const status = String(
+          req.body.status,
+        ).trim();
 
-            const classData = await ClassModel.create({
-                class_name: class_name.trim(),
-                status: status.trim(),
-                description: description?.trim() ?? "",
-            });
-
-            res.status(201).json({
-                success: true,
-                message: "Class created successfully",
-                data: classData,
-            });
-        } catch (error) {
-            return next(new AppError("Failed to create class", 500));
+        if (
+          !["active", "inactive"].includes(status)
+        ) {
+          return next(
+            new AppError(
+              "Invalid class status",
+              400,
+            ),
+          );
         }
-    }
 
-    static async update(
-        req: Request,
-        res: Response,
-        next: NextFunction,
-    ): Promise<void> {
-        try {
-            const id = Number(req.body.id);
+        payload.status = status;
+      }
 
-            if (!id || Number.isNaN(id)) {
-                res.status(400).json({
-                    success: false,
-                    message: "Invalid class ID",
-                });
-                return;
-            }
+      /**
+       * DESCRIPTION
+       */
+      if (
+        req.body.description !== undefined
+      ) {
+        payload.description =
+          req.body.description === null
+            ? ""
+            : String(
+                req.body.description,
+              ).trim();
+      }
 
-            const { class_name, status, description } =
-                req.body as ClassUpdatePayload;
+      /**
+       * DISPLAY ORDER
+       *
+       * undefined -> don't change
+       * null      -> clear value
+       * ""        -> clear value
+       * "5"       -> 5
+       */
+      if (
+        req.body.display_order !== undefined
+      ) {
+        if (
+          req.body.display_order === null ||
+          String(
+            req.body.display_order,
+          ).trim() === ""
+        ) {
+          payload.display_order = null;
+        } else {
+          const displayOrder = Number(
+            req.body.display_order,
+          );
 
-            if (!class_name && !status && !description) {
-                return next(
-                    new AppError("At least one field is required to change", 400),
-                );
-            }
+          if (
+            !Number.isInteger(
+              displayOrder,
+            ) ||
+            displayOrder < 0
+          ) {
+            return next(
+              new AppError(
+                "Display order must be a valid non-negative integer",
+                400,
+              ),
+            );
+          }
 
-            const classData = await ClassModel.update(id, {
-                class_name: class_name?.trim(),
-                status: status?.trim(),
-                description: description?.trim(),
-            });
-
-            if (!classData) {
-                return next(new AppError("Class not found", 404));
-            }
-
-            res.status(200).json({
-                success: true,
-                message: "Class updated successfully",
-                data: classData,
-            });
-        } catch (error) {
-            return next(new AppError("Failed to update class", 500));
+          payload.display_order =
+            displayOrder;
         }
-    }
+      }
 
-    static async delete(
-        req: Request,
-        res: Response,
-        next: NextFunction,
-    ): Promise<void> {
-        try {
-            const id = Number(req.params.id);
+      /**
+       * Nothing supplied
+       */
+      if (
+        Object.keys(payload).length === 0
+      ) {
+        return next(
+          new AppError(
+            "At least one field is required to change",
+            400,
+          ),
+        );
+      }
 
-            if (!id || Number.isNaN(id)) {
-                res.status(400).json({
-                    success: false,
-                    message: "Invalid class ID",
-                });
-                return;
-            }
+      const classData =
+        await ClassModel.update(
+          id,
+          payload,
+        );
 
-            const classData = await ClassModel.delete(id);
+      if (!classData) {
+        return next(
+          new AppError(
+            "Class not found",
+            404,
+          ),
+        );
+      }
 
-            if (!classData) {
-                res.status(404).json({
-                    success: false,
-                    message: "Class not found",
-                });
-                return;
-            }
+      res.status(200).json({
+        success: true,
+        message:
+          "Class updated successfully",
+        data: classData,
+      });
+    },
+  );
 
-            res.status(200).json({
-                success: true,
-                message: "Class deleted successfully",
-                data: classData,
-            });
-        } catch (error) {
-            return next(new AppError("Failed to delete class", 500));
-        }
-    }
+  /**
+   * SOFT DELETE CLASS
+   */
+  static delete = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const id = Number(req.params.id);
 
-    static async restore(
-        req: Request,
-        res: Response,
-        next: NextFunction,
-    ): Promise<void> {
-        try {
-            const id = Number(req.params.id);
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return next(
+          new AppError(
+            "Invalid class ID",
+            400,
+          ),
+        );
+      }
 
-            if (!id || Number.isNaN(id)) {
-                res.status(400).json({
-                    success: false,
-                    message: "Invalid class ID",
-                });
-                return;
-            }
+      const classData =
+        await ClassModel.delete(id);
 
-            const classData = await ClassModel.restore(id);
+      if (!classData) {
+        return next(
+          new AppError(
+            "Class not found or already deleted",
+            404,
+          ),
+        );
+      }
 
-            if (!classData) {
-                res.status(404).json({
-                    success: false,
-                    message: "Class not found in trash",
-                });
-                return;
-            }
+      res.status(200).json({
+        success: true,
+        message:
+          "Class moved to trash successfully",
+        data: classData,
+      });
+    },
+  );
 
-            res.status(200).json({
-                success: true,
-                message: "Class restored successfully",
-                data: classData,
-            });
-        } catch (error) {
-            return next(new AppError("Failed to restore class", 500));
-        }
-    }
+  /**
+   * RESTORE CLASS
+   */
+  static restore = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const id = Number(req.params.id);
 
-    static async hardDelete(
-        req: Request,
-        res: Response,
-        next: NextFunction,
-    ): Promise<void> {
-        try {
-            const id = Number(req.params.id);
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return next(
+          new AppError(
+            "Invalid class ID",
+            400,
+          ),
+        );
+      }
 
-            if (!id || Number.isNaN(id)) {
-                res.status(400).json({
-                    success: false,
-                    message: "Invalid class ID",
-                });
-                return;
-            }
+      const classData =
+        await ClassModel.restore(id);
 
-            const success = await ClassModel.hardDelete(id);
+      if (!classData) {
+        return next(
+          new AppError(
+            "Class not found in trash",
+            404,
+          ),
+        );
+      }
 
-            if (!success) {
-                res.status(404).json({
-                    success: false,
-                    message: "Class not found",
-                });
-                return;
-            }
+      res.status(200).json({
+        success: true,
+        message:
+          "Class restored successfully",
+        data: classData,
+      });
+    },
+  );
 
-            res.status(200).json({
-                success: true,
-                message: "Class permanently deleted",
-                data: { id },
-            });
-        } catch (error) {
-            return next(new AppError("Failed to permanently delete class", 500));
-        }
-    }
+  /**
+   * PERMANENT DELETE CLASS
+   */
+  static hardDelete = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const id = Number(req.params.id);
+
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return next(
+          new AppError(
+            "Invalid class ID",
+            400,
+          ),
+        );
+      }
+
+      const success =
+        await ClassModel.hardDelete(id);
+
+      if (!success) {
+        return next(
+          new AppError(
+            "Class not found",
+            404,
+          ),
+        );
+      }
+
+      res.status(200).json({
+        success: true,
+        message:
+          "Class permanently deleted",
+        data: {
+          id,
+        },
+      });
+    },
+  );
 }

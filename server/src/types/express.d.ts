@@ -8,7 +8,11 @@ declare global {
       email: string;
       role: string;
       default_academic_session: string;
-      /** Trusted current academic year, sourced only from the verified JWT. */
+
+      /**
+       * Trusted current academic year,
+       * sourced only from the verified JWT.
+       */
       academic_year_id: number;
     }
 
@@ -22,8 +26,23 @@ declare global {
     }
 
     interface Request {
+      /**
+       * Simple authenticated user ID.
+       * Set by isAuthenticated middleware.
+       */
+      userId?: number;
+
+      /**
+       * Full authenticated admin/teacher/user.
+       */
       user?: AuthenticatedUser;
+
+      /**
+       * Authenticated student.
+       */
       student?: AuthenticatedStudent;
     }
   }
 }
+
+export { };

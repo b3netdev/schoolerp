@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 dotenv.config();
+import path from "path";
 import express, { Request, Response } from "express";
 import cors from "cors";
 import { corsOptions } from "./utils/cors.js";
@@ -12,6 +13,7 @@ import AcademicSessionRouter from "./routes/academic-session.route.js"
 import settingsRoutes from "./routes/settings.route.js"
 import SectionRouter from "./routes/section.route.js"
 import ClassRouter from "./routes/classes.route.js"
+import ProfileRouter from "./routes/profile.route.js"
 import TeachersRouter from "./routes/teachers.route.js"
 import ClassSectionRelationRouter from "./routes/classs-section-relation.route.js"
 import StreamRouter from "./routes/stream.route.js"
@@ -33,6 +35,15 @@ app.get("/", (req: Request, res: Response) => {
   res.send("School Management Server is running");
 });
 
+app.use(
+  "/uploads",
+  express.static(
+    path.join(
+      process.cwd(),
+      "uploads",
+    ),
+  ),
+);
 
 // Routers
 app.use(`/${process.env.API_VERSION}/auth`, AuthRouter);
@@ -49,6 +60,7 @@ app.use(`/${process.env.API_VERSION}/student-class-relation`, StudentClassRelati
 app.use(`/${process.env.API_VERSION}/student-auth`, StudentAuthRouter);
 app.use(`/${process.env.API_VERSION}/subjects`, SubjectRouter);
 app.use(`/${process.env.API_VERSION}/student-attendence`, StudentAttendenceRouter);
+app.use(`/${process.env.API_VERSION}/profile`, ProfileRouter);
 
 
 app.use(errorHandler);

@@ -300,9 +300,7 @@ const Profile = () => {
     profileImagePreview,
   ]);
 
-  /**
-   * Backend image URL
-   */
+ 
   const existingProfileImage =
     getProfileImageUrl(
       profile?.profile_image ??
@@ -319,10 +317,7 @@ const Profile = () => {
       null,
     );
 
-  /**
-   * Preview gets priority while
-   * new image is uploading.
-   */
+ 
   const profileImageSrc =
     profileImagePreview ||
     existingProfileImage;

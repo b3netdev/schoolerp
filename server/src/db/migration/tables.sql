@@ -190,6 +190,7 @@ CREATE TABLE teachers (
     last_name VARCHAR(100),
     email VARCHAR(255) UNIQUE,
     phone VARCHAR(20),
+    password TEXT,
     alternate_phone VARCHAR(20),
 
     -- Personal details

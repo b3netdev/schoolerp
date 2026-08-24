@@ -46,19 +46,7 @@ type MessageState = {
   text: string;
 } | null;
 
-/**
- * Backend returns something like:
- *
- * /uploads/profiles/image.jpg
- *
- * But Axios baseURL may be:
- *
- * http://localhost:5000/api/v1
- *
- * We need:
- *
- * http://localhost:5000/uploads/profiles/image.jpg
- */
+
 const getProfileImageUrl = (
   imagePath?: string | null,
 ): string | null => {
@@ -66,9 +54,7 @@ const getProfileImageUrl = (
     return null;
   }
 
-  /**
-   * Already full URL
-   */
+
   if (
     imagePath.startsWith("http://") ||
     imagePath.startsWith("https://")
@@ -84,10 +70,7 @@ const getProfileImageUrl = (
   }
 
   try {
-    /**
-     * Convert relative Axios baseURL
-     * into an absolute URL if necessary.
-     */
+    
     const absoluteBaseURL =
       baseURL.startsWith("http://") ||
         baseURL.startsWith("https://")
@@ -97,10 +80,7 @@ const getProfileImageUrl = (
           window.location.origin,
         ).toString();
 
-    /**
-     * Using a path beginning with /
-     * automatically removes /api/v1.
-     */
+    
     return new URL(
       imagePath,
       absoluteBaseURL,
@@ -141,13 +121,7 @@ const Profile = () => {
     (state) => state.auth,
   );
 
-  /**
-   * Password functionality can continue
-   * through your existing auth hook.
-   *
-   * Profile information now uses the
-   * dedicated /profile backend routes.
-   */
+ 
   const {
     changePassword,
     loading,
@@ -158,9 +132,7 @@ const Profile = () => {
       null,
     );
 
-  /**
-   * Profile returned by backend.
-   */
+  
   const [
     profile,
     setProfile,
@@ -168,10 +140,7 @@ const Profile = () => {
     null,
   );
 
-  /**
-   * Local preview while image
-   * is uploading.
-   */
+  
   const [
     profileImagePreview,
     setProfileImagePreview,
@@ -201,9 +170,7 @@ const Profile = () => {
     null,
   );
 
-  /**
-   * Profile form
-   */
+
   const [
     profileForm,
     setProfileForm,
@@ -248,11 +215,6 @@ const Profile = () => {
     setPasswordSaving,
   ] = useState(false);
 
-  /**
-   * ====================================
-   * LOAD PROFILE FROM BACKEND
-   * ====================================
-   */
   const loadProfile =
     useCallback(async () => {
       try {
@@ -305,10 +267,7 @@ const Profile = () => {
     void loadProfile();
   }, [loadProfile]);
 
-  /**
-   * Keep Redux user as fallback
-   * before profile API finishes.
-   */
+
   useEffect(() => {
     if (!profile) {
       setProfileForm({
@@ -384,11 +343,7 @@ const Profile = () => {
     user?.role ||
     "admin";
 
-  /**
-   * ====================================
-   * PROFILE IMAGE UPLOAD
-   * ====================================
-   */
+  
   const handleProfileImageChange =
     async (
       event: ChangeEvent<HTMLInputElement>,
@@ -402,9 +357,7 @@ const Profile = () => {
         return;
       }
 
-      /**
-       * Type validation
-       */
+      
       if (
         !ALLOWED_PROFILE_IMAGE_TYPES.includes(
           file.type,
@@ -421,9 +374,7 @@ const Profile = () => {
         return;
       }
 
-      /**
-       * Size validation
-       */
+     
       if (
         file.size >
         MAX_PROFILE_IMAGE_SIZE
@@ -438,10 +389,6 @@ const Profile = () => {
 
         return;
       }
-
-      /**
-       * Clear old temporary preview.
-       */
       if (
         profileImagePreview
       ) {
@@ -465,25 +412,12 @@ const Profile = () => {
         const formData =
           new FormData();
 
-        /**
-         * MUST match:
-         *
-         * profileUpload.single(
-         *   "profile_image"
-         * )
-         */
         formData.append(
           "profile_image",
           file,
         );
 
-        /**
-         * Do NOT manually set
-         * Content-Type.
-         *
-         * Browser/Axios will add the
-         * multipart boundary.
-         */
+        
         const response =
           await api.post(
             "/profile/image",
@@ -510,11 +444,7 @@ const Profile = () => {
             "Profile picture updated successfully.",
         });
 
-        /**
-         * Backend image now exists,
-         * so temporary preview is
-         * no longer needed.
-         */
+      
         URL.revokeObjectURL(
           previewURL,
         );
@@ -552,11 +482,7 @@ const Profile = () => {
       }
     };
 
-  /**
-   * ====================================
-   * REMOVE PROFILE IMAGE
-   * ====================================
-   */
+
   const handleRemoveProfileImage =
     async () => {
       if (

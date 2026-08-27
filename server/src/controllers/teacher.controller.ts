@@ -47,9 +47,7 @@ type PostgreSQLError = Error & {
 const EMPLOYEE_CODE_MAXIMUM_ATTEMPTS = 20;
 
 /**
- * ========================================
- * STRING CLEANER
- * ========================================
+ * Clean normal string values.
  */
 const cleanString = (
   value?: string | null,
@@ -64,18 +62,15 @@ const cleanString = (
 };
 
 /**
- * ========================================
- * PASSWORD CLEANER
+ * Password is optional.
  *
- * We don't trim the actual password because
- * spaces may legitimately be part of it.
+ * undefined -> undefined
+ * null      -> undefined
+ * ""        -> undefined
+ * "abc123"  -> "abc123"
  *
- * Missing / null / blank password:
- * undefined
- *
- * Real password:
- * returned unchanged
- * ========================================
+ * We only use trim() to check whether
+ * the password is blank.
  */
 const cleanPassword = (
   value?: string | null,
@@ -90,11 +85,6 @@ const cleanPassword = (
   return value;
 };
 
-/**
- * ========================================
- * NUMBER CLEANER
- * ========================================
- */
 const cleanNumber = (
   value:
     | number
@@ -111,14 +101,9 @@ const cleanNumber = (
     return undefined;
   }
 
-  const numberValue =
-    Number(value);
+  const numberValue = Number(value);
 
-  if (
-    !Number.isFinite(
-      numberValue,
-    )
-  ) {
+  if (!Number.isFinite(numberValue)) {
     throw new AppError(
       `${fieldName} must be a valid number`,
       400,
@@ -129,9 +114,7 @@ const cleanNumber = (
 };
 
 /**
- * ========================================
- * EMPLOYEE CODE SETTINGS
- * ========================================
+ * Employee code settings.
  */
 const getEmployeeCodeRules =
   async (): Promise<EmployeeCodeRules> => {
@@ -182,19 +165,15 @@ const getEmployeeCodeRules =
       );
     }
 
-    const generationType =
-      String(
-        generationSetting.value ??
-          "",
-      )
-        .trim()
-        .toLowerCase();
+    const generationType = String(
+      generationSetting.value ?? "",
+    )
+      .trim()
+      .toLowerCase();
 
     if (
-      generationType !==
-        "auto" &&
-      generationType !==
-        "manual"
+      generationType !== "auto" &&
+      generationType !== "manual"
     ) {
       throw new AppError(
         "Employee code generation setting must be auto or manual",
@@ -202,15 +181,12 @@ const getEmployeeCodeRules =
       );
     }
 
-    const requiredLength =
-      Number(
-        lengthSetting.value,
-      );
+    const requiredLength = Number(
+      lengthSetting.value,
+    );
 
     if (
-      !Number.isInteger(
-        requiredLength,
-      ) ||
+      !Number.isInteger(requiredLength) ||
       requiredLength <= 0
     ) {
       throw new AppError(
@@ -219,13 +195,11 @@ const getEmployeeCodeRules =
       );
     }
 
-    const prefix =
-      String(
-        prefixSetting.value ??
-          "",
-      )
-        .trim()
-        .toUpperCase();
+    const prefix = String(
+      prefixSetting.value ?? "",
+    )
+      .trim()
+      .toUpperCase();
 
     if (!prefix) {
       throw new AppError(
@@ -234,41 +208,30 @@ const getEmployeeCodeRules =
       );
     }
 
-    if (
-      generationType ===
-      "auto"
-    ) {
+    if (generationType === "auto") {
       return {
-        generationType:
-          "auto",
+        generationType: "auto",
         requiredLength,
         prefix,
       };
     }
 
     return {
-      generationType:
-        "manual",
+      generationType: "manual",
       requiredLength,
       prefix,
     };
   };
 
 /**
- * ========================================
- * MANUAL EMPLOYEE CODE
- * ========================================
+ * Manual employee code.
  */
 const buildManualEmployeeCode = (
-  employeeCode:
-    | string
-    | undefined,
+  employeeCode: string | undefined,
   rules: ManualEmployeeCodeRules,
 ): string => {
   const numericCode =
-    cleanString(
-      employeeCode,
-    );
+    cleanString(employeeCode);
 
   if (!numericCode) {
     throw new AppError(
@@ -277,11 +240,7 @@ const buildManualEmployeeCode = (
     );
   }
 
-  if (
-    !/^\d+$/.test(
-      numericCode,
-    )
-  ) {
+  if (!/^\d+$/.test(numericCode)) {
     throw new AppError(
       "Employee code must contain numbers only",
       400,
@@ -302,59 +261,52 @@ const buildManualEmployeeCode = (
 };
 
 /**
- * ========================================
- * AUTO EMPLOYEE CODE
- * ========================================
+ * Auto employee code.
  */
-const autoEmpcodeGeneration =
-  async (
-    rules: AutoEmployeeCodeRules,
-  ): Promise<string> => {
-    const totalLength =
-      rules.prefix.length +
-      rules.requiredLength;
+const autoEmpcodeGeneration = async (
+  rules: AutoEmployeeCodeRules,
+): Promise<string> => {
+  const totalLength =
+    rules.prefix.length +
+    rules.requiredLength;
 
-    for (
-      let attempt = 1;
-      attempt <=
-      EMPLOYEE_CODE_MAXIMUM_ATTEMPTS;
-      attempt += 1
-    ) {
-      const generatedEmployeeCode =
-        await TeacherModel.generateEmployeeCode(
-          rules.prefix,
-          totalLength,
-        );
+  for (
+    let attempt = 1;
+    attempt <=
+    EMPLOYEE_CODE_MAXIMUM_ATTEMPTS;
+    attempt += 1
+  ) {
+    const generatedEmployeeCode =
+      await TeacherModel.generateEmployeeCode(
+        rules.prefix,
+        totalLength,
+      );
 
-      const alreadyExists =
-        await TeacherModel.alreadyExists(
-          "employee_code",
-          generatedEmployeeCode,
-        );
+    const alreadyExists =
+      await TeacherModel.alreadyExists(
+        "employee_code",
+        generatedEmployeeCode,
+      );
 
-      if (!alreadyExists) {
-        return generatedEmployeeCode;
-      }
+    if (!alreadyExists) {
+      return generatedEmployeeCode;
     }
+  }
 
-    throw new AppError(
-      "Unable to generate a unique employee code",
-      500,
-    );
-  };
+  throw new AppError(
+    "Unable to generate a unique employee code",
+    500,
+  );
+};
 
 /**
- * ========================================
- * STATUS VALIDATION
- * ========================================
+ * Validate teacher status.
  */
 const validateTeacherStatus = (
   status?: string,
 ): string | undefined => {
   const cleanedStatus =
-    cleanString(
-      status,
-    )?.toLowerCase();
+    cleanString(status)?.toLowerCase();
 
   if (!cleanedStatus) {
     return undefined;
@@ -381,23 +333,25 @@ const validateTeacherStatus = (
 };
 
 /**
- * ========================================
- * CREATE PAYLOAD
+ * Build CREATE payload.
  *
- * Password is OPTIONAL.
+ * Password is optional.
  *
- * no password -> undefined
- * password sent -> model hashes it
- * ========================================
+ * If password is not provided:
+ * password -> undefined
+ *
+ * Model will store NULL.
+ *
+ * If password is provided:
+ * controller sends plain password to model,
+ * model bcrypt hashes before database insert.
  */
 const buildCreatePayload = (
   data: TeacherPayload,
   finalEmployeeCode: string,
 ): TeacherPayload => {
   const cleanedFirstName =
-    cleanString(
-      data.first_name,
-    );
+    cleanString(data.first_name);
 
   if (!cleanedFirstName) {
     throw new AppError(
@@ -415,8 +369,7 @@ const buildCreatePayload = (
   if (
     cleanedExperienceYears !==
       undefined &&
-    cleanedExperienceYears <
-      0
+    cleanedExperienceYears < 0
   ) {
     throw new AppError(
       "Experience years cannot be negative",
@@ -441,16 +394,8 @@ const buildCreatePayload = (
     );
   }
 
-  /**
-   * Password remains optional.
-   *
-   * undefined means TeacherModel.create()
-   * will store NULL.
-   */
   const password =
-    cleanPassword(
-      data.password,
-    );
+    cleanPassword(data.password);
 
   return {
     first_name:
@@ -465,10 +410,8 @@ const buildCreatePayload = (
       finalEmployeeCode,
 
     /**
-     * Plain password only travels
-     * from controller to model.
-     *
-     * Model hashes before DB insert.
+     * Optional.
+     * Model handles hashing.
      */
     password,
 
@@ -616,16 +559,18 @@ const buildCreatePayload = (
 };
 
 /**
- * ========================================
- * UPDATE PAYLOAD
+ * Build UPDATE payload.
  *
- * Password behavior:
+ * Password:
  *
- * undefined -> don't update
- * null      -> don't update
- * ""        -> don't update
- * password  -> model hashes + updates
- * ========================================
+ * not sent -> undefined
+ * null     -> undefined
+ * ""       -> undefined
+ *
+ * Therefore model keeps existing password.
+ *
+ * Non-empty password:
+ * model hashes + replaces existing password.
  */
 const buildUpdatePayload = (
   data: TeacherUpdatePayload,
@@ -640,8 +585,7 @@ const buildUpdatePayload = (
   if (
     cleanedExperienceYears !==
       undefined &&
-    cleanedExperienceYears <
-      0
+    cleanedExperienceYears < 0
   ) {
     throw new AppError(
       "Experience years cannot be negative",
@@ -666,10 +610,6 @@ const buildUpdatePayload = (
     );
   }
 
-  /**
-   * Only send password to model
-   * when actual password exists.
-   */
   const password =
     cleanPassword(
       data.password,
@@ -695,23 +635,17 @@ const buildUpdatePayload = (
     employee_code:
       finalEmployeeCode,
 
-    /**
-     * If undefined, model keeps
-     * existing password.
-     */
     password,
 
     email:
-      data.email ===
-      undefined
+      data.email === undefined
         ? undefined
         : cleanString(
             data.email,
           )?.toLowerCase(),
 
     phone:
-      data.phone ===
-      undefined
+      data.phone === undefined
         ? undefined
         : cleanString(
             data.phone,
@@ -726,8 +660,7 @@ const buildUpdatePayload = (
           ),
 
     gender:
-      data.gender ===
-      undefined
+      data.gender === undefined
         ? undefined
         : cleanString(
             data.gender,
@@ -774,32 +707,28 @@ const buildUpdatePayload = (
           ),
 
     city:
-      data.city ===
-      undefined
+      data.city === undefined
         ? undefined
         : cleanString(
             data.city,
           ),
 
     state:
-      data.state ===
-      undefined
+      data.state === undefined
         ? undefined
         : cleanString(
             data.state,
           ),
 
     country:
-      data.country ===
-      undefined
+      data.country === undefined
         ? undefined
         : cleanString(
             data.country,
           ),
 
     pincode:
-      data.pincode ===
-      undefined
+      data.pincode === undefined
         ? undefined
         : cleanString(
             data.pincode,
@@ -841,8 +770,7 @@ const buildUpdatePayload = (
           )?.toLowerCase(),
 
     status:
-      data.status ===
-      undefined
+      data.status === undefined
         ? undefined
         : validateTeacherStatus(
             data.status,
@@ -852,8 +780,7 @@ const buildUpdatePayload = (
       cleanedBasicSalary,
 
     bank_name:
-      data.bank_name ===
-      undefined
+      data.bank_name === undefined
         ? undefined
         : cleanString(
             data.bank_name,
@@ -868,8 +795,7 @@ const buildUpdatePayload = (
           ),
 
     ifsc_code:
-      data.ifsc_code ===
-      undefined
+      data.ifsc_code === undefined
         ? undefined
         : cleanString(
             data.ifsc_code,
@@ -916,8 +842,7 @@ const buildUpdatePayload = (
           ),
 
     remarks:
-      data.remarks ===
-      undefined
+      data.remarks === undefined
         ? undefined
         : cleanString(
             data.remarks,
@@ -926,18 +851,7 @@ const buildUpdatePayload = (
 };
 
 export class TeacherController {
-  /**
-   * ========================================
-   * TEACHER LOGIN
-   *
-   * POST:
-   *
-   * {
-   *   employee_code: "TCH00001",
-   *   password: "password"
-   * }
-   * ========================================
-   */
+
   static login = catchAsync(
     async (
       req: Request,
@@ -946,8 +860,7 @@ export class TeacherController {
     ) => {
       const employeeCode =
         cleanString(
-          req.body
-            ?.employee_code,
+          req.body?.employee_code,
         )?.toUpperCase();
 
       const password =
@@ -967,12 +880,20 @@ export class TeacherController {
         );
       }
 
-    
+      /**
+       * Login-specific model function.
+       *
+       * This function returns password hash.
+       */
       const teacher =
         await TeacherModel.findByEmployeeCodeForLogin(
           employeeCode,
         );
 
+      /**
+       * Teacher not found
+       * OR teacher doesn't have password yet.
+       */
       if (
         !teacher ||
         !teacher.password
@@ -985,7 +906,9 @@ export class TeacherController {
         );
       }
 
-   
+      /**
+       * Teacher must be active.
+       */
       if (
         teacher.status !==
         "active"
@@ -998,14 +921,16 @@ export class TeacherController {
         );
       }
 
-      
-      const passwordMatched =
+      /**
+       * bcrypt.compare happens inside model.
+       */
+      const isPasswordValid =
         await TeacherModel.comparePassword(
           password,
           teacher.password,
         );
 
-      if (!passwordMatched) {
+      if (!isPasswordValid) {
         return next(
           new AppError(
             "Invalid employee code or password",
@@ -1014,7 +939,6 @@ export class TeacherController {
         );
       }
 
-    
       const jwtSecret =
         process.env.JWT_SECRET;
 
@@ -1027,26 +951,28 @@ export class TeacherController {
         );
       }
 
-    
-      const token =
-        jwt.sign(
-          {
-            id:
-              teacher.id,
+      /**
+       * Generate JWT.
+       */
+      const token = jwt.sign(
+        {
+          id:
+            teacher.id,
 
-            employee_code:
-              teacher.employee_code,
+          employee_code:
+            teacher.employee_code,
 
-            role:
-              "teacher",
-          },
-          jwtSecret,
-          {
-            expiresIn:
-              "1d",
-          },
-        );
+          role:
+            "teacher",
+        },
+        jwtSecret,
+        {
+          expiresIn:
+            "1d",
+        },
+      );
 
+      
       res.cookie(
         "authtoken",
         token,
@@ -1054,12 +980,10 @@ export class TeacherController {
           httpOnly: true,
 
           secure:
-            process.env
-              .NODE_ENV ===
+            process.env.NODE_ENV ===
             "production",
 
-          sameSite:
-            "lax",
+          sameSite: "lax",
 
           maxAge:
             24 *
@@ -1069,179 +993,310 @@ export class TeacherController {
         },
       );
 
-    
-      return res
-        .status(200)
-        .json({
-          success: true,
+      /**
+       * NEVER return password/hash.
+       */
+      return res.status(200).json({
+        success: true,
 
-          message:
-            "Teacher logged in successfully",
+        message:
+          "Teacher logged in successfully",
 
-          data: {
-            id:
-              teacher.id,
+        data: {
+          id:
+            teacher.id,
 
-            employee_code:
-              teacher.employee_code,
+          employee_code:
+            teacher.employee_code,
 
-            first_name:
-              teacher.first_name,
+          first_name:
+            teacher.first_name,
 
-            last_name:
-              teacher.last_name,
+          last_name:
+            teacher.last_name,
 
-            email:
-              teacher.email,
+          email:
+            teacher.email,
 
-            profile_image:
-              teacher.profile_image,
+          profile_image:
+            teacher.profile_image,
 
-            role:
-              "teacher",
-          },
-        });
+          role:
+            "teacher",
+        },
+      });
     },
   );
 
+  
+  static findAll = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const statusParam =
+        req.query.status;
 
-  static findAll =
-    catchAsync(
-      async (
-        req: Request,
-        res: Response,
-        next: NextFunction,
-      ) => {
-        const statusParam =
-          req.query.status;
+      let status: TeacherStatusFilter =
+        "all";
 
-        let status: TeacherStatusFilter =
-          "all";
+      if (
+        typeof statusParam ===
+          "string" &&
+        statusParam.trim() !== ""
+      ) {
+        const normalizedStatus =
+          statusParam
+            .trim()
+            .toLowerCase();
 
-        if (
-          typeof statusParam ===
-            "string" &&
-          statusParam.trim() !==
-            ""
-        ) {
-          const normalizedStatus =
-            statusParam
-              .trim()
-              .toLowerCase();
-
-          const allowedStatuses: TeacherStatusFilter[] =
-            [
-              "all",
-              "active",
-              "inactive",
-              "resigned",
-              "trash",
-            ];
-
-          if (
-            !allowedStatuses.includes(
-              normalizedStatus as TeacherStatusFilter,
-            )
-          ) {
-            return next(
-              new AppError(
-                "Invalid teacher status filter",
-                400,
-              ),
-            );
-          }
-
-          status =
-            normalizedStatus as TeacherStatusFilter;
-        }
-
-        const teachers =
-          await TeacherModel.findAll(
-            status,
-          );
-
-        return res
-          .status(200)
-          .json({
-            success: true,
-
-            message:
-              "Teachers fetched successfully",
-
-            data: teachers,
-          });
-      },
-    );
-
- 
-  static findById =
-    catchAsync(
-      async (
-        req: Request,
-        res: Response,
-        next: NextFunction,
-      ) => {
-        const id =
-          Number(
-            req.params.id,
-          );
+        const allowedStatuses: TeacherStatusFilter[] =
+          [
+            "all",
+            "active",
+            "inactive",
+            "resigned",
+            "trash",
+          ];
 
         if (
-          !Number.isInteger(
-            id,
-          ) ||
-          id <= 0
+          !allowedStatuses.includes(
+            normalizedStatus as TeacherStatusFilter,
+          )
         ) {
           return next(
             new AppError(
-              "Invalid teacher ID",
+              "Invalid teacher status filter",
               400,
             ),
           );
         }
 
-        const teacher =
-          await TeacherModel.findById(
-            id,
+        status =
+          normalizedStatus as TeacherStatusFilter;
+      }
+
+      const teachers =
+        await TeacherModel.findAll(
+          status,
+        );
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Teachers fetched successfully",
+        data: teachers,
+      });
+    },
+  );
+
+
+  static findById = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const id =
+        Number(req.params.id);
+
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return next(
+          new AppError(
+            "Invalid teacher ID",
+            400,
+          ),
+        );
+      }
+
+      const teacher =
+        await TeacherModel.findById(
+          id,
+        );
+
+      if (!teacher) {
+        return next(
+          new AppError(
+            "Teacher not found",
+            404,
+          ),
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Teacher fetched successfully",
+        data: teacher,
+      });
+    },
+  );
+
+  /**
+   * ========================================
+   * CREATE
+   *
+   * Password is optional.
+   * ========================================
+   */
+  static create = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const requestData =
+        req.body as TeacherPayload;
+
+      const employeeCodeRules =
+        await getEmployeeCodeRules();
+
+      let finalEmployeeCode: string;
+
+      if (
+        employeeCodeRules.generationType ===
+        "manual"
+      ) {
+        finalEmployeeCode =
+          buildManualEmployeeCode(
+            requestData.employee_code,
+            employeeCodeRules,
           );
 
-        if (!teacher) {
+        const alreadyExists =
+          await TeacherModel.alreadyExists(
+            "employee_code",
+            finalEmployeeCode,
+          );
+
+        if (alreadyExists) {
           return next(
             new AppError(
-              "Teacher not found",
-              404,
+              "Employee code already exists",
+              409,
+            ),
+          );
+        }
+      } else {
+        finalEmployeeCode =
+          await autoEmpcodeGeneration(
+            employeeCodeRules,
+          );
+      }
+
+      const createPayload =
+        buildCreatePayload(
+          requestData,
+          finalEmployeeCode,
+        );
+
+      try {
+        /**
+         * Model conditionally hashes password.
+         */
+        const teacher =
+          await TeacherModel.create(
+            createPayload,
+          );
+
+        return res.status(201).json({
+          success: true,
+          message:
+            "Teacher created successfully",
+          data: teacher,
+        });
+      } catch (error) {
+        const postgresError =
+          error as PostgreSQLError;
+
+        if (
+          postgresError.code ===
+          "23505"
+        ) {
+          return next(
+            new AppError(
+              "A unique teacher value already exists",
+              409,
             ),
           );
         }
 
-        return res
-          .status(200)
-          .json({
-            success: true,
+        throw error;
+      }
+    },
+  );
 
-            message:
-              "Teacher fetched successfully",
+  /**
+   * ========================================
+   * UPDATE
+   *
+   * Password behavior:
+   *
+   * missing -> unchanged
+   * null    -> unchanged
+   * ""      -> unchanged
+   * value   -> hash + update
+   * ========================================
+   */
+  static update = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const id =
+        Number(req.body.id);
 
-            data: teacher,
-          });
-      },
-    );
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return next(
+          new AppError(
+            "Invalid teacher ID",
+            400,
+          ),
+        );
+      }
 
- 
-  static create =
-    catchAsync(
-      async (
-        req: Request,
-        res: Response,
-        next: NextFunction,
-      ) => {
-        const requestData =
-          req.body as TeacherPayload;
+      const existingTeacher =
+        await TeacherModel.findById(
+          id,
+        );
 
+      if (!existingTeacher) {
+        return next(
+          new AppError(
+            "Teacher not found",
+            404,
+          ),
+        );
+      }
+
+      const requestData =
+        req.body as TeacherUpdatePayload & {
+          id: number;
+        };
+
+      let finalEmployeeCode:
+        | string
+        | undefined;
+
+      const employeeCodeWasProvided =
+        Object.prototype.hasOwnProperty.call(
+          req.body,
+          "employee_code",
+        );
+
+      if (
+        employeeCodeWasProvided
+      ) {
         const employeeCodeRules =
           await getEmployeeCodeRules();
-
-        let finalEmployeeCode: string;
 
         if (
           employeeCodeRules.generationType ===
@@ -1257,11 +1312,10 @@ export class TeacherController {
             await TeacherModel.alreadyExists(
               "employee_code",
               finalEmployeeCode,
+              id,
             );
 
-          if (
-            alreadyExists
-          ) {
+          if (alreadyExists) {
             return next(
               new AppError(
                 "Employee code already exists",
@@ -1269,265 +1323,42 @@ export class TeacherController {
               ),
             );
           }
-        } else {
-          finalEmployeeCode =
-            await autoEmpcodeGeneration(
-              employeeCodeRules,
-            );
         }
+      }
 
-        /**
-         * password may or may not
-         * exist in this payload.
-         */
-        const createPayload =
-          buildCreatePayload(
-            requestData,
-            finalEmployeeCode,
-          );
+      const updatePayload =
+        buildUpdatePayload(
+          requestData,
+          finalEmployeeCode,
+        );
 
-        try {
-          const teacher =
-            await TeacherModel.create(
-              createPayload,
-            );
+      /**
+       * Empty password is converted to
+       * undefined and therefore doesn't
+       * count as an update.
+       */
+      const hasAtLeastOneUpdate =
+        Object.values(
+          updatePayload,
+        ).some(
+          (value) =>
+            value !== undefined,
+        );
 
-          return res
-            .status(201)
-            .json({
-              success:
-                true,
+      if (!hasAtLeastOneUpdate) {
+        return next(
+          new AppError(
+            "At least one valid field is required to update teacher",
+            400,
+          ),
+        );
+      }
 
-              message:
-                "Teacher created successfully",
-
-              data:
-                teacher,
-            });
-        } catch (
-          error
-        ) {
-          const postgresError =
-            error as PostgreSQLError;
-
-          if (
-            postgresError.code ===
-            "23505"
-          ) {
-            return next(
-              new AppError(
-                "A unique teacher value already exists",
-                409,
-              ),
-            );
-          }
-
-          throw error;
-        }
-      },
-    );
-
-
-  static update =
-    catchAsync(
-      async (
-        req: Request,
-        res: Response,
-        next: NextFunction,
-      ) => {
-        const id =
-          Number(
-            req.body.id,
-          );
-
-        if (
-          !Number.isInteger(
+      try {
+        const teacher =
+          await TeacherModel.update(
             id,
-          ) ||
-          id <= 0
-        ) {
-          return next(
-            new AppError(
-              "Invalid teacher ID",
-              400,
-            ),
-          );
-        }
-
-        const existingTeacher =
-          await TeacherModel.findById(
-            id,
-          );
-
-        if (
-          !existingTeacher
-        ) {
-          return next(
-            new AppError(
-              "Teacher not found",
-              404,
-            ),
-          );
-        }
-
-        const requestData =
-          req.body as TeacherUpdatePayload & {
-            id: number;
-          };
-
-        let finalEmployeeCode:
-          | string
-          | undefined;
-
-        const employeeCodeWasProvided =
-          Object.prototype.hasOwnProperty.call(
-            req.body,
-            "employee_code",
-          );
-
-        if (
-          employeeCodeWasProvided
-        ) {
-          const employeeCodeRules =
-            await getEmployeeCodeRules();
-
-          if (
-            employeeCodeRules.generationType ===
-            "manual"
-          ) {
-            finalEmployeeCode =
-              buildManualEmployeeCode(
-                requestData.employee_code,
-                employeeCodeRules,
-              );
-
-         
-            const alreadyExists =
-              await TeacherModel.alreadyExists(
-                "employee_code",
-                finalEmployeeCode,
-                id,
-              );
-
-            if (
-              alreadyExists
-            ) {
-              return next(
-                new AppError(
-                  "Employee code already exists",
-                  409,
-                ),
-              );
-            }
-          }
-        }
-
-        const updatePayload =
-          buildUpdatePayload(
-            requestData,
-            finalEmployeeCode,
-          );
-
-        const hasAtLeastOneUpdate =
-          Object.values(
             updatePayload,
-          ).some(
-            (value) =>
-              value !==
-              undefined,
-          );
-
-        if (
-          !hasAtLeastOneUpdate
-        ) {
-          return next(
-            new AppError(
-              "At least one valid field is required to update teacher",
-              400,
-            ),
-          );
-        }
-
-        try {
-          const teacher =
-            await TeacherModel.update(
-              id,
-              updatePayload,
-            );
-
-          if (!teacher) {
-            return next(
-              new AppError(
-                "Teacher not found",
-                404,
-              ),
-            );
-          }
-
-          return res
-            .status(200)
-            .json({
-              success:
-                true,
-
-              message:
-                "Teacher updated successfully",
-
-              data:
-                teacher,
-            });
-        } catch (
-          error
-        ) {
-          const postgresError =
-            error as PostgreSQLError;
-
-          if (
-            postgresError.code ===
-            "23505"
-          ) {
-            return next(
-              new AppError(
-                "A unique teacher value already exists",
-                409,
-              ),
-            );
-          }
-
-          throw error;
-        }
-      },
-    );
-
-  static delete =
-    catchAsync(
-      async (
-        req: Request,
-        res: Response,
-        next: NextFunction,
-      ) => {
-        const id =
-          Number(
-            req.params.id,
-          );
-
-        if (
-          !Number.isInteger(
-            id,
-          ) ||
-          id <= 0
-        ) {
-          return next(
-            new AppError(
-              "Invalid teacher ID",
-              400,
-            ),
-          );
-        }
-
-        const teacher =
-          await TeacherModel.delete(
-            id,
           );
 
         if (!teacher) {
@@ -1539,121 +1370,176 @@ export class TeacherController {
           );
         }
 
-        return res
-          .status(200)
-          .json({
-            success: true,
-
-            message:
-              "Teacher deleted successfully",
-
-            data: teacher,
-          });
-      },
-    );
-
-  static restore =
-    catchAsync(
-      async (
-        req: Request,
-        res: Response,
-        next: NextFunction,
-      ) => {
-        const id =
-          Number(
-            req.params.id,
-          );
+        return res.status(200).json({
+          success: true,
+          message:
+            "Teacher updated successfully",
+          data: teacher,
+        });
+      } catch (error) {
+        const postgresError =
+          error as PostgreSQLError;
 
         if (
-          !Number.isInteger(
-            id,
-          ) ||
-          id <= 0
+          postgresError.code ===
+          "23505"
         ) {
           return next(
             new AppError(
-              "Invalid teacher ID",
-              400,
+              "A unique teacher value already exists",
+              409,
             ),
           );
         }
 
-        const teacher =
-          await TeacherModel.restore(
-            id,
-          );
+        throw error;
+      }
+    },
+  );
 
-        if (!teacher) {
-          return next(
-            new AppError(
-              "Teacher not found in trash",
-              404,
-            ),
-          );
-        }
+  /**
+   * ========================================
+   * SOFT DELETE
+   * ========================================
+   */
+  static delete = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const id =
+        Number(req.params.id);
 
-        return res
-          .status(200)
-          .json({
-            success: true,
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return next(
+          new AppError(
+            "Invalid teacher ID",
+            400,
+          ),
+        );
+      }
 
-            message:
-              "Teacher restored successfully",
+      const teacher =
+        await TeacherModel.delete(
+          id,
+        );
 
-            data: teacher,
-          });
-      },
-    );
+      if (!teacher) {
+        return next(
+          new AppError(
+            "Teacher not found",
+            404,
+          ),
+        );
+      }
 
+      return res.status(200).json({
+        success: true,
+        message:
+          "Teacher deleted successfully",
+        data: teacher,
+      });
+    },
+  );
 
-  static permanentDelete =
-    catchAsync(
-      async (
-        req: Request,
-        res: Response,
-        next: NextFunction,
-      ) => {
-        const id =
-          Number(
-            req.params.id,
-          );
+  /**
+   * ========================================
+   * RESTORE
+   * ========================================
+   */
+  static restore = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const id =
+        Number(req.params.id);
 
-        if (
-          !Number.isInteger(
-            id,
-          ) ||
-          id <= 0
-        ) {
-          return next(
-            new AppError(
-              "Invalid teacher ID",
-              400,
-            ),
-          );
-        }
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return next(
+          new AppError(
+            "Invalid teacher ID",
+            400,
+          ),
+        );
+      }
 
-        const deleted =
-          await TeacherModel.hardDelete(
-            id,
-          );
+      const teacher =
+        await TeacherModel.restore(
+          id,
+        );
 
-        if (!deleted) {
-          return next(
-            new AppError(
-              "Teacher not found or already deleted",
-              404,
-            ),
-          );
-        }
+      if (!teacher) {
+        return next(
+          new AppError(
+            "Teacher not found in trash",
+            404,
+          ),
+        );
+      }
 
-        return res
-          .status(200)
-          .json({
-            success: true,
+      return res.status(200).json({
+        success: true,
+        message:
+          "Teacher restored successfully",
+        data: teacher,
+      });
+    },
+  );
 
-            message:
-              "Teacher permanently deleted successfully",
-          });
-      },
-    );
+  /**
+   * ========================================
+   * PERMANENT DELETE
+   * ========================================
+   */
+  static permanentDelete = catchAsync(
+    async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      const id =
+        Number(req.params.id);
+
+      if (
+        !Number.isInteger(id) ||
+        id <= 0
+      ) {
+        return next(
+          new AppError(
+            "Invalid teacher ID",
+            400,
+          ),
+        );
+      }
+
+      const deleted =
+        await TeacherModel.hardDelete(
+          id,
+        );
+
+      if (!deleted) {
+        return next(
+          new AppError(
+            "Teacher not found or already deleted",
+            404,
+          ),
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        message:
+          "Teacher permanently deleted successfully",
+      });
+    },
+  );
 }

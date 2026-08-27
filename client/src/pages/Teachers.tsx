@@ -10,6 +10,8 @@ import * as Yup from "yup";
 import {
   CircleCheck,
   CircleX,
+  Eye,
+  EyeOff,
   LoaderCircle,
   Plus,
   Search,
@@ -41,7 +43,12 @@ import useClass from "@/hooks/useClass";
 import type { Teacher } from "../../redux/slicers/teacherSlice";
 
 import { Button } from "@/components/ui/button";
-import { StatusTabs, StatusTabOption } from "@/components/common/StatusTabs";
+
+import {
+  StatusTabs,
+  type StatusTabOption,
+} from "@/components/common/StatusTabs";
+
 import { ListingSkeleton } from "@/components/tables/ListingSkeleton";
 
 import {
@@ -58,7 +65,11 @@ type TeacherTableRow = Teacher & {
   initials: string;
 };
 
-type StatusFilter = "all" | "active" | "inactive" | "trash";
+type StatusFilter =
+  | "all"
+  | "active"
+  | "inactive"
+  | "trash";
 
 const statusTabs: StatusTabOption<StatusFilter>[] = [
   {
@@ -83,39 +94,54 @@ type TeacherFormValues = {
   first_name: string;
   last_name: string;
   employee_code: string;
+
+
+  password: string;
+
   email: string;
   phone: string;
   alternate_phone: string;
+
   gender: string;
   date_of_birth: string;
   blood_group: string;
   marital_status: string;
+
   current_address: string;
   permanent_address: string;
   city: string;
   state: string;
   country: string;
   pincode: string;
+
   qualification: string;
   specialization: string;
   experience_years: string;
   joining_date: string;
   employment_type: string;
   status: string;
+
   basic_salary: string;
   bank_name: string;
   bank_account_number: string;
   ifsc_code: string;
   pan_number: string;
+
   emergency_contact_name: string;
   emergency_contact_phone: string;
   emergency_contact_relation: string;
+
   remarks: string;
 };
 
 type TeacherFormErrors = Partial<
   Record<keyof TeacherFormValues, string>
 >;
+
+type TeacherSubmissionPayload =
+  AddTeacherPayload & {
+    password?: string;
+  };
 
 type CheckState =
   | "idle"
@@ -140,17 +166,21 @@ type EmployeeCodeRules =
 
 type SettingRecord = {
   key: string;
-  value?: string | number | boolean | null;
+  value?:
+    | string
+    | number
+    | boolean
+    | null;
 };
+
 
 const EMPTY_CHECK_STATUS: FieldCheckStatus = {
   state: "idle",
   message: "",
 };
 
-
-const EMPLOYEE_CODE_CHECK_AT = "teacher";
-
+const EMPLOYEE_CODE_CHECK_AT =
+  "teacher";
 
 const columns: Column[] = [
   {
@@ -177,7 +207,11 @@ const columns: Column[] = [
   },
 ];
 
-const genderOptions = ["male", "female", "other"];
+const genderOptions = [
+  "male",
+  "female",
+  "other",
+];
 
 const bloodGroupOptions = [
   "A+",
@@ -209,6 +243,7 @@ const statusOptions = [
   "resigned",
 ];
 
+
 function normalizeSettings(
   response: unknown,
 ): SettingRecord[] {
@@ -227,13 +262,18 @@ function normalizeSettings(
       }
     ).data;
 
-    if (Array.isArray(responseData)) {
+    if (
+      Array.isArray(
+        responseData,
+      )
+    ) {
       return responseData as SettingRecord[];
     }
 
     if (
       responseData &&
-      typeof responseData === "object" &&
+      typeof responseData ===
+        "object" &&
       "data" in responseData
     ) {
       const nestedData = (
@@ -242,7 +282,11 @@ function normalizeSettings(
         }
       ).data;
 
-      if (Array.isArray(nestedData)) {
+      if (
+        Array.isArray(
+          nestedData,
+        )
+      ) {
         return nestedData as SettingRecord[];
       }
     }
@@ -251,48 +295,64 @@ function normalizeSettings(
   return [];
 }
 
-const emptyTeacherFormValues: TeacherFormValues = {
-  first_name: "",
-  last_name: "",
-  employee_code: "",
-  email: "",
-  phone: "",
-  alternate_phone: "",
-  gender: "",
-  date_of_birth: "",
-  blood_group: "",
-  marital_status: "",
-  current_address: "",
-  permanent_address: "",
-  city: "",
-  state: "",
-  country: "",
-  pincode: "",
-  qualification: "",
-  specialization: "",
-  experience_years: "",
-  joining_date: "",
-  employment_type: "",
-  status: "active",
-  basic_salary: "",
-  bank_name: "",
-  bank_account_number: "",
-  ifsc_code: "",
-  pan_number: "",
-  emergency_contact_name: "",
-  emergency_contact_phone: "",
-  emergency_contact_relation: "",
-  remarks: "",
-};
+const emptyTeacherFormValues: TeacherFormValues =
+  {
+    first_name: "",
+    last_name: "",
+    employee_code: "",
+
+    /**
+     * Always empty by default.
+     */
+    password: "",
+
+    email: "",
+    phone: "",
+    alternate_phone: "",
+
+    gender: "",
+    date_of_birth: "",
+    blood_group: "",
+    marital_status: "",
+
+    current_address: "",
+    permanent_address: "",
+    city: "",
+    state: "",
+    country: "",
+    pincode: "",
+
+    qualification: "",
+    specialization: "",
+    experience_years: "",
+    joining_date: "",
+    employment_type: "",
+    status: "active",
+
+    basic_salary: "",
+    bank_name: "",
+    bank_account_number: "",
+    ifsc_code: "",
+    pan_number: "",
+
+    emergency_contact_name: "",
+    emergency_contact_phone: "",
+    emergency_contact_relation: "",
+
+    remarks: "",
+  };
 
 const createTeacherValidationSchema = (
   employeeCodeRules: EmployeeCodeRules,
 ) => {
   const employeeCodeSchema =
-    employeeCodeRules.generationType === "manual"
+    employeeCodeRules.generationType ===
+    "manual"
       ? Yup.string()
           .trim()
-          .required("Employee code is required")
+          .required(
+            "Employee code is required",
+          )
           .matches(
             /^\d+$/,
             "Employee code must contain numbers only",
@@ -312,7 +372,9 @@ const createTeacherValidationSchema = (
         100,
         "First name cannot exceed 100 characters",
       )
-      .required("First name is required"),
+      .required(
+        "First name is required",
+      ),
 
     last_name: Yup.string()
       .trim()
@@ -320,36 +382,75 @@ const createTeacherValidationSchema = (
         100,
         "Last name cannot exceed 100 characters",
       )
-      .required("Last name is required"),
+      .required(
+        "Last name is required",
+      ),
 
-    employee_code: employeeCodeSchema,
+    employee_code:
+      employeeCodeSchema,
+
+    /**
+     * Password is OPTIONAL.
+     *
+     * Empty:
+     * valid
+     *
+     * Entered:
+     * minimum 8 characters.
+     */
+    password: Yup.string()
+      .test(
+        "password-min-length",
+        "Password must contain at least 8 characters",
+        (value) => {
+          if (
+            !value ||
+            value.trim() === ""
+          ) {
+            return true;
+          }
+
+          return (
+            value.length >= 8
+          );
+        },
+      )
+      .optional(),
 
     email: Yup.string()
       .trim()
-      .email("Enter a valid email address")
+      .email(
+        "Enter a valid email address",
+      )
       .max(
         255,
         "Email cannot exceed 255 characters",
       )
-      .required("Email is required"),
+      .required(
+        "Email is required",
+      ),
 
     phone: Yup.string()
       .trim()
-      .required("Phone number is required")
+      .required(
+        "Phone number is required",
+      )
       .matches(/^\d{10}$/, {
         message:
           "Phone number must contain exactly 10 digits",
         excludeEmptyString: true,
       }),
 
-    alternate_phone: Yup.string()
-      .trim()
-      .matches(/^\d{10}$/, {
-        message:
-          "Alternate phone must contain exactly 10 digits",
-        excludeEmptyString: true,
-      })
-      .optional(),
+    alternate_phone:
+      Yup.string()
+        .trim()
+        .matches(/^\d{10}$/, {
+          message:
+            "Alternate phone must contain exactly 10 digits",
+          excludeEmptyString:
+            true,
+        })
+        .optional(),
 
     gender: Yup.string()
       .oneOf(
@@ -399,34 +500,37 @@ const createTeacherValidationSchema = (
       )
       .optional(),
 
-    marital_status: Yup.string()
-      .oneOf(
-        [
-          "single",
-          "married",
-          "divorced",
-          "widowed",
-          "",
-        ],
-        "Select a valid marital status",
-      )
-      .optional(),
+    marital_status:
+      Yup.string()
+        .oneOf(
+          [
+            "single",
+            "married",
+            "divorced",
+            "widowed",
+            "",
+          ],
+          "Select a valid marital status",
+        )
+        .optional(),
 
-    current_address: Yup.string()
-      .trim()
-      .max(
-        1000,
-        "Current address cannot exceed 1000 characters",
-      )
-      .optional(),
+    current_address:
+      Yup.string()
+        .trim()
+        .max(
+          1000,
+          "Current address cannot exceed 1000 characters",
+        )
+        .optional(),
 
-    permanent_address: Yup.string()
-      .trim()
-      .max(
-        1000,
-        "Permanent address cannot exceed 1000 characters",
-      )
-      .optional(),
+    permanent_address:
+      Yup.string()
+        .trim()
+        .max(
+          1000,
+          "Permanent address cannot exceed 1000 characters",
+        )
+        .optional(),
 
     city: Yup.string()
       .trim()
@@ -461,47 +565,50 @@ const createTeacherValidationSchema = (
       })
       .optional(),
 
-    qualification: Yup.string()
-      .trim()
-      .max(
-        255,
-        "Qualification cannot exceed 255 characters",
-      )
-      .optional(),
+    qualification:
+      Yup.string()
+        .trim()
+        .max(
+          255,
+          "Qualification cannot exceed 255 characters",
+        )
+        .optional(),
 
-    specialization: Yup.string()
-      .trim()
-      .max(
-        255,
-        "Specialization cannot exceed 255 characters",
-      )
-      .optional(),
+    specialization:
+      Yup.string()
+        .trim()
+        .max(
+          255,
+          "Specialization cannot exceed 255 characters",
+        )
+        .optional(),
 
-    experience_years: Yup.number()
-      .transform(
-        (
-          value,
-          originalValue,
-        ) =>
-          originalValue === ""
-            ? undefined
-            : value,
-      )
-      .typeError(
-        "Experience years must be a valid number",
-      )
-      .integer(
-        "Experience years must be a whole number",
-      )
-      .min(
-        0,
-        "Experience years cannot be negative",
-      )
-      .max(
-        80,
-        "Experience years cannot exceed 80",
-      )
-      .optional(),
+    experience_years:
+      Yup.number()
+        .transform(
+          (
+            value,
+            originalValue,
+          ) =>
+            originalValue === ""
+              ? undefined
+              : value,
+        )
+        .typeError(
+          "Experience years must be a valid number",
+        )
+        .integer(
+          "Experience years must be a whole number",
+        )
+        .min(
+          0,
+          "Experience years cannot be negative",
+        )
+        .max(
+          80,
+          "Experience years cannot exceed 80",
+        )
+        .optional(),
 
     joining_date: Yup.date()
       .transform(
@@ -518,17 +625,18 @@ const createTeacherValidationSchema = (
       )
       .optional(),
 
-    employment_type: Yup.string()
-      .oneOf(
-        [
-          "full_time",
-          "part_time",
-          "contract",
-          "",
-        ],
-        "Select a valid employment type",
-      )
-      .optional(),
+    employment_type:
+      Yup.string()
+        .oneOf(
+          [
+            "full_time",
+            "part_time",
+            "contract",
+            "",
+          ],
+          "Select a valid employment type",
+        )
+        .optional(),
 
     status: Yup.string()
       .oneOf(
@@ -569,14 +677,19 @@ const createTeacherValidationSchema = (
       )
       .optional(),
 
-    bank_account_number: Yup.string()
-      .trim()
-      .matches(/^\d{6,20}$/, {
-        message:
-          "Bank account number must contain 6 to 20 digits",
-        excludeEmptyString: true,
-      })
-      .optional(),
+    bank_account_number:
+      Yup.string()
+        .trim()
+        .matches(
+          /^\d{6,20}$/,
+          {
+            message:
+              "Bank account number must contain 6 to 20 digits",
+            excludeEmptyString:
+              true,
+          },
+        )
+        .optional(),
 
     ifsc_code: Yup.string()
       .trim()
@@ -585,7 +698,8 @@ const createTeacherValidationSchema = (
         {
           message:
             "Enter a valid IFSC code",
-          excludeEmptyString: true,
+          excludeEmptyString:
+            true,
         },
       )
       .optional(),
@@ -597,35 +711,40 @@ const createTeacherValidationSchema = (
         {
           message:
             "Enter a valid PAN number",
-          excludeEmptyString: true,
+          excludeEmptyString:
+            true,
         },
       )
       .optional(),
 
-    emergency_contact_name: Yup.string()
-      .trim()
-      .max(
-        150,
-        "Emergency contact name cannot exceed 150 characters",
-      )
-      .optional(),
+    emergency_contact_name:
+      Yup.string()
+        .trim()
+        .max(
+          150,
+          "Emergency contact name cannot exceed 150 characters",
+        )
+        .optional(),
 
-    emergency_contact_phone: Yup.string()
-      .trim()
-      .matches(/^\d{10}$/, {
-        message:
-          "Emergency contact phone must contain exactly 10 digits",
-        excludeEmptyString: true,
-      })
-      .optional(),
+    emergency_contact_phone:
+      Yup.string()
+        .trim()
+        .matches(/^\d{10}$/, {
+          message:
+            "Emergency contact phone must contain exactly 10 digits",
+          excludeEmptyString:
+            true,
+        })
+        .optional(),
 
-    emergency_contact_relation: Yup.string()
-      .trim()
-      .max(
-        50,
-        "Emergency contact relation cannot exceed 50 characters",
-      )
-      .optional(),
+    emergency_contact_relation:
+      Yup.string()
+        .trim()
+        .max(
+          50,
+          "Emergency contact relation cannot exceed 50 characters",
+        )
+        .optional(),
 
     remarks: Yup.string()
       .trim()
@@ -637,131 +756,415 @@ const createTeacherValidationSchema = (
   });
 };
 
-function getFullName(teacher: Teacher): string {
-  return `${teacher.first_name || ""} ${teacher.last_name || ""}`.trim();
+
+function getFullName(
+  teacher: Teacher,
+): string {
+  return `${teacher.first_name || ""} ${
+    teacher.last_name || ""
+  }`.trim();
 }
 
 function makeInitials(
   firstName?: string,
   lastName?: string,
 ): string {
-  const first = firstName?.charAt(0) || "";
-  const last = lastName?.charAt(0) || "";
+  const first =
+    firstName?.charAt(0) || "";
+
+  const last =
+    lastName?.charAt(0) || "";
+
   return `${first}${last}`.toUpperCase();
 }
 
-function safeValue(value: unknown): string {
-  if (value === undefined || value === null) {
+function safeValue(
+  value: unknown,
+): string {
+  if (
+    value === undefined ||
+    value === null
+  ) {
     return "";
   }
 
   if (value instanceof Date) {
-    return value.toISOString().split("T")[0];
+    return value
+      .toISOString()
+      .split("T")[0];
   }
 
   return String(value);
 }
 
+/**
+ * IMPORTANT:
+ *
+ * Password is ALWAYS blank when opening
+ * the Edit Teacher form.
+ *
+ * Backend never needs to send the hash.
+ */
 function teacherToInitialValues(
   teacher: Teacher,
 ): TeacherFormValues {
   return {
-    first_name: safeValue(teacher.first_name),
-    last_name: safeValue(teacher.last_name),
-    employee_code: safeValue(teacher.employee_code),
-    email: safeValue(teacher.email),
-    phone: safeValue(teacher.phone),
-    alternate_phone: safeValue(teacher.alternate_phone),
-    gender: safeValue(teacher.gender),
-    date_of_birth: safeValue(teacher.date_of_birth),
-    blood_group: safeValue(teacher.blood_group),
-    marital_status: safeValue(teacher.marital_status),
-    current_address: safeValue(teacher.current_address),
-    permanent_address: safeValue(teacher.permanent_address),
-    city: safeValue(teacher.city),
-    state: safeValue(teacher.state),
-    country: safeValue(teacher.country),
-    pincode: safeValue(teacher.pincode),
-    qualification: safeValue(teacher.qualification),
-    specialization: safeValue(teacher.specialization),
-    experience_years: safeValue(teacher.experience_years),
-    joining_date: safeValue(teacher.joining_date),
-    employment_type: safeValue(teacher.employment_type),
-    status: safeValue(teacher.status) || "active",
-    basic_salary: safeValue(teacher.basic_salary),
-    bank_name: safeValue(teacher.bank_name),
-    bank_account_number: safeValue(teacher.bank_account_number),
-    ifsc_code: safeValue(teacher.ifsc_code),
-    pan_number: safeValue(teacher.pan_number),
-    emergency_contact_name: safeValue(teacher.emergency_contact_name),
-    emergency_contact_phone: safeValue(teacher.emergency_contact_phone),
-    emergency_contact_relation: safeValue(
-      teacher.emergency_contact_relation,
-    ),
-    remarks: safeValue(teacher.remarks),
+    first_name:
+      safeValue(
+        teacher.first_name,
+      ),
+
+    last_name:
+      safeValue(
+        teacher.last_name,
+      ),
+
+    employee_code:
+      safeValue(
+        teacher.employee_code,
+      ),
+
+    password: "",
+
+    email:
+      safeValue(
+        teacher.email,
+      ),
+
+    phone:
+      safeValue(
+        teacher.phone,
+      ),
+
+    alternate_phone:
+      safeValue(
+        teacher.alternate_phone,
+      ),
+
+    gender:
+      safeValue(
+        teacher.gender,
+      ),
+
+    date_of_birth:
+      safeValue(
+        teacher.date_of_birth,
+      ),
+
+    blood_group:
+      safeValue(
+        teacher.blood_group,
+      ),
+
+    marital_status:
+      safeValue(
+        teacher.marital_status,
+      ),
+
+    current_address:
+      safeValue(
+        teacher.current_address,
+      ),
+
+    permanent_address:
+      safeValue(
+        teacher.permanent_address,
+      ),
+
+    city:
+      safeValue(
+        teacher.city,
+      ),
+
+    state:
+      safeValue(
+        teacher.state,
+      ),
+
+    country:
+      safeValue(
+        teacher.country,
+      ),
+
+    pincode:
+      safeValue(
+        teacher.pincode,
+      ),
+
+    qualification:
+      safeValue(
+        teacher.qualification,
+      ),
+
+    specialization:
+      safeValue(
+        teacher.specialization,
+      ),
+
+    experience_years:
+      safeValue(
+        teacher.experience_years,
+      ),
+
+    joining_date:
+      safeValue(
+        teacher.joining_date,
+      ),
+
+    employment_type:
+      safeValue(
+        teacher.employment_type,
+      ),
+
+    status:
+      safeValue(
+        teacher.status,
+      ) || "active",
+
+    basic_salary:
+      safeValue(
+        teacher.basic_salary,
+      ),
+
+    bank_name:
+      safeValue(
+        teacher.bank_name,
+      ),
+
+    bank_account_number:
+      safeValue(
+        teacher.bank_account_number,
+      ),
+
+    ifsc_code:
+      safeValue(
+        teacher.ifsc_code,
+      ),
+
+    pan_number:
+      safeValue(
+        teacher.pan_number,
+      ),
+
+    emergency_contact_name:
+      safeValue(
+        teacher.emergency_contact_name,
+      ),
+
+    emergency_contact_phone:
+      safeValue(
+        teacher.emergency_contact_phone,
+      ),
+
+    emergency_contact_relation:
+      safeValue(
+        teacher.emergency_contact_relation,
+      ),
+
+    remarks:
+      safeValue(
+        teacher.remarks,
+      ),
   };
 }
+
 
 function buildTeacherPayload(
   values: TeacherFormValues,
-): AddTeacherPayload {
-  return {
-    first_name: values.first_name.trim(),
-    last_name: values.last_name?.trim() || undefined,
-    employee_code: values.employee_code?.trim() || undefined,
-    email: values.email?.trim().toLowerCase() || undefined,
-    phone: values.phone?.trim() || undefined,
-    alternate_phone: values.alternate_phone?.trim() || undefined,
-    gender: values.gender || undefined,
-    date_of_birth: values.date_of_birth || undefined,
-    blood_group: values.blood_group || undefined,
-    marital_status: values.marital_status || undefined,
-    current_address: values.current_address?.trim() || undefined,
-    permanent_address: values.permanent_address?.trim() || undefined,
-    city: values.city?.trim() || undefined,
-    state: values.state?.trim() || undefined,
-    country: values.country?.trim() || undefined,
-    pincode: values.pincode?.trim() || undefined,
-    qualification: values.qualification?.trim() || undefined,
-    specialization: values.specialization?.trim() || undefined,
-    experience_years: values.experience_years
-      ? Number(values.experience_years)
-      : 0,
-    joining_date: values.joining_date || undefined,
-    employment_type: values.employment_type || undefined,
-    status: values.status || "active",
-    basic_salary: values.basic_salary
-      ? Number(values.basic_salary)
-      : undefined,
-    bank_name: values.bank_name?.trim() || undefined,
-    bank_account_number:
-      values.bank_account_number?.trim() || undefined,
-    ifsc_code: values.ifsc_code?.trim().toUpperCase() || undefined,
-    pan_number: values.pan_number?.trim().toUpperCase() || undefined,
-    emergency_contact_name:
-      values.emergency_contact_name?.trim() || undefined,
-    emergency_contact_phone:
-      values.emergency_contact_phone?.trim() || undefined,
-    emergency_contact_relation:
-      values.emergency_contact_relation?.trim() || undefined,
-    remarks: values.remarks?.trim() || undefined,
-  };
+): TeacherSubmissionPayload {
+  const payload: TeacherSubmissionPayload =
+    {
+      first_name:
+        values.first_name.trim(),
+
+      last_name:
+        values.last_name
+          ?.trim() ||
+        undefined,
+
+      employee_code:
+        values.employee_code
+          ?.trim() ||
+        undefined,
+
+      email:
+        values.email
+          ?.trim()
+          .toLowerCase() ||
+        undefined,
+
+      phone:
+        values.phone
+          ?.trim() ||
+        undefined,
+
+      alternate_phone:
+        values.alternate_phone
+          ?.trim() ||
+        undefined,
+
+      gender:
+        values.gender ||
+        undefined,
+
+      date_of_birth:
+        values.date_of_birth ||
+        undefined,
+
+      blood_group:
+        values.blood_group ||
+        undefined,
+
+      marital_status:
+        values.marital_status ||
+        undefined,
+
+      current_address:
+        values.current_address
+          ?.trim() ||
+        undefined,
+
+      permanent_address:
+        values.permanent_address
+          ?.trim() ||
+        undefined,
+
+      city:
+        values.city
+          ?.trim() ||
+        undefined,
+
+      state:
+        values.state
+          ?.trim() ||
+        undefined,
+
+      country:
+        values.country
+          ?.trim() ||
+        undefined,
+
+      pincode:
+        values.pincode
+          ?.trim() ||
+        undefined,
+
+      qualification:
+        values.qualification
+          ?.trim() ||
+        undefined,
+
+      specialization:
+        values.specialization
+          ?.trim() ||
+        undefined,
+
+      experience_years:
+        values.experience_years
+          ? Number(
+              values.experience_years,
+            )
+          : 0,
+
+      joining_date:
+        values.joining_date ||
+        undefined,
+
+      employment_type:
+        values.employment_type ||
+        undefined,
+
+      status:
+        values.status ||
+        "active",
+
+      basic_salary:
+        values.basic_salary
+          ? Number(
+              values.basic_salary,
+            )
+          : undefined,
+
+      bank_name:
+        values.bank_name
+          ?.trim() ||
+        undefined,
+
+      bank_account_number:
+        values.bank_account_number
+          ?.trim() ||
+        undefined,
+
+      ifsc_code:
+        values.ifsc_code
+          ?.trim()
+          .toUpperCase() ||
+        undefined,
+
+      pan_number:
+        values.pan_number
+          ?.trim()
+          .toUpperCase() ||
+        undefined,
+
+      emergency_contact_name:
+        values.emergency_contact_name
+          ?.trim() ||
+        undefined,
+
+      emergency_contact_phone:
+        values.emergency_contact_phone
+          ?.trim() ||
+        undefined,
+
+      emergency_contact_relation:
+        values.emergency_contact_relation
+          ?.trim() ||
+        undefined,
+
+      remarks:
+        values.remarks
+          ?.trim() ||
+        undefined,
+    };
+
+ 
+  if (
+    values.password.trim() !==
+    ""
+  ) {
+    payload.password =
+      values.password;
+  }
+
+  return payload;
 }
 
-
 function prepareTeacherFormValues(
-  initialValues: TeacherFormValues | undefined,
+  initialValues:
+    | TeacherFormValues
+    | undefined,
   employeeCodeRules: EmployeeCodeRules,
 ): TeacherFormValues {
-  const nextValues: TeacherFormValues = {
-    ...emptyTeacherFormValues,
-    ...(initialValues ?? {}),
-  };
+  const nextValues: TeacherFormValues =
+    {
+      ...emptyTeacherFormValues,
+      ...(initialValues ?? {}),
+
+      /**
+       * Never preserve password between
+       * modal openings.
+       */
+      password: "",
+    };
 
   if (
-    employeeCodeRules.generationType === "auto"
+    employeeCodeRules.generationType ===
+    "auto"
   ) {
-    nextValues.employee_code = "";
+    nextValues.employee_code =
+      "";
+
     return nextValues;
   }
 
@@ -771,7 +1174,9 @@ function prepareTeacherFormValues(
       .toUpperCase();
 
   if (!storedCode) {
-    nextValues.employee_code = "";
+    nextValues.employee_code =
+      "";
+
     return nextValues;
   }
 
@@ -782,7 +1187,8 @@ function prepareTeacherFormValues(
   ) {
     nextValues.employee_code =
       storedCode.slice(
-        employeeCodeRules.prefix.length,
+        employeeCodeRules
+          .prefix.length,
       );
 
     return nextValues;
@@ -796,11 +1202,11 @@ function prepareTeacherFormValues(
     )?.[1];
 
   nextValues.employee_code =
-    trailingDigits ?? storedCode;
+    trailingDigits ??
+    storedCode;
 
   return nextValues;
 }
-
 
 function FieldWrapper({
   label,
@@ -816,18 +1222,29 @@ function FieldWrapper({
   children: React.ReactNode;
 }) {
   return (
-    <div className={full ? "sm:col-span-2" : ""}>
+    <div
+      className={
+        full
+          ? "sm:col-span-2"
+          : ""
+      }
+    >
       <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
+
         {required && (
-          <span className="ml-0.5 text-destructive">*</span>
+          <span className="ml-0.5 text-destructive">
+            *
+          </span>
         )}
       </label>
 
       {children}
 
       {error && (
-        <p className="mt-1 text-xs text-destructive">{error}</p>
+        <p className="mt-1 text-xs text-destructive">
+          {error}
+        </p>
       )}
     </div>
   );
@@ -839,6 +1256,9 @@ const inputClass =
 const textareaClass =
   "w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30";
 
+/* ------------------------------------------------------------------ */
+/* Teacher Form Modal                                                  */
+/* ------------------------------------------------------------------ */
 
 function TeacherFormModal({
   isOpen,
@@ -852,18 +1272,37 @@ function TeacherFormModal({
   settingsError,
 }: {
   isOpen: boolean;
+
   onClose: () => void;
+
   onSubmit: (
     values: TeacherFormValues,
   ) => Promise<void> | void;
+
   title: string;
+
   initialValues?: TeacherFormValues;
+
   submitLabel: string;
-  employeeCodeRules: EmployeeCodeRules;
+
+  employeeCodeRules:
+    EmployeeCodeRules;
+
   settingsLoading: boolean;
+
   settingsError: string;
 }) {
-  const { checkExists } = useCheck();
+  const { checkExists } =
+    useCheck();
+
+  /**
+   * Used to change password input
+   * between password/text.
+   */
+  const [
+    showPassword,
+    setShowPassword,
+  ] = useState(false);
 
   const teacherValidationSchema =
     useMemo(
@@ -887,53 +1326,83 @@ function TeacherFormModal({
       ],
     );
 
-  const [values, setValues] =
+  const [
+    values,
+    setValues,
+  ] =
     useState<TeacherFormValues>(
       resolvedInitialValues,
     );
 
-  const [errors, setErrors] =
-    useState<TeacherFormErrors>({});
+  const [
+    errors,
+    setErrors,
+  ] =
+    useState<TeacherFormErrors>(
+      {},
+    );
 
-  const [submitting, setSubmitting] =
-    useState(false);
+  const [
+    submitting,
+    setSubmitting,
+  ] = useState(false);
 
-  const [touched, setTouched] =
-    useState<
-      Partial<
-        Record<
-          keyof TeacherFormValues,
-          boolean
-        >
+  const [
+    touched,
+    setTouched,
+  ] = useState<
+    Partial<
+      Record<
+        keyof TeacherFormValues,
+        boolean
       >
-    >({});
+    >
+  >({});
 
-  const [submitCount, setSubmitCount] =
-    useState(0);
+  const [
+    submitCount,
+    setSubmitCount,
+  ] = useState(0);
 
   const [
     employeeCodeStatus,
     setEmployeeCodeStatus,
-  ] = useState<FieldCheckStatus>(
-    EMPTY_CHECK_STATUS,
-  );
+  ] =
+    useState<FieldCheckStatus>(
+      EMPTY_CHECK_STATUS,
+    );
 
-  const debounceTimer = useRef<
-    ReturnType<typeof setTimeout> | null
-  >(null);
+  const debounceTimer =
+    useRef<
+      ReturnType<
+        typeof setTimeout
+      > | null
+    >(null);
 
+  const requestVersion =
+    useRef(0);
 
-  const requestVersion = useRef(0);
+  const cancelEmployeeCodeCheck =
+    () => {
+      if (
+        debounceTimer.current
+      ) {
+        clearTimeout(
+          debounceTimer.current,
+        );
 
-  const cancelEmployeeCodeCheck = () => {
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-      debounceTimer.current = null;
-    }
+        debounceTimer.current =
+          null;
+      }
 
-    requestVersion.current += 1;
-  };
+      requestVersion.current +=
+        1;
+    };
 
+  /**
+   * Reset form every time modal
+   * is opened.
+   */
   useEffect(() => {
     if (isOpen) {
       setValues(
@@ -944,6 +1413,12 @@ function TeacherFormModal({
       setTouched({});
       setSubmitCount(0);
       setSubmitting(false);
+
+      /**
+       * Password hidden every time
+       * modal opens.
+       */
+      setShowPassword(false);
 
       setEmployeeCodeStatus(
         EMPTY_CHECK_STATUS,
@@ -962,300 +1437,411 @@ function TeacherFormModal({
     return () => {
       cancelEmployeeCodeCheck();
     };
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const validateField = async (
-    key: keyof TeacherFormValues,
-    nextValues: TeacherFormValues,
-  ) => {
-    try {
-      await teacherValidationSchema.validateAt(
-        key,
-        nextValues,
-      );
+  const validateField =
+    async (
+      key: keyof TeacherFormValues,
+      nextValues: TeacherFormValues,
+    ) => {
+      try {
+        await teacherValidationSchema.validateAt(
+          key,
+          nextValues,
+        );
 
-      setErrors((prev) => ({ ...prev, [key]: undefined }));
-    } catch (err) {
-      if (err instanceof Yup.ValidationError) {
-        setErrors((prev) => ({
-          ...prev,
-          [key]: err.message,
-        }));
+        setErrors(
+          (prev) => ({
+            ...prev,
+            [key]:
+              undefined,
+          }),
+        );
+      } catch (err) {
+        if (
+          err instanceof
+          Yup.ValidationError
+        ) {
+          setErrors(
+            (prev) => ({
+              ...prev,
+              [key]:
+                err.message,
+            }),
+          );
+        }
       }
-    }
-  };
+    };
 
   const setField = (
     key: keyof TeacherFormValues,
     value: string,
   ) => {
-    const nextValues = { ...values, [key]: value };
+    const nextValues = {
+      ...values,
+      [key]: value,
+    };
 
     setValues(nextValues);
 
-    void validateField(key, nextValues);
+    void validateField(
+      key,
+      nextValues,
+    );
   };
 
   const markTouched = (
     key: keyof TeacherFormValues,
   ) => {
-    setTouched((prev) => ({ ...prev, [key]: true }));
+    setTouched(
+      (prev) => ({
+        ...prev,
+        [key]: true,
+      }),
+    );
 
-    void validateField(key, values);
+    void validateField(
+      key,
+      values,
+    );
   };
 
   const getDisplayError = (
     key: keyof TeacherFormValues,
   ): string | undefined => {
-    const message = errors[key];
+    const message =
+      errors[key];
 
     if (!message) {
       return undefined;
     }
 
     const hasValue =
-      (values[key] ?? "").trim().length > 0;
+      (values[key] ?? "")
+        .trim()
+        .length > 0;
 
-    if (touched[key] || hasValue || submitCount > 0) {
+    if (
+      touched[key] ||
+      hasValue ||
+      submitCount > 0
+    ) {
       return message;
     }
 
     return undefined;
   };
 
-  const debounceCheckEmployeeCode = (
-    numericCode: string,
-    delay = 500,
-  ) => {
-    cancelEmployeeCodeCheck();
+  /* ---------------------------------------------------------------- */
+  /* Employee code availability                                       */
+  /* ---------------------------------------------------------------- */
 
-    setEmployeeCodeStatus({
-      state: "checking",
-      message: "Checking employee code availability...",
-    });
+  const debounceCheckEmployeeCode =
+    (
+      numericCode: string,
+      delay = 500,
+    ) => {
+      cancelEmployeeCodeCheck();
 
-    const currentRequestVersion =
-      requestVersion.current;
-
-    debounceTimer.current = setTimeout(async () => {
-      try {
-        if (
-          employeeCodeRules.generationType !==
-          "manual"
-        ) {
-          return;
-        }
-
-        const fullEmployeeCode =
-          `${employeeCodeRules.prefix}${numericCode}`;
-
-        const result =
-          await checkExists({
-            field:
-              "employee_code",
-            value:
-              fullEmployeeCode,
-            label:
-              "Employee Code",
-            at:
-              EMPLOYEE_CODE_CHECK_AT,
-          });
-
-        // Ignore stale responses.
-        if (
-          requestVersion.current !==
-          currentRequestVersion
-        ) {
-          return;
-        }
-
-        if (result?.success) {
-          setEmployeeCodeStatus({
-            state: "valid",
-            message:
-              result.message ||
-              "Employee code is available.",
-          });
-        } else {
-          setEmployeeCodeStatus({
-            state: "invalid",
-            message:
-              result?.message ||
-              "Employee code already exists.",
-          });
-        }
-      } catch {
-        if (
-          requestVersion.current !==
-          currentRequestVersion
-        ) {
-          return;
-        }
-
-        setEmployeeCodeStatus({
-          state: "invalid",
-          message: "Unable to check employee code.",
-        });
-      } finally {
-        debounceTimer.current = null;
-      }
-    }, delay);
-  };
-
-  const handleEmployeeCodeChange = async (
-    value: string,
-  ) => {
-    setField("employee_code", value);
-
-    cancelEmployeeCodeCheck();
-
-    setEmployeeCodeStatus(
-      EMPTY_CHECK_STATUS,
-    );
-
-    if (
-      employeeCodeRules.generationType !==
-      "manual"
-    ) {
-      return;
-    }
-
-    const cleanedValue =
-      value.trim();
-
-    if (!cleanedValue) {
-      return;
-    }
-
-  
-    if (
-      cleanedValue.length !==
-        employeeCodeRules.digitLength ||
-      !/^\d+$/.test(cleanedValue)
-    ) {
-      return;
-    }
-
-    const originalValue =
-      resolvedInitialValues.employee_code.trim();
-
-    if (
-      cleanedValue === originalValue
-    ) {
-      return;
-    }
-
-    try {
-      await teacherValidationSchema.validateAt(
-        "employee_code",
-        {
-          ...values,
-          employee_code: value,
-        },
-      );
-    } catch {
-      return;
-    }
-
-    debounceCheckEmployeeCode(
-      cleanedValue,
-    );
-  };
-
-  const handleSubmit = async (
-    event: React.FormEvent,
-  ) => {
-    event.preventDefault();
-
-    setSubmitCount((prev) => prev + 1);
-
-    setTouched(() => {
-      const allTouched: Partial<
-        Record<keyof TeacherFormValues, boolean>
-      > = {};
-
-      (Object.keys(values) as Array<
-        keyof TeacherFormValues
-      >).forEach((key) => {
-        allTouched[key] = true;
+      setEmployeeCodeStatus({
+        state: "checking",
+        message:
+          "Checking employee code availability...",
       });
 
-      return allTouched;
-    });
+      const currentRequestVersion =
+        requestVersion.current;
 
-    if (settingsLoading) {
-      toast.error(
-        "Please wait for the employee code settings to load.",
-      );
-      return;
-    }
+      debounceTimer.current =
+        setTimeout(
+          async () => {
+            try {
+              if (
+                employeeCodeRules.generationType !==
+                "manual"
+              ) {
+                return;
+              }
 
-    if (settingsError) {
-      toast.error(settingsError);
-      return;
-    }
+              const fullEmployeeCode =
+                `${employeeCodeRules.prefix}${numericCode}`;
 
-    if (employeeCodeStatus.state === "checking") {
-      toast.error(
-        "Please wait for the employee code check to finish.",
-      );
-      return;
-    }
+              const result =
+                await checkExists({
+                  field:
+                    "employee_code",
 
-    if (employeeCodeStatus.state === "invalid") {
-      toast.error(
-        employeeCodeStatus.message ||
-          "Employee code already exists.",
-      );
-      return;
-    }
+                  value:
+                    fullEmployeeCode,
 
-    try {
-      await teacherValidationSchema.validate(values, {
-        abortEarly: false,
-      });
+                  label:
+                    "Employee Code",
 
-      setErrors({});
-      setSubmitting(true);
+                  at:
+                    EMPLOYEE_CODE_CHECK_AT,
+                });
 
-      const submissionValues: TeacherFormValues =
-        employeeCodeRules.generationType ===
-        "auto"
-          ? {
-              ...values,
-              employee_code: "",
+              if (
+                requestVersion.current !==
+                currentRequestVersion
+              ) {
+                return;
+              }
+
+              if (
+                result?.success
+              ) {
+                setEmployeeCodeStatus({
+                  state:
+                    "valid",
+
+                  message:
+                    result.message ||
+                    "Employee code is available.",
+                });
+              } else {
+                setEmployeeCodeStatus({
+                  state:
+                    "invalid",
+
+                  message:
+                    result?.message ||
+                    "Employee code already exists.",
+                });
+              }
+            } catch {
+              if (
+                requestVersion.current !==
+                currentRequestVersion
+              ) {
+                return;
+              }
+
+              setEmployeeCodeStatus({
+                state:
+                  "invalid",
+
+                message:
+                  "Unable to check employee code.",
+              });
+            } finally {
+              debounceTimer.current =
+                null;
             }
-          : values;
+          },
+          delay,
+        );
+    };
 
-      await onSubmit(
-        submissionValues,
+  const handleEmployeeCodeChange =
+    async (
+      value: string,
+    ) => {
+      setField(
+        "employee_code",
+        value,
       );
-    } catch (err) {
-      if (err instanceof Yup.ValidationError) {
-        const nextErrors: TeacherFormErrors = {};
 
-        err.inner.forEach((validationError) => {
-          if (
-            validationError.path &&
-            !nextErrors[
-              validationError.path as keyof TeacherFormValues
-            ]
-          ) {
-            nextErrors[
-              validationError.path as keyof TeacherFormValues
-            ] = validationError.message;
-          }
-        });
+      cancelEmployeeCodeCheck();
 
-        setErrors(nextErrors);
-      } else {
-        toast.error("Something went wrong. Please try again.");
+      setEmployeeCodeStatus(
+        EMPTY_CHECK_STATUS,
+      );
+
+      if (
+        employeeCodeRules.generationType !==
+        "manual"
+      ) {
+        return;
       }
-    } finally {
-      setSubmitting(false);
-    }
-  };
+
+      const cleanedValue =
+        value.trim();
+
+      if (!cleanedValue) {
+        return;
+      }
+
+      if (
+        cleanedValue.length !==
+          employeeCodeRules.digitLength ||
+        !/^\d+$/.test(
+          cleanedValue,
+        )
+      ) {
+        return;
+      }
+
+      const originalValue =
+        resolvedInitialValues.employee_code.trim();
+
+      if (
+        cleanedValue ===
+        originalValue
+      ) {
+        return;
+      }
+
+      try {
+        await teacherValidationSchema.validateAt(
+          "employee_code",
+          {
+            ...values,
+            employee_code:
+              value,
+          },
+        );
+      } catch {
+        return;
+      }
+
+      debounceCheckEmployeeCode(
+        cleanedValue,
+      );
+    };
+
+  /* ---------------------------------------------------------------- */
+  /* Submit                                                            */
+  /* ---------------------------------------------------------------- */
+
+  const handleSubmit =
+    async (
+      event: React.FormEvent,
+    ) => {
+      event.preventDefault();
+
+      setSubmitCount(
+        (prev) => prev + 1,
+      );
+
+      setTouched(() => {
+        const allTouched: Partial<
+          Record<
+            keyof TeacherFormValues,
+            boolean
+          >
+        > = {};
+
+        (
+          Object.keys(
+            values,
+          ) as Array<
+            keyof TeacherFormValues
+          >
+        ).forEach(
+          (key) => {
+            allTouched[key] =
+              true;
+          },
+        );
+
+        return allTouched;
+      });
+
+      if (settingsLoading) {
+        toast.error(
+          "Please wait for the employee code settings to load.",
+        );
+
+        return;
+      }
+
+      if (settingsError) {
+        toast.error(
+          settingsError,
+        );
+
+        return;
+      }
+
+      if (
+        employeeCodeStatus.state ===
+        "checking"
+      ) {
+        toast.error(
+          "Please wait for the employee code check to finish.",
+        );
+
+        return;
+      }
+
+      if (
+        employeeCodeStatus.state ===
+        "invalid"
+      ) {
+        toast.error(
+          employeeCodeStatus.message ||
+            "Employee code already exists.",
+        );
+
+        return;
+      }
+
+      try {
+        await teacherValidationSchema.validate(
+          values,
+          {
+            abortEarly:
+              false,
+          },
+        );
+
+        setErrors({});
+        setSubmitting(true);
+
+        const submissionValues: TeacherFormValues =
+          employeeCodeRules.generationType ===
+          "auto"
+            ? {
+                ...values,
+                employee_code:
+                  "",
+              }
+            : values;
+
+        await onSubmit(
+          submissionValues,
+        );
+      } catch (err) {
+        if (
+          err instanceof
+          Yup.ValidationError
+        ) {
+          const nextErrors: TeacherFormErrors =
+            {};
+
+          err.inner.forEach(
+            (
+              validationError,
+            ) => {
+              if (
+                validationError.path &&
+                !nextErrors[
+                  validationError.path as keyof TeacherFormValues
+                ]
+              ) {
+                nextErrors[
+                  validationError.path as keyof TeacherFormValues
+                ] =
+                  validationError.message;
+              }
+            },
+          );
+
+          setErrors(
+            nextErrors,
+          );
+        } else {
+          toast.error(
+            "Something went wrong. Please try again.",
+          );
+        }
+      } finally {
+        setSubmitting(false);
+      }
+    };
 
   return (
     <Modal
@@ -1264,11 +1850,18 @@ function TeacherFormModal({
       title={title}
       size="lg"
     >
-      <form onSubmit={handleSubmit} noValidate>
+      <form
+        onSubmit={
+          handleSubmit
+        }
+        noValidate
+      >
         {settingsLoading && (
           <div className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
             <LoaderCircle className="h-4 w-4 animate-spin" />
-            Loading employee code settings...
+
+            Loading employee code
+            settings...
           </div>
         )}
 
@@ -1283,13 +1876,17 @@ function TeacherFormModal({
           !settingsLoading &&
           !settingsError && (
             <div className="mb-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-              Employee code will be generated automatically.
+              Employee code will be
+              generated automatically.
             </div>
           )}
 
         <div className="max-h-[65vh] overflow-y-auto pr-2">
           <div className="space-y-6">
-            {/* Basic Information */}
+            {/* ===================================================== */}
+            {/* Basic Information                                     */}
+            {/* ===================================================== */}
+
             <section>
               <h4 className="mb-3 text-sm font-semibold text-foreground">
                 Basic Information
@@ -1299,34 +1896,66 @@ function TeacherFormModal({
                 <FieldWrapper
                   label="First Name"
                   required
-                  error={getDisplayError("first_name")}
+                  error={getDisplayError(
+                    "first_name",
+                  )}
                 >
                   <input
                     type="text"
-                    className={inputClass}
-                    placeholder="e.g. Alan"
-                    value={values.first_name}
-                    onChange={(e) =>
-                      setField("first_name", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("first_name")}
+                    placeholder="e.g. Alan"
+                    value={
+                      values.first_name
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "first_name",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "first_name",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Last Name"
                   required
-                  error={getDisplayError("last_name")}
+                  error={getDisplayError(
+                    "last_name",
+                  )}
                 >
                   <input
                     type="text"
-                    className={inputClass}
-                    placeholder="e.g. Turing"
-                    value={values.last_name}
-                    onChange={(e) =>
-                      setField("last_name", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("last_name")}
+                    placeholder="e.g. Turing"
+                    value={
+                      values.last_name
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "last_name",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "last_name",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
@@ -1370,9 +1999,13 @@ function TeacherFormModal({
                         value={
                           values.employee_code
                         }
-                        onChange={(event) =>
+                        onChange={(
+                          event,
+                        ) =>
                           void handleEmployeeCodeChange(
-                            event.target.value,
+                            event
+                              .target
+                              .value,
                           )
                         }
                         onBlur={() =>
@@ -1433,79 +2066,237 @@ function TeacherFormModal({
                   </FieldWrapper>
                 )}
 
+                {/* PASSWORD */}
+
+                <FieldWrapper
+                  label="Password"
+                  error={getDisplayError(
+                    "password",
+                  )}
+                >
+                  <div className="relative">
+                    <input
+                      type={
+                        showPassword
+                          ? "text"
+                          : "password"
+                      }
+                      className={`${inputClass} pr-10`}
+                      placeholder={
+                        initialValues
+                          ? "Enter new password"
+                          : "Enter password"
+                      }
+                      value={
+                        values.password
+                      }
+                      autoComplete="new-password"
+                      onChange={(
+                        event,
+                      ) =>
+                        setField(
+                          "password",
+                          event.target
+                            .value,
+                        )
+                      }
+                      onBlur={() =>
+                        markTouched(
+                          "password",
+                        )
+                      }
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowPassword(
+                          (
+                            current,
+                          ) =>
+                            !current,
+                        )
+                      }
+                      className="absolute right-0 top-0 flex h-9 w-10 items-center justify-center rounded-r-lg text-muted-foreground transition-colors hover:text-foreground focus:outline-none"
+                      aria-label={
+                        showPassword
+                          ? "Hide password"
+                          : "Show password"
+                      }
+                      title={
+                        showPassword
+                          ? "Hide password"
+                          : "Show password"
+                      }
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {initialValues
+                      ? "Leave blank to keep the existing password."
+                      : "Optional. Minimum 8 characters if provided."}
+                  </p>
+                </FieldWrapper>
+
                 <FieldWrapper
                   label="Email"
                   required
-                  error={getDisplayError("email")}
+                  error={getDisplayError(
+                    "email",
+                  )}
                 >
                   <input
                     type="email"
-                    className={inputClass}
-                    placeholder="teacher@school.edu"
-                    value={values.email}
-                    onChange={(e) =>
-                      setField("email", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("email")}
+                    placeholder="teacher@school.edu"
+                    value={
+                      values.email
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "email",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "email",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Phone"
                   required
-                  error={getDisplayError("phone")}
+                  error={getDisplayError(
+                    "phone",
+                  )}
                 >
                   <input
                     type="tel"
-                    className={inputClass}
-                    placeholder="9876543210"
-                    value={values.phone}
-                    onChange={(e) =>
-                      setField("phone", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("phone")}
+                    placeholder="9876543210"
+                    value={
+                      values.phone
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "phone",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "phone",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Alternate Phone"
-                  error={getDisplayError("alternate_phone")}
+                  error={getDisplayError(
+                    "alternate_phone",
+                  )}
                 >
                   <input
                     type="tel"
-                    className={inputClass}
-                    placeholder="9876543210"
-                    value={values.alternate_phone}
-                    onChange={(e) =>
-                      setField("alternate_phone", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("alternate_phone")}
+                    placeholder="9876543210"
+                    value={
+                      values.alternate_phone
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "alternate_phone",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "alternate_phone",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Status"
-                  error={getDisplayError("status")}
+                  error={getDisplayError(
+                    "status",
+                  )}
                 >
                   <select
-                    className={inputClass}
-                    value={values.status}
-                    onChange={(e) =>
-                      setField("status", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("status")}
+                    value={
+                      values.status
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "status",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "status",
+                      )
+                    }
                   >
-                    {statusOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
+                    {statusOptions.map(
+                      (
+                        option,
+                      ) => (
+                        <option
+                          key={
+                            option
+                          }
+                          value={
+                            option
+                          }
+                        >
+                          {
+                            option
+                          }
+                        </option>
+                      ),
+                    )}
                   </select>
                 </FieldWrapper>
               </div>
             </section>
 
-            {/* Personal Details */}
+            {/* ===================================================== */}
+            {/* Personal Details                                      */}
+            {/* ===================================================== */}
+
             <section>
               <h4 className="mb-3 text-sm font-semibold text-foreground">
                 Personal Details
@@ -1514,85 +2305,201 @@ function TeacherFormModal({
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FieldWrapper
                   label="Gender"
-                  error={getDisplayError("gender")}
+                  error={getDisplayError(
+                    "gender",
+                  )}
                 >
                   <select
-                    className={inputClass}
-                    value={values.gender}
-                    onChange={(e) =>
-                      setField("gender", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("gender")}
+                    value={
+                      values.gender
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "gender",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "gender",
+                      )
+                    }
                   >
-                    <option value="">Select gender</option>
-                    {genderOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
+                    <option value="">
+                      Select gender
+                    </option>
+
+                    {genderOptions.map(
+                      (
+                        option,
+                      ) => (
+                        <option
+                          key={
+                            option
+                          }
+                          value={
+                            option
+                          }
+                        >
+                          {
+                            option
+                          }
+                        </option>
+                      ),
+                    )}
                   </select>
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Date of Birth"
-                  error={getDisplayError("date_of_birth")}
+                  error={getDisplayError(
+                    "date_of_birth",
+                  )}
                 >
                   <input
                     type="date"
-                    className={inputClass}
-                    value={values.date_of_birth}
-                    onChange={(e) =>
-                      setField("date_of_birth", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("date_of_birth")}
+                    value={
+                      values.date_of_birth
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "date_of_birth",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "date_of_birth",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Blood Group"
-                  error={getDisplayError("blood_group")}
+                  error={getDisplayError(
+                    "blood_group",
+                  )}
                 >
                   <select
-                    className={inputClass}
-                    value={values.blood_group}
-                    onChange={(e) =>
-                      setField("blood_group", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("blood_group")}
+                    value={
+                      values.blood_group
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "blood_group",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "blood_group",
+                      )
+                    }
                   >
-                    <option value="">Select blood group</option>
-                    {bloodGroupOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
+                    <option value="">
+                      Select blood group
+                    </option>
+
+                    {bloodGroupOptions.map(
+                      (
+                        option,
+                      ) => (
+                        <option
+                          key={
+                            option
+                          }
+                          value={
+                            option
+                          }
+                        >
+                          {
+                            option
+                          }
+                        </option>
+                      ),
+                    )}
                   </select>
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Marital Status"
-                  error={getDisplayError("marital_status")}
+                  error={getDisplayError(
+                    "marital_status",
+                  )}
                 >
                   <select
-                    className={inputClass}
-                    value={values.marital_status}
-                    onChange={(e) =>
-                      setField("marital_status", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("marital_status")}
+                    value={
+                      values.marital_status
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "marital_status",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "marital_status",
+                      )
+                    }
                   >
-                    <option value="">Select marital status</option>
-                    {maritalStatusOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
+                    <option value="">
+                      Select marital
+                      status
+                    </option>
+
+                    {maritalStatusOptions.map(
+                      (
+                        option,
+                      ) => (
+                        <option
+                          key={
+                            option
+                          }
+                          value={
+                            option
+                          }
+                        >
+                          {
+                            option
+                          }
+                        </option>
+                      ),
+                    )}
                   </select>
                 </FieldWrapper>
               </div>
             </section>
 
-            {/* Address Details */}
+            {/* ===================================================== */}
+            {/* Address Details                                       */}
+            {/* ===================================================== */}
+
             <section>
               <h4 className="mb-3 text-sm font-semibold text-foreground">
                 Address Details
@@ -1601,99 +2508,202 @@ function TeacherFormModal({
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FieldWrapper
                   label="Current Address"
-                  error={getDisplayError("current_address")}
+                  error={getDisplayError(
+                    "current_address",
+                  )}
                   full
                 >
                   <textarea
-                    className={textareaClass}
+                    className={
+                      textareaClass
+                    }
                     rows={2}
                     placeholder="Enter current address"
-                    value={values.current_address}
-                    onChange={(e) =>
-                      setField("current_address", e.target.value)
+                    value={
+                      values.current_address
                     }
-                  onBlur={() => markTouched("current_address")}
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "current_address",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "current_address",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Permanent Address"
-                  error={getDisplayError("permanent_address")}
+                  error={getDisplayError(
+                    "permanent_address",
+                  )}
                   full
                 >
                   <textarea
-                    className={textareaClass}
+                    className={
+                      textareaClass
+                    }
                     rows={2}
                     placeholder="Enter permanent address"
-                    value={values.permanent_address}
-                    onChange={(e) =>
-                      setField("permanent_address", e.target.value)
+                    value={
+                      values.permanent_address
                     }
-                  onBlur={() => markTouched("permanent_address")}
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "permanent_address",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "permanent_address",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
-                <FieldWrapper label="City" error={getDisplayError("city")}>
+                <FieldWrapper
+                  label="City"
+                  error={getDisplayError(
+                    "city",
+                  )}
+                >
                   <input
                     type="text"
-                    className={inputClass}
+                    className={
+                      inputClass
+                    }
                     placeholder="e.g. Kolkata"
-                    value={values.city}
-                    onChange={(e) =>
-                      setField("city", e.target.value)
+                    value={
+                      values.city
                     }
-                  onBlur={() => markTouched("city")}
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "city",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "city",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
-                <FieldWrapper label="State" error={getDisplayError("state")}>
+                <FieldWrapper
+                  label="State"
+                  error={getDisplayError(
+                    "state",
+                  )}
+                >
                   <input
                     type="text"
-                    className={inputClass}
-                    placeholder="e.g. West Bengal"
-                    value={values.state}
-                    onChange={(e) =>
-                      setField("state", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("state")}
+                    placeholder="e.g. West Bengal"
+                    value={
+                      values.state
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "state",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "state",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Country"
-                  error={getDisplayError("country")}
+                  error={getDisplayError(
+                    "country",
+                  )}
                 >
                   <input
                     type="text"
-                    className={inputClass}
-                    placeholder="e.g. India"
-                    value={values.country}
-                    onChange={(e) =>
-                      setField("country", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("country")}
+                    placeholder="e.g. India"
+                    value={
+                      values.country
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "country",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "country",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Pincode"
-                  error={getDisplayError("pincode")}
+                  error={getDisplayError(
+                    "pincode",
+                  )}
                 >
                   <input
                     type="text"
-                    className={inputClass}
-                    placeholder="e.g. 700001"
-                    value={values.pincode}
-                    onChange={(e) =>
-                      setField("pincode", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("pincode")}
+                    placeholder="e.g. 700001"
+                    value={
+                      values.pincode
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "pincode",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "pincode",
+                      )
+                    }
                   />
                 </FieldWrapper>
               </div>
             </section>
 
-            {/* Professional Details */}
+     
+
             <section>
               <h4 className="mb-3 text-sm font-semibold text-foreground">
                 Professional Details
@@ -1702,94 +2712,189 @@ function TeacherFormModal({
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FieldWrapper
                   label="Qualification"
-                  error={getDisplayError("qualification")}
+                  error={getDisplayError(
+                    "qualification",
+                  )}
                 >
                   <input
                     type="text"
-                    className={inputClass}
-                    placeholder="e.g. M.Sc, B.Ed"
-                    value={values.qualification}
-                    onChange={(e) =>
-                      setField("qualification", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("qualification")}
+                    placeholder="e.g. M.Sc, B.Ed"
+                    value={
+                      values.qualification
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "qualification",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "qualification",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Specialization"
-                  error={getDisplayError("specialization")}
+                  error={getDisplayError(
+                    "specialization",
+                  )}
                 >
                   <input
                     type="text"
-                    className={inputClass}
-                    placeholder="e.g. Mathematics"
-                    value={values.specialization}
-                    onChange={(e) =>
-                      setField("specialization", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("specialization")}
+                    placeholder="e.g. Mathematics"
+                    value={
+                      values.specialization
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "specialization",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "specialization",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Experience Years"
-                  error={getDisplayError("experience_years")}
+                  error={getDisplayError(
+                    "experience_years",
+                  )}
                 >
                   <input
                     type="number"
-                    className={inputClass}
+                    min="0"
+                    className={
+                      inputClass
+                    }
                     placeholder="e.g. 5"
-                    value={values.experience_years}
-                    onChange={(e) =>
+                    value={
+                      values.experience_years
+                    }
+                    onChange={(
+                      e,
+                    ) =>
                       setField(
                         "experience_years",
-                        e.target.value,
+                        e.target
+                          .value,
                       )
                     }
-                  onBlur={() => markTouched("experience_years")}
+                    onBlur={() =>
+                      markTouched(
+                        "experience_years",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Joining Date"
-                  error={getDisplayError("joining_date")}
+                  error={getDisplayError(
+                    "joining_date",
+                  )}
                 >
                   <input
                     type="date"
-                    className={inputClass}
-                    value={values.joining_date}
-                    onChange={(e) =>
-                      setField("joining_date", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("joining_date")}
+                    value={
+                      values.joining_date
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "joining_date",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "joining_date",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Employment Type"
-                  error={getDisplayError("employment_type")}
+                  error={getDisplayError(
+                    "employment_type",
+                  )}
                 >
                   <select
-                    className={inputClass}
-                    value={values.employment_type}
-                    onChange={(e) =>
-                      setField("employment_type", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("employment_type")}
+                    value={
+                      values.employment_type
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "employment_type",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "employment_type",
+                      )
+                    }
                   >
-                    <option value="">Select employment type</option>
-                    {employmentTypeOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
+                    <option value="">
+                      Select employment
+                      type
+                    </option>
+
+                    {employmentTypeOptions.map(
+                      (
+                        option,
+                      ) => (
+                        <option
+                          key={
+                            option
+                          }
+                          value={
+                            option
+                          }
+                        >
+                          {
+                            option
+                          }
+                        </option>
+                      ),
+                    )}
                   </select>
                 </FieldWrapper>
               </div>
             </section>
 
-            {/* Salary / Bank Details */}
+
             <section>
               <h4 className="mb-3 text-sm font-semibold text-foreground">
                 Salary / Bank Details
@@ -1798,90 +2903,170 @@ function TeacherFormModal({
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FieldWrapper
                   label="Basic Salary"
-                  error={getDisplayError("basic_salary")}
+                  error={getDisplayError(
+                    "basic_salary",
+                  )}
                 >
                   <input
                     type="number"
-                    className={inputClass}
-                    placeholder="e.g. 25000"
-                    value={values.basic_salary}
-                    onChange={(e) =>
-                      setField("basic_salary", e.target.value)
+                    min="0"
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("basic_salary")}
+                    placeholder="e.g. 25000"
+                    value={
+                      values.basic_salary
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "basic_salary",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "basic_salary",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Bank Name"
-                  error={getDisplayError("bank_name")}
+                  error={getDisplayError(
+                    "bank_name",
+                  )}
                 >
                   <input
                     type="text"
-                    className={inputClass}
-                    placeholder="e.g. HDFC Bank"
-                    value={values.bank_name}
-                    onChange={(e) =>
-                      setField("bank_name", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("bank_name")}
+                    placeholder="e.g. HDFC Bank"
+                    value={
+                      values.bank_name
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "bank_name",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "bank_name",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Bank Account Number"
-                  error={getDisplayError("bank_account_number")}
+                  error={getDisplayError(
+                    "bank_account_number",
+                  )}
                 >
                   <input
                     type="text"
-                    className={inputClass}
+                    inputMode="numeric"
+                    className={
+                      inputClass
+                    }
                     placeholder="Enter account number"
-                    value={values.bank_account_number}
-                    onChange={(e) =>
+                    value={
+                      values.bank_account_number
+                    }
+                    onChange={(
+                      e,
+                    ) =>
                       setField(
                         "bank_account_number",
-                        e.target.value,
+                        e.target
+                          .value,
                       )
                     }
-                  onBlur={() => markTouched("bank_account_number")}
+                    onBlur={() =>
+                      markTouched(
+                        "bank_account_number",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="IFSC Code"
-                  error={getDisplayError("ifsc_code")}
+                  error={getDisplayError(
+                    "ifsc_code",
+                  )}
                 >
                   <input
                     type="text"
-                    className={inputClass}
-                    placeholder="e.g. HDFC0001234"
-                    value={values.ifsc_code}
-                    onChange={(e) =>
-                      setField("ifsc_code", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("ifsc_code")}
+                    placeholder="e.g. HDFC0001234"
+                    value={
+                      values.ifsc_code
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "ifsc_code",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "ifsc_code",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="PAN Number"
-                  error={getDisplayError("pan_number")}
+                  error={getDisplayError(
+                    "pan_number",
+                  )}
                 >
                   <input
                     type="text"
-                    className={inputClass}
-                    placeholder="e.g. ABCDE1234F"
-                    value={values.pan_number}
-                    onChange={(e) =>
-                      setField("pan_number", e.target.value)
+                    className={
+                      inputClass
                     }
-                  onBlur={() => markTouched("pan_number")}
+                    placeholder="e.g. ABCDE1234F"
+                    value={
+                      values.pan_number
+                    }
+                    onChange={(
+                      e,
+                    ) =>
+                      setField(
+                        "pan_number",
+                        e.target
+                          .value,
+                      )
+                    }
+                    onBlur={() =>
+                      markTouched(
+                        "pan_number",
+                      )
+                    }
                   />
                 </FieldWrapper>
               </div>
             </section>
 
-            {/* Emergency Contact */}
+        
+
             <section>
               <h4 className="mb-3 text-sm font-semibold text-foreground">
                 Emergency Contact
@@ -1890,64 +3075,106 @@ function TeacherFormModal({
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FieldWrapper
                   label="Emergency Contact Name"
-                  error={getDisplayError("emergency_contact_name")}
+                  error={getDisplayError(
+                    "emergency_contact_name",
+                  )}
                 >
                   <input
                     type="text"
-                    className={inputClass}
+                    className={
+                      inputClass
+                    }
                     placeholder="e.g. John Doe"
-                    value={values.emergency_contact_name}
-                    onChange={(e) =>
+                    value={
+                      values.emergency_contact_name
+                    }
+                    onChange={(
+                      e,
+                    ) =>
                       setField(
                         "emergency_contact_name",
-                        e.target.value,
+                        e.target
+                          .value,
                       )
                     }
-                  onBlur={() => markTouched("emergency_contact_name")}
+                    onBlur={() =>
+                      markTouched(
+                        "emergency_contact_name",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Emergency Contact Phone"
-                  error={getDisplayError("emergency_contact_phone")}
+                  error={getDisplayError(
+                    "emergency_contact_phone",
+                  )}
                 >
                   <input
                     type="tel"
-                    className={inputClass}
+                    className={
+                      inputClass
+                    }
                     placeholder="9876543210"
-                    value={values.emergency_contact_phone}
-                    onChange={(e) =>
+                    value={
+                      values.emergency_contact_phone
+                    }
+                    onChange={(
+                      e,
+                    ) =>
                       setField(
                         "emergency_contact_phone",
-                        e.target.value,
+                        e.target
+                          .value,
                       )
                     }
-                  onBlur={() => markTouched("emergency_contact_phone")}
+                    onBlur={() =>
+                      markTouched(
+                        "emergency_contact_phone",
+                      )
+                    }
                   />
                 </FieldWrapper>
 
                 <FieldWrapper
                   label="Emergency Contact Relation"
-                  error={getDisplayError("emergency_contact_relation")}
+                  error={getDisplayError(
+                    "emergency_contact_relation",
+                  )}
                 >
                   <input
                     type="text"
-                    className={inputClass}
+                    className={
+                      inputClass
+                    }
                     placeholder="e.g. Father"
-                    value={values.emergency_contact_relation}
-                    onChange={(e) =>
+                    value={
+                      values.emergency_contact_relation
+                    }
+                    onChange={(
+                      e,
+                    ) =>
                       setField(
                         "emergency_contact_relation",
-                        e.target.value,
+                        e.target
+                          .value,
                       )
                     }
-                  onBlur={() => markTouched("emergency_contact_relation")}
+                    onBlur={() =>
+                      markTouched(
+                        "emergency_contact_relation",
+                      )
+                    }
                   />
                 </FieldWrapper>
               </div>
             </section>
 
-            {/* Remarks */}
+            {/* ===================================================== */}
+            {/* Remarks                                               */}
+            {/* ===================================================== */}
+
             <section>
               <h4 className="mb-3 text-sm font-semibold text-foreground">
                 Remarks
@@ -1955,30 +3182,52 @@ function TeacherFormModal({
 
               <FieldWrapper
                 label="Remarks"
-                error={getDisplayError("remarks")}
+                error={getDisplayError(
+                  "remarks",
+                )}
                 full
               >
                 <textarea
-                  className={textareaClass}
+                  className={
+                    textareaClass
+                  }
                   rows={3}
                   placeholder="Enter remarks"
-                  value={values.remarks}
-                  onChange={(e) =>
-                    setField("remarks", e.target.value)
+                  value={
+                    values.remarks
                   }
-                  onBlur={() => markTouched("remarks")}
+                  onChange={(
+                    e,
+                  ) =>
+                    setField(
+                      "remarks",
+                      e.target
+                        .value,
+                    )
+                  }
+                  onBlur={() =>
+                    markTouched(
+                      "remarks",
+                    )
+                  }
                 />
               </FieldWrapper>
             </section>
           </div>
         </div>
 
+        {/* Footer */}
+
         <div className="mt-6 flex items-center justify-end gap-3 border-t border-border pt-4">
           <Button
             type="button"
             variant="outline"
-            onClick={onClose}
-            disabled={submitting}
+            onClick={
+              onClose
+            }
+            disabled={
+              submitting
+            }
           >
             Cancel
           </Button>
@@ -1988,7 +3237,9 @@ function TeacherFormModal({
             disabled={
               submitting ||
               settingsLoading ||
-              Boolean(settingsError) ||
+              Boolean(
+                settingsError,
+              ) ||
               employeeCodeStatus.state ===
                 "checking" ||
               employeeCodeStatus.state ===
@@ -1997,7 +3248,8 @@ function TeacherFormModal({
           >
             {submitting
               ? "Saving..."
-              : employeeCodeStatus.state === "checking"
+              : employeeCodeStatus.state ===
+                  "checking"
                 ? "Checking..."
                 : submitLabel}
           </Button>
@@ -2007,17 +3259,28 @@ function TeacherFormModal({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Teachers page                                                       */
-/* ------------------------------------------------------------------ */
+
 
 export default function Teachers() {
-  const teachers = useAppSelector(
-    (state) => state.teacher.teachers,
-  );
+  const teachers =
+    useAppSelector(
+      (state) =>
+        state.teacher
+          .teachers,
+    );
 
-  const { classes } = useAppSelector((state) => state.class);
-  const [isLoading, setIsLoading] = useState(true);
+    console.log(teachers)
+
+  const { classes } =
+    useAppSelector(
+      (state) =>
+        state.class,
+    );
+
+  const [
+    isLoading,
+    setIsLoading,
+  ] = useState(true);
 
   const {
     getTeachers,
@@ -2028,11 +3291,17 @@ export default function Teachers() {
     permanentdeleteteacher,
   } = useTeacher();
 
-  const { getClasses } = useClass();
-  const { getSettingsbyKey } = useSettings();
+  const { getClasses } =
+    useClass();
+
+  const {
+    getSettingsbyKey,
+  } = useSettings();
 
   const getSettingsByKeyRef =
-    useRef(getSettingsbyKey);
+    useRef(
+      getSettingsbyKey,
+    );
 
   useEffect(() => {
     getSettingsByKeyRef.current =
@@ -2042,9 +3311,13 @@ export default function Teachers() {
   const [
     employeeCodeRules,
     setEmployeeCodeRules,
-  ] = useState<EmployeeCodeRules>({
-    generationType: "auto",
-  });
+  ] =
+    useState<EmployeeCodeRules>(
+      {
+        generationType:
+          "auto",
+      },
+    );
 
   const [
     employeeCodeSettingsLoading,
@@ -2056,46 +3329,118 @@ export default function Teachers() {
     setEmployeeCodeSettingsError,
   ] = useState("");
 
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
+  const [
+    search,
+    setSearch,
+  ] = useState("");
 
-  const [viewItem, setViewItem] = useState<Teacher | null>(null);
-  const [editItem, setEditItem] = useState<Teacher | null>(null);
-  const [deleteItem, setDeleteItem] = useState<Teacher | null>(null);
-  const [restoreItem, setRestoreItem] = useState<Teacher | null>(null);
-  const [permanentDeleteItem, setPermanentDeleteItem] = useState<Teacher | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
+  const [
+    page,
+    setPage,
+  ] = useState(1);
 
-  const [statusFilter, setStatusFilter] =
-    useState<StatusFilter>("all");
+  const [
+    viewItem,
+    setViewItem,
+  ] =
+    useState<Teacher | null>(
+      null,
+    );
 
-  const [selectedClassId, setSelectedClassId] =
-    useState<string>("all");
+  const [
+    editItem,
+    setEditItem,
+  ] =
+    useState<Teacher | null>(
+      null,
+    );
+
+  const [
+    deleteItem,
+    setDeleteItem,
+  ] =
+    useState<Teacher | null>(
+      null,
+    );
+
+  const [
+    restoreItem,
+    setRestoreItem,
+  ] =
+    useState<Teacher | null>(
+      null,
+    );
+
+  const [
+    permanentDeleteItem,
+    setPermanentDeleteItem,
+  ] =
+    useState<Teacher | null>(
+      null,
+    );
+
+  const [
+    addOpen,
+    setAddOpen,
+  ] = useState(false);
+
+  const [
+    statusFilter,
+    setStatusFilter,
+  ] =
+    useState<StatusFilter>(
+      "all",
+    );
+
+  const [
+    selectedClassId,
+    setSelectedClassId,
+  ] =
+    useState<string>(
+      "all",
+    );
 
   const itemsPerPage = 10;
 
-  const loadTeachers = async (status: StatusFilter) => {
-    try {
-      setIsLoading(true);
-      await getTeachers(status);
-    } catch (error) {
-      console.error("Failed to fetch teachers:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const loadTeachers =
+    async (
+      status: StatusFilter,
+    ) => {
+      try {
+        setIsLoading(true);
+
+        await getTeachers(
+          status,
+        );
+      } catch (error) {
+        console.error(
+          "Failed to fetch teachers:",
+          error,
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
   useEffect(() => {
-    void loadTeachers(statusFilter);
+    void loadTeachers(
+      statusFilter,
+    );
+
     void getClasses();
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const teacherFormOpen =
-    addOpen || Boolean(editItem);
+    addOpen ||
+    Boolean(editItem);
+
 
   useEffect(() => {
-    if (!teacherFormOpen) {
+    if (
+      !teacherFormOpen
+    ) {
       return;
     }
 
@@ -2122,11 +3467,15 @@ export default function Teachers() {
           }
 
           const settings =
-            normalizeSettings(response);
+            normalizeSettings(
+              response,
+            );
 
           const generationSetting =
             settings.find(
-              (setting) =>
+              (
+                setting,
+              ) =>
                 setting.key ===
                 "employee_code_generated_by",
             );
@@ -2140,46 +3489,51 @@ export default function Teachers() {
               .toLowerCase();
 
           if (
-            generationType === "auto"
+            generationType ===
+            "auto"
           ) {
             setEmployeeCodeRules({
-              generationType: "auto",
+              generationType:
+                "auto",
             });
 
             return;
           }
 
           if (
-            generationType !== "manual"
+            generationType !==
+            "manual"
           ) {
             throw new Error(
               "employee_code_generated_by must be auto or manual",
             );
           }
 
-          /*
-           * Prefix and length are required only
-           * when manual generation is enabled.
-           */
           const prefixSetting =
             settings.find(
-              (setting) =>
+              (
+                setting,
+              ) =>
                 setting.key ===
                 "employee_code_prefix",
             );
 
           const lengthSetting =
             settings.find(
-              (setting) =>
+              (
+                setting,
+              ) =>
                 setting.key ===
                 "employee_code_length",
             );
 
-          const prefix = String(
-            prefixSetting?.value ?? "",
-          )
-            .trim()
-            .toUpperCase();
+          const prefix =
+            String(
+              prefixSetting?.value ??
+                "",
+            )
+              .trim()
+              .toUpperCase();
 
           if (!prefix) {
             throw new Error(
@@ -2206,7 +3560,9 @@ export default function Teachers() {
           setEmployeeCodeRules({
             generationType:
               "manual",
+
             prefix,
+
             digitLength,
           });
         } catch (error) {
@@ -2215,7 +3571,8 @@ export default function Teachers() {
           }
 
           setEmployeeCodeSettingsError(
-            error instanceof Error
+            error instanceof
+              Error
               ? error.message
               : "Unable to load employee code settings",
           );
@@ -2235,147 +3592,301 @@ export default function Teachers() {
     };
   }, [teacherFormOpen]);
 
-  const editInitialValues = useMemo(() => {
-    return editItem ? teacherToInitialValues(editItem) : undefined;
-  }, [editItem]);
+  /* ---------------------------------------------------------------- */
+  /* Data                                                              */
+  /* ---------------------------------------------------------------- */
 
-  const tableData: TeacherTableRow[] = useMemo(() => {
-    return teachers.map((teacher) => ({
-      ...teacher,
-      full_name: getFullName(teacher),
-      initials: makeInitials(
-        teacher.first_name,
-        teacher.last_name,
+  const editInitialValues =
+    useMemo(() => {
+      return editItem
+        ? teacherToInitialValues(
+            editItem,
+          )
+        : undefined;
+    }, [editItem]);
+
+  const tableData: TeacherTableRow[] =
+    useMemo(() => {
+      return teachers.map(
+        (teacher) => ({
+          ...teacher,
+
+          full_name:
+            getFullName(
+              teacher,
+            ),
+
+          initials:
+            makeInitials(
+              teacher.first_name,
+              teacher.last_name!,
+            ),
+        }),
+      );
+    }, [teachers]);
+
+  const filtered =
+    useMemo(() => {
+      const keyword =
+        search
+          .trim()
+          .toLowerCase();
+
+      if (!keyword) {
+        return tableData;
+      }
+
+      return tableData.filter(
+        (teacher) =>
+          teacher.employee_code
+            ?.toLowerCase()
+            .includes(
+              keyword,
+            ) ||
+          teacher.full_name
+            .toLowerCase()
+            .includes(
+              keyword,
+            ) ||
+          teacher.email
+            ?.toLowerCase()
+            .includes(
+              keyword,
+            ) ||
+          teacher.phone
+            ?.toLowerCase()
+            .includes(
+              keyword,
+            ) ||
+          teacher.qualification
+            ?.toLowerCase()
+            .includes(
+              keyword,
+            ) ||
+          teacher.specialization
+            ?.toLowerCase()
+            .includes(
+              keyword,
+            ),
+      );
+    }, [
+      search,
+      tableData,
+    ]);
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        filtered.length /
+          itemsPerPage,
       ),
-    }));
-  }, [teachers]);
-
-  const filtered = useMemo(() => {
-    const keyword = search.trim().toLowerCase();
-
-    if (!keyword) {
-      return tableData;
-    }
-
-    return tableData.filter(
-      (teacher) =>
-        teacher.employee_code?.toLowerCase().includes(keyword) ||
-        teacher.full_name.toLowerCase().includes(keyword) ||
-        teacher.email?.toLowerCase().includes(keyword) ||
-        teacher.phone?.toLowerCase().includes(keyword) ||
-        teacher.qualification?.toLowerCase().includes(keyword) ||
-        teacher.specialization?.toLowerCase().includes(keyword),
     );
-  }, [search, tableData]);
 
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filtered.length / itemsPerPage),
-  );
+  const paginatedTeachers =
+    filtered.slice(
+      (page - 1) *
+        itemsPerPage,
 
-  const paginatedTeachers = filtered.slice(
-    (page - 1) * itemsPerPage,
-    page * itemsPerPage,
-  );
+      page *
+        itemsPerPage,
+    );
 
-  const handleAdd = async (
-    values: TeacherFormValues,
-  ) => {
-    const payload =
-      buildTeacherPayload(values);
+  /* ---------------------------------------------------------------- */
+  /* CRUD handlers                                                     */
+  /* ---------------------------------------------------------------- */
 
-      
+  const handleAdd =
+    async (
+      values: TeacherFormValues,
+    ) => {
+      const payload =
+        buildTeacherPayload(
+          values,
+        );
 
-    const data =
-      await addteacher(payload);
+      const data =
+        await addteacher(
+          payload,
+        );
 
-    if (data) {
-      setAddOpen(false);
-    }
-  };
+      if (data) {
+        setAddOpen(false);
 
-  const handleEdit = async (values: TeacherFormValues) => {
-    if (!editItem?.id) return;
-
-    const payload = {
-      id: editItem.id,
-      ...buildTeacherPayload(values),
+        await loadTeachers(
+          statusFilter,
+        );
+      }
     };
 
-    await updateteacher(payload);
+  const handleEdit =
+    async (
+      values: TeacherFormValues,
+    ) => {
+      if (
+        !editItem?.id
+      ) {
+        return;
+      }
 
-    setEditItem(null);
-  };
+      const payload = {
+        id:
+          editItem.id,
 
-  const handleDelete = async () => {
-    if (!deleteItem?.id) return;
+        ...buildTeacherPayload(
+          values,
+        ),
+      };
 
-    const result = await deleteteacher(deleteItem.id);
-    
-    if (result?.success) {
-      await loadTeachers(statusFilter);
-    }
+      const result =
+        await updateteacher(
+          payload,
+        );
 
-    setDeleteItem(null);
-  };
+      if (result) {
+        await loadTeachers(
+          statusFilter,
+        );
+      }
 
-  const handleRestore = async () => {
-    if (!restoreItem?.id) return;
+      setEditItem(null);
+    };
 
-    const result = await restoreteacher(restoreItem.id);
-    
-    if (result?.success) {
-      await loadTeachers(statusFilter);
-    }
+  const handleDelete =
+    async () => {
+      if (
+        !deleteItem?.id
+      ) {
+        return;
+      }
 
-    setRestoreItem(null);
-  };
+      const result =
+        await deleteteacher(
+          deleteItem.id,
+        );
 
-  const handlePermanentDelete = async () => {
-    if (!permanentDeleteItem?.id) return;
+      if (
+        result?.success
+      ) {
+        await loadTeachers(
+          statusFilter,
+        );
+      }
 
-    const result = await permanentdeleteteacher(permanentDeleteItem.id);
-    
-    if (result?.success) {
-      await loadTeachers(statusFilter);
-    }
+      setDeleteItem(null);
+    };
 
-    setPermanentDeleteItem(null);
-  };
+  const handleRestore =
+    async () => {
+      if (
+        !restoreItem?.id
+      ) {
+        return;
+      }
 
-  const handleStatusChange = async (status: StatusFilter) => {
-  setStatusFilter(status);
-  setPage(1);
+      const result =
+        await restoreteacher(
+          restoreItem.id,
+        );
 
-  await loadTeachers(status);
-};
+      if (
+        result?.success
+      ) {
+        await loadTeachers(
+          statusFilter,
+        );
+      }
 
-  const handleClassChange = (value: string) => {
-    setSelectedClassId(value);
-    setPage(1);
-  };
+      setRestoreItem(null);
+    };
+
+  const handlePermanentDelete =
+    async () => {
+      if (
+        !permanentDeleteItem?.id
+      ) {
+        return;
+      }
+
+      const result =
+        await permanentdeleteteacher(
+          permanentDeleteItem.id,
+        );
+
+      if (
+        result?.success
+      ) {
+        await loadTeachers(
+          statusFilter,
+        );
+      }
+
+      setPermanentDeleteItem(
+        null,
+      );
+    };
+
+  const handleStatusChange =
+    async (
+      status: StatusFilter,
+    ) => {
+      setStatusFilter(
+        status,
+      );
+
+      setPage(1);
+
+      await loadTeachers(
+        status,
+      );
+    };
+
+  const handleClassChange =
+    (
+      value: string,
+    ) => {
+      setSelectedClassId(
+        value,
+      );
+
+      setPage(1);
+    };
 
   return (
     <div>
-      <Breadcrumb items={[{ label: "Teachers" }]} />
+      <Breadcrumb
+        items={[
+          {
+            label:
+              "Teachers",
+          },
+        ]}
+      />
 
       <PageHeader
         title="Teachers"
         description={`${teachers.length} teaching staff members`}
         action={
           <button
-            onClick={() => setAddOpen(true)}
+            onClick={() =>
+              setAddOpen(
+                true,
+              )
+            }
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
             data-testid="add-teacher-btn"
             type="button"
           >
             <Plus className="h-4 w-4" />
+
             Add Teacher
           </button>
         }
       />
 
       <div className="overflow-hidden rounded-xl border border-border bg-card">
+        {/* Filters */}
+
         <div className="flex flex-col gap-3 border-b border-border p-5 lg:flex-row lg:items-center lg:gap-6">
           <div className="relative w-full lg:max-w-sm">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -2383,9 +3894,17 @@ export default function Teachers() {
             <input
               type="search"
               placeholder="Search teachers..."
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value);
+              value={
+                search
+              }
+              onChange={(
+                event,
+              ) => {
+                setSearch(
+                  event.target
+                    .value,
+                );
+
                 setPage(1);
               }}
               className="h-9 w-full rounded-lg bg-muted pl-9 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -2395,87 +3914,184 @@ export default function Teachers() {
 
           <div className="w-full lg:w-55">
             <Select
-              value={selectedClassId}
-              onValueChange={handleClassChange}
+              value={
+                selectedClassId
+              }
+              onValueChange={
+                handleClassChange
+              }
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select Class" />
               </SelectTrigger>
 
               <SelectContent>
-                <SelectItem value="all">All Classes</SelectItem>
+                <SelectItem value="all">
+                  All Classes
+                </SelectItem>
 
-                {classes.map((item) => (
-                  <SelectItem
-                    key={String(item.id)}
-                    value={String(item.id)}
-                  >
-                    {String(item.class_name ?? "")}
-                  </SelectItem>
-                ))}
+                {classes.map(
+                  (item) => (
+                    <SelectItem
+                      key={String(
+                        item.id,
+                      )}
+                      value={String(
+                        item.id,
+                      )}
+                    >
+                      {String(
+                        item.class_name ??
+                          "",
+                      )}
+                    </SelectItem>
+                  ),
+                )}
               </SelectContent>
             </Select>
           </div>
 
           <StatusTabs
-              options={statusTabs}
-              value={statusFilter}
-              onChange={handleStatusChange}
-              disabled={isLoading}
-              className="lg:ml-auto"
-            />
+            options={
+              statusTabs
+            }
+            value={
+              statusFilter
+            }
+            onChange={
+              handleStatusChange
+            }
+            disabled={
+              isLoading
+            }
+            className="lg:ml-auto"
+          />
         </div>
+
+        {/* Table */}
 
         <div className="px-6">
           {isLoading ? (
-            <ListingSkeleton columns={columns.length} rows={paginatedTeachers.length} />
+            <ListingSkeleton
+              columns={
+                columns.length
+              }
+              rows={
+                Math.max(
+                  paginatedTeachers.length,
+                  5,
+                )
+              }
+            />
           ) : (
-          <DataTable
-            columns={columns}
-            data={
-              paginatedTeachers as unknown as Record<
-                string,
-                unknown
-              >[]
-            }
-            onView={(row) =>
-              setViewItem(row as unknown as Teacher)
-            }
-            {...(statusFilter === "trash"
-              ? {
-                  onRestore: (row) =>
-                    setRestoreItem(row as unknown as Teacher),
-                  onPermanentDelete: (row) =>
-                    setPermanentDeleteItem(row as unknown as Teacher),
-                }
-              : {
-                  onEdit: (row) =>
-                    setEditItem(row as unknown as Teacher),
-                  onDelete: (row) =>
-                    setDeleteItem(row as unknown as Teacher),
-                })}
-          />
+            <DataTable
+              columns={
+                columns
+              }
+              data={
+                paginatedTeachers as unknown as Record<
+                  string,
+                  unknown
+                >[]
+              }
+              onView={(
+                row,
+              ) =>
+                setViewItem(
+                  row as unknown as Teacher,
+                )
+              }
+              {...(statusFilter ===
+              "trash"
+                ? {
+                    onRestore:
+                      (
+                        row: Record<
+                          string,
+                          unknown
+                        >,
+                      ) =>
+                        setRestoreItem(
+                          row as unknown as Teacher,
+                        ),
+
+                    onPermanentDelete:
+                      (
+                        row: Record<
+                          string,
+                          unknown
+                        >,
+                      ) =>
+                        setPermanentDeleteItem(
+                          row as unknown as Teacher,
+                        ),
+                  }
+                : {
+                    onEdit:
+                      (
+                        row: Record<
+                          string,
+                          unknown
+                        >,
+                      ) =>
+                        setEditItem(
+                          row as unknown as Teacher,
+                        ),
+
+                    onDelete:
+                      (
+                        row: Record<
+                          string,
+                          unknown
+                        >,
+                      ) =>
+                        setDeleteItem(
+                          row as unknown as Teacher,
+                        ),
+                  })}
+            />
           )}
         </div>
 
+        {/* Pagination */}
+
         <div className="flex items-center justify-between border-t border-border px-6 py-4">
           <span className="text-sm text-muted-foreground">
-            Showing {paginatedTeachers.length} of {filtered.length}{" "}
+            Showing{" "}
+            {
+              paginatedTeachers.length
+            }{" "}
+            of{" "}
+            {
+              filtered.length
+            }{" "}
             teachers
           </span>
 
           <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
+            currentPage={
+              page
+            }
+            totalPages={
+              totalPages
+            }
+            onPageChange={
+              setPage
+            }
           />
         </div>
       </div>
 
-      {/* View Modal */}
+
       <Modal
-        isOpen={Boolean(viewItem)}
-        onClose={() => setViewItem(null)}
+        isOpen={Boolean(
+          viewItem,
+        )}
+        onClose={() =>
+          setViewItem(
+            null,
+          )
+        }
         title="Teacher Details"
         size="lg"
       >
@@ -2486,17 +4102,20 @@ export default function Teachers() {
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary font-semibold text-primary-foreground">
                   {makeInitials(
                     viewItem.first_name,
-                    viewItem.last_name,
+                    viewItem.last_name!,
                   )}
                 </div>
 
                 <div>
                   <h3 className="text-lg font-semibold text-foreground">
-                    {getFullName(viewItem)}
+                    {getFullName(
+                      viewItem,
+                    )}
                   </h3>
 
                   <p className="text-sm text-muted-foreground">
-                    {viewItem.employee_code || "-"}
+                    {viewItem.employee_code ||
+                      "-"}
                   </p>
                 </div>
               </div>
@@ -2504,114 +4123,248 @@ export default function Teachers() {
 
             <div className="space-y-6 text-sm">
               <InfoSection title="Basic Information">
-                <Info label="Employee Code" value={viewItem.employee_code} />
-                <Info label="Name" value={getFullName(viewItem)} />
-                <Info label="Email" value={viewItem.email} />
-                <Info label="Phone" value={viewItem.phone} />
+                <Info
+                  label="Employee Code"
+                  value={
+                    viewItem.employee_code
+                  }
+                />
+
+                <Info
+                  label="Name"
+                  value={getFullName(
+                    viewItem,
+                  )}
+                />
+
+                <Info
+                  label="Email"
+                  value={
+                    viewItem.email
+                  }
+                />
+
+                <Info
+                  label="Phone"
+                  value={
+                    viewItem.phone
+                  }
+                />
+
                 <Info
                   label="Alternate Phone"
-                  value={viewItem.alternate_phone}
+                  value={
+                    viewItem.alternate_phone
+                  }
                 />
-                <Info label="Status" value={viewItem.status} />
+
+                <Info
+                  label="Status"
+                  value={
+                    viewItem.status
+                  }
+                />
               </InfoSection>
 
               <InfoSection title="Personal Details">
-                <Info label="Gender" value={viewItem.gender} />
+                <Info
+                  label="Gender"
+                  value={
+                    viewItem.gender
+                  }
+                />
+
                 <Info
                   label="Date of Birth"
-                  value={safeValue(viewItem.date_of_birth)}
+                  value={safeValue(
+                    viewItem.date_of_birth,
+                  )}
                 />
-                <Info label="Blood Group" value={viewItem.blood_group} />
+
+                <Info
+                  label="Blood Group"
+                  value={
+                    viewItem.blood_group
+                  }
+                />
+
                 <Info
                   label="Marital Status"
-                  value={viewItem.marital_status}
+                  value={
+                    viewItem.marital_status
+                  }
                 />
               </InfoSection>
 
               <InfoSection title="Address Details">
                 <Info
                   label="Current Address"
-                  value={viewItem.current_address}
+                  value={
+                    viewItem.current_address
+                  }
                   large
                 />
+
                 <Info
                   label="Permanent Address"
-                  value={viewItem.permanent_address}
+                  value={
+                    viewItem.permanent_address
+                  }
                   large
                 />
-                <Info label="City" value={viewItem.city} />
-                <Info label="State" value={viewItem.state} />
-                <Info label="Country" value={viewItem.country} />
-                <Info label="Pincode" value={viewItem.pincode} />
+
+                <Info
+                  label="City"
+                  value={
+                    viewItem.city
+                  }
+                />
+
+                <Info
+                  label="State"
+                  value={
+                    viewItem.state
+                  }
+                />
+
+                <Info
+                  label="Country"
+                  value={
+                    viewItem.country
+                  }
+                />
+
+                <Info
+                  label="Pincode"
+                  value={
+                    viewItem.pincode
+                  }
+                />
               </InfoSection>
 
               <InfoSection title="Professional Details">
                 <Info
                   label="Qualification"
-                  value={viewItem.qualification}
+                  value={
+                    viewItem.qualification
+                  }
                 />
+
                 <Info
                   label="Specialization"
-                  value={viewItem.specialization}
+                  value={
+                    viewItem.specialization
+                  }
                 />
+
                 <Info
                   label="Experience Years"
-                  value={safeValue(viewItem.experience_years)}
+                  value={safeValue(
+                    viewItem.experience_years,
+                  )}
                 />
+
                 <Info
                   label="Joining Date"
-                  value={safeValue(viewItem.joining_date)}
+                  value={safeValue(
+                    viewItem.joining_date,
+                  )}
                 />
+
                 <Info
                   label="Employment Type"
-                  value={viewItem.employment_type}
+                  value={
+                    viewItem.employment_type
+                  }
                 />
               </InfoSection>
 
               <InfoSection title="Salary / Bank Details">
                 <Info
                   label="Basic Salary"
-                  value={safeValue(viewItem.basic_salary)}
+                  value={safeValue(
+                    viewItem.basic_salary,
+                  )}
                 />
-                <Info label="Bank Name" value={viewItem.bank_name} />
+
+                <Info
+                  label="Bank Name"
+                  value={
+                    viewItem.bank_name
+                  }
+                />
+
                 <Info
                   label="Bank Account Number"
-                  value={viewItem.bank_account_number}
+                  value={
+                    viewItem.bank_account_number
+                  }
                 />
-                <Info label="IFSC Code" value={viewItem.ifsc_code} />
-                <Info label="PAN Number" value={viewItem.pan_number} />
+
+                <Info
+                  label="IFSC Code"
+                  value={
+                    viewItem.ifsc_code
+                  }
+                />
+
+                <Info
+                  label="PAN Number"
+                  value={
+                    viewItem.pan_number
+                  }
+                />
               </InfoSection>
 
               <InfoSection title="Emergency Contact">
                 <Info
                   label="Emergency Contact Name"
-                  value={viewItem.emergency_contact_name}
+                  value={
+                    viewItem.emergency_contact_name
+                  }
                 />
+
                 <Info
                   label="Emergency Contact Phone"
-                  value={viewItem.emergency_contact_phone}
+                  value={
+                    viewItem.emergency_contact_phone
+                  }
                 />
+
                 <Info
                   label="Emergency Contact Relation"
-                  value={viewItem.emergency_contact_relation}
+                  value={
+                    viewItem.emergency_contact_relation
+                  }
                 />
               </InfoSection>
 
               <InfoSection title="Remarks">
-                <Info label="Remarks" value={viewItem.remarks} large />
+                <Info
+                  label="Remarks"
+                  value={
+                    viewItem.remarks
+                  }
+                  large
+                />
               </InfoSection>
             </div>
           </div>
         )}
       </Modal>
 
-      {/* Add Modal */}
+    
+
       <TeacherFormModal
-        isOpen={addOpen}
+        isOpen={
+          addOpen
+        }
         onClose={() =>
           setAddOpen(false)
         }
-        onSubmit={handleAdd}
+        onSubmit={
+          handleAdd
+        }
         title="Add New Teacher"
         submitLabel="Add Teacher"
         employeeCodeRules={
@@ -2625,13 +4378,22 @@ export default function Teachers() {
         }
       />
 
-      {/* Edit Modal */}
+      {/* =========================================================== */}
+      {/* Edit Modal                                                  */}
+      {/* =========================================================== */}
+
       <TeacherFormModal
-        isOpen={Boolean(editItem)}
+        isOpen={Boolean(
+          editItem,
+        )}
         onClose={() =>
-          setEditItem(null)
+          setEditItem(
+            null,
+          )
         }
-        onSubmit={handleEdit}
+        onSubmit={
+          handleEdit
+        }
         title="Edit Teacher"
         initialValues={
           editInitialValues
@@ -2648,41 +4410,89 @@ export default function Teachers() {
         }
       />
 
+      {/* =========================================================== */}
+      {/* Delete                                                      */}
+      {/* =========================================================== */}
+
       <ConfirmModal
-        isOpen={Boolean(deleteItem)}
-        onClose={() => setDeleteItem(null)}
-        onConfirm={handleDelete}
+        isOpen={Boolean(
+          deleteItem,
+        )}
+        onClose={() =>
+          setDeleteItem(
+            null,
+          )
+        }
+        onConfirm={
+          handleDelete
+        }
         title="Delete Teacher"
         description={`Are you sure you want to remove "${
-          deleteItem ? getFullName(deleteItem) : ""
+          deleteItem
+            ? getFullName(
+                deleteItem,
+              )
+            : ""
         }" from the system? This action cannot be undone.`}
         confirmLabel="Delete Teacher"
       />
 
+      {/* Restore */}
+
       <ConfirmModal
-        isOpen={Boolean(restoreItem)}
-        onClose={() => setRestoreItem(null)}
-        onConfirm={handleRestore}
+        isOpen={Boolean(
+          restoreItem,
+        )}
+        onClose={() =>
+          setRestoreItem(
+            null,
+          )
+        }
+        onConfirm={
+          handleRestore
+        }
         title="Restore Teacher"
         description={`Are you sure you want to restore "${
-          restoreItem ? getFullName(restoreItem) : ""
+          restoreItem
+            ? getFullName(
+                restoreItem,
+              )
+            : ""
         }" back to active status?`}
         confirmLabel="Restore Teacher"
       />
 
+      {/* Permanent Delete */}
+
       <ConfirmModal
-        isOpen={Boolean(permanentDeleteItem)}
-        onClose={() => setPermanentDeleteItem(null)}
-        onConfirm={handlePermanentDelete}
+        isOpen={Boolean(
+          permanentDeleteItem,
+        )}
+        onClose={() =>
+          setPermanentDeleteItem(
+            null,
+          )
+        }
+        onConfirm={
+          handlePermanentDelete
+        }
         title="Permanently Delete Teacher"
         description={`Are you sure you want to permanently delete "${
-          permanentDeleteItem ? getFullName(permanentDeleteItem) : ""
+          permanentDeleteItem
+            ? getFullName(
+                permanentDeleteItem,
+              )
+            : ""
         }"? This action CANNOT be undone and all data will be lost forever.`}
         confirmLabel="Permanently Delete"
       />
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* View Helpers                                                        */
+/* ------------------------------------------------------------------ */
 
 function InfoSection({
   title,
@@ -2710,11 +4520,19 @@ function Info({
   large = false,
 }: {
   label: string;
-  value?: string | null;
+  value?:
+    | string
+    | null;
   large?: boolean;
 }) {
   return (
-    <div className={large ? "md:col-span-2" : ""}>
+    <div
+      className={
+        large
+          ? "md:col-span-2"
+          : ""
+      }
+    >
       <p className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </p>

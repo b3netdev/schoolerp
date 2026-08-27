@@ -16,12 +16,7 @@ type TeacherStatusFilter =
   | "resigned"
   | "trash";
 
-/**
- * Normal teacher response.
- *
- * IMPORTANT:
- * Password is intentionally NOT included here.
- */
+
 export interface Teacher {
   id: number;
   employee_code: string;
@@ -478,27 +473,6 @@ export class TeacherModel {
     );
   }
 
-  /**
-   * CREATE TEACHER
-   *
-   * PASSWORD BEHAVIOR:
-   *
-   * password not sent
-   *        ↓
-   * NULL
-   *
-   * password = null
-   *        ↓
-   * NULL
-   *
-   * password = ""
-   *        ↓
-   * NULL
-   *
-   * password = "teacher123"
-   *        ↓
-   * bcrypt hash
-   */
   static async create(
     data: TeacherPayload,
   ): Promise<Teacher> {
@@ -635,24 +609,11 @@ export class TeacherModel {
     return result.rows[0];
   }
 
-  /**
-   * UPDATE TEACHER
-   *
-   * PASSWORD BEHAVIOR:
-   *
-   * not sent → keep old
-   * null     → keep old
-   * ""       → keep old
-   * password → hash + replace
-   */
   static async update(
     id: number,
     data: TeacherUpdatePayload,
   ): Promise<Teacher | null> {
-    /**
-     * Password only counts as provided
-     * when it is a non-empty string.
-     */
+    
     const passwordProvided =
       typeof data.password ===
         "string" &&

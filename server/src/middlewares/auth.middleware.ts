@@ -170,6 +170,7 @@ export const isAuthenticated = catchAsync(
 
     req.userId =
       Number(user.id);
+    console.log(decoded, "decoded")
 
 
     req.user = {
@@ -180,7 +181,6 @@ export const isAuthenticated = catchAsync(
 
       default_academic_session:
         decoded.default_academic_session,
-
       academic_year_id:
         decoded.academic_year_id,
     };

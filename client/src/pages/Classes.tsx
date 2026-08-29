@@ -1,18 +1,20 @@
-import { useEffect, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { useEffect, useId, useState } from "react";
+import type { FormEvent } from "react";
+import {
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 
 import { DataTable, Column } from "@/components/tables/DataTable";
-import {
-  FormModal,
-  FieldDef,
-  FormValues,
-} from "@/components/common/FormModal";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
 import { Pagination } from "@/components/common/Pagination";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusTabs, StatusTabOption } from "@/components/common/StatusTabs";
 import { ListingSkeleton } from "@/components/tables/ListingSkeleton";
+import api from "@/lib/api";
 
 import useClass from "@/hooks/useClass";
 import { useAppSelector } from "../../redux/hooks";
@@ -23,6 +25,356 @@ type ClassItem = {
   status: string;
   description: string;
   display_order?: number | null;
+  sections?: Array<{
+    id: number;
+    name: string;
+    display_order?: number | null;
+    description?: string | null;
+  }>;
+};
+
+type SectionDraft = {
+  key: string;
+  id?: number;
+  name: string;
+  display_order: string;
+  description: string;
+};
+
+type CreateClassPayload = {
+  class_name: string;
+  status: string;
+  description: string;
+  display_order: number | null;
+  sections: Array<{
+    id?: number;
+    name?: string;
+    display_order?: number | null;
+    description?: string | null;
+  }>;
+};
+
+const createSectionDraft = (): SectionDraft => ({
+  key: crypto.randomUUID(),
+  name: "",
+  display_order: "",
+  description: "",
+});
+
+type ClassFormModalProps = {
+  isOpen: boolean;
+  isSubmitting: boolean;
+  mode: "create" | "edit";
+  initialValues?: ClassItem | null;
+  onClose: () => void;
+  onSubmit: (payload: CreateClassPayload) => Promise<void>;
+};
+
+const ClassFormModal = ({
+  isOpen,
+  isSubmitting,
+  mode,
+  initialValues,
+  onClose,
+  onSubmit,
+}: ClassFormModalProps) => {
+  const classNameId = useId();
+  const classOrderId = useId();
+  const classDescriptionId = useId();
+  const [className, setClassName] = useState("");
+  const [status, setStatus] = useState("active");
+  const [displayOrder, setDisplayOrder] = useState("");
+  const [description, setDescription] = useState("");
+  const [sections, setSections] = useState<SectionDraft[]>([]);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    setClassName(initialValues?.class_name ?? "");
+    setStatus(initialValues?.status ?? "active");
+    setDisplayOrder(
+      initialValues?.display_order === null ||
+        initialValues?.display_order === undefined
+        ? ""
+        : String(initialValues.display_order),
+    );
+    setDescription(initialValues?.description ?? "");
+    setSections(
+      (initialValues?.sections ?? []).map((section) => ({
+        key: crypto.randomUUID(),
+        id: section.id,
+        name: section.name,
+        display_order:
+          section.display_order === null ||
+            section.display_order === undefined
+            ? ""
+            : String(section.display_order),
+        description: section.description ?? "",
+      })),
+    );
+    setError("");
+  }, [isOpen, initialValues]);
+
+  if (!isOpen) return null;
+
+  const updateSection = (
+    key: string,
+    field: keyof Omit<SectionDraft, "key">,
+    value: string,
+  ) => {
+    setSections((currentSections) =>
+      currentSections.map((section) =>
+        section.key === key
+          ? { ...section, [field]: value }
+          : section,
+      ),
+    );
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+
+    if (!className.trim()) {
+      setError("Class name is required.");
+      return;
+    }
+
+    const hasEmptyNewSectionName = sections.some(
+      (section) => section.id === undefined && !section.name.trim(),
+    );
+
+    if (hasEmptyNewSectionName) {
+      setError("Enter a name for every section, or remove the empty row.");
+      return;
+    }
+
+    try {
+      await onSubmit({
+        class_name: className.trim(),
+        status,
+        description: description.trim(),
+        display_order: displayOrder.trim()
+          ? Number(displayOrder)
+          : null,
+        sections: sections.map((section) => {
+          if (section.id !== undefined) {
+            return { id: section.id };
+          }
+
+          return {
+            name: section.name.trim(),
+            display_order: section.display_order.trim()
+              ? Number(section.display_order)
+              : null,
+            description: section.description.trim() || null,
+          };
+        }),
+      });
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : `Unable to ${mode === "create" ? "create" : "update"} the class. Please try again.`,
+      );
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="class-form-title"
+    >
+      <form
+        onSubmit={handleSubmit}
+        className="flex max-h-[calc(100vh-2rem)] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+      >
+        <div className="flex items-start justify-between border-b border-border px-6 py-5">
+          <div>
+            <p className="text-sm font-semibold text-primary">Academic setup</p>
+            <h2 id="class-form-title" className="mt-1 text-xl font-bold text-card-foreground">
+              {mode === "create" ? "Add New Class" : "Edit Class"}
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {mode === "create"
+                ? "Add sections now, or create the class first and add them later."
+                : "Update class details and add further sections when needed."}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            aria-label="Close class form modal"
+            className="grid size-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:cursor-not-allowed"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto px-6 py-6">
+          {error && (
+            <div role="alert" className="mb-5 rounded-lg border border-destructive/25 bg-destructive/10 px-3 py-2.5 text-sm font-medium text-destructive">
+              {error}
+            </div>
+          )}
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-2">
+              <label htmlFor={classNameId} className="text-sm font-semibold text-card-foreground">
+                Class Name <span className="text-destructive">*</span>
+              </label>
+              <input
+                id={classNameId}
+                value={className}
+                onChange={(event) => setClassName(event.target.value)}
+                placeholder="Example: Class One"
+                disabled={isSubmitting}
+                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-card-foreground">
+                Status
+              </label>
+              <select
+                value={status}
+                onChange={(event) => setStatus(event.target.value)}
+                disabled={isSubmitting}
+                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor={classOrderId} className="text-sm font-semibold text-card-foreground">
+                Display Order
+              </label>
+              <input
+                id={classOrderId}
+                type="number"
+                min="0"
+                value={displayOrder}
+                onChange={(event) => setDisplayOrder(event.target.value)}
+                placeholder="Optional"
+                disabled={isSubmitting}
+                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor={classDescriptionId} className="text-sm font-semibold text-card-foreground">
+                Description
+              </label>
+              <input
+                id={classDescriptionId}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Optional class description"
+                disabled={isSubmitting}
+                className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+              />
+            </div>
+          </div>
+
+          <div className="mt-8 rounded-xl border border-border bg-muted/35">
+            <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="font-semibold text-card-foreground">Sections</h3>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Optional. Add A, B, C, or any section required for this class.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSections((currentSections) => [...currentSections, createSectionDraft()])}
+                disabled={isSubmitting}
+                className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-primary/25 bg-primary/10 px-3 text-sm font-semibold text-primary transition hover:bg-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Plus className="size-4" />
+                Add Section
+              </button>
+            </div>
+
+            {sections.length === 0 ? (
+              <div className="px-4 py-7 text-center">
+                <p className="text-sm font-medium text-card-foreground">No sections added yet</p>
+                <p className="mt-1 text-sm text-muted-foreground">Use Add Section to include one or more sections.</p>
+              </div>
+            ) : (
+              <div className="space-y-3 p-4">
+                {sections.map((section, index) => (
+                  <div key={section.key} className="rounded-lg border border-border bg-card p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-sm font-semibold text-card-foreground">Section {index + 1}</p>
+                      {section.id === undefined ? (
+                        <button
+                          type="button"
+                          onClick={() => setSections((currentSections) => currentSections.filter((item) => item.key !== section.key))}
+                          disabled={isSubmitting}
+                          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-destructive transition hover:bg-destructive/10 disabled:cursor-not-allowed"
+                        >
+                          <Trash2 className="size-3.5" />
+                          Remove
+                        </button>
+                      ) : (
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Existing section
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_130px]">
+                      <input
+                        value={section.name}
+                        onChange={(event) => updateSection(section.key, "name", event.target.value)}
+                        placeholder="Section name, e.g. A"
+                        disabled={isSubmitting || section.id !== undefined}
+                        className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        value={section.display_order}
+                        onChange={(event) => updateSection(section.key, "display_order", event.target.value)}
+                        placeholder="Order"
+                        disabled={isSubmitting || section.id !== undefined}
+                        className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 border-t border-border px-6 py-4 sm:flex-row sm:justify-end">
+          <button type="button" onClick={onClose} disabled={isSubmitting} className="h-10 rounded-lg border border-border px-4 text-sm font-semibold text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60">
+            Cancel
+          </button>
+          <button type="submit" disabled={isSubmitting} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60">
+            <Plus className="size-4" />
+            {isSubmitting
+              ? mode === "create"
+                ? "Adding Class..."
+                : "Saving Changes..."
+              : mode === "create"
+                ? "Add Class"
+                : "Save Changes"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 };
 
 const columns: Column[] = [
@@ -43,45 +395,6 @@ const columns: Column[] = [
   {
     key: "description",
     label: "Description",
-  },
-];
-
-const fields: FieldDef[] = [
-  {
-    key: "class_name",
-    label: "Class Name",
-    required: true,
-    placeholder: "Class One",
-  },
-  {
-    key: "status",
-    label: "Status",
-    required: false,
-    type: "select",
-    options: [
-      {
-        label: "Active",
-        value: "active",
-      },
-      {
-        label: "Inactive",
-        value: "inactive",
-      },
-    ],
-  },
-  {
-    key: "display_order",
-    label: "Display Order",
-    required: false,
-    type: "number",
-    placeholder: "Enter display order",
-  },
-  {
-    key: "description",
-    label: "Description",
-    required: false,
-    placeholder: "Enter class description",
-    type: "textarea",
   },
 ];
 
@@ -151,6 +464,12 @@ const Classes = () => {
   const [isLoading, setIsLoading] =
     useState(false);
 
+  const [isCreating, setIsCreating] =
+    useState(false);
+
+  const [isEditing, setIsEditing] =
+    useState(false);
+
   /**
    * Load classes
    */
@@ -196,7 +515,7 @@ const Classes = () => {
           item: Partial<ClassItem>,
           index: number,
         ) => {
-          let displayOrder:
+          let displayOrder: updateclass
             | number
             | null = null;
 
@@ -272,123 +591,53 @@ const Classes = () => {
    * ADD CLASS
    */
   const handleAdd = async (
-    values: FormValues,
+    payload: CreateClassPayload,
   ) => {
-    const rawDisplayOrder =
-      values.display_order;
+    try {
+      setIsCreating(true);
 
-    /**
-     * Empty string / undefined / null
-     * should become NULL, not 0.
-     */
-    const displayOrder =
-      rawDisplayOrder === undefined ||
-      rawDisplayOrder === null ||
-      String(rawDisplayOrder).trim() === ""
-        ? null
-        : Number(rawDisplayOrder);
+      const isAdded = await addclass(payload);
 
-    const payload = {
-      class_name: String(
-        values.class_name ?? "",
-      ).trim(),
+      if (!isAdded) {
+        throw new Error("Unable to create the class. Please try again.");
+      }
 
-      status:
-        String(
-          values.status ?? "",
-        ) || "active",
+      setAddOpen(false);
 
-      description: String(
-        values.description ?? "",
-      ).trim(),
-
-      display_order:
-        displayOrder,
-    };
-
-    console.log(
-      "ADD CLASS PAYLOAD:",
-      payload,
-    );
-
-    await addclass(payload);
-
-    setAddOpen(false);
-
-    /**
-     * Reload because backend sorts
-     * using display_order.
-     */
-    await loadClasses(statusFilter);
+      /** Reload because backend sorts using display_order. */
+      await loadClasses(statusFilter);
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   /**
    * UPDATE CLASS
    */
   const handleEdit = async (
-    values: FormValues,
+    values: CreateClassPayload,
   ) => {
-    if (!editItem) {
+    if (!editItem?.id) {
       return;
     }
 
-    const rawDisplayOrder =
-      values.display_order;
+    try {
+      setIsEditing(true);
 
-    /**
-     * Important:
-     *
-     * ""   -> null
-     * null -> null
-     * "3"  -> 3
-     *
-     * Do NOT use:
-     *
-     * Number(rawDisplayOrder || null)
-     *
-     * because Number(null) = 0.
-     */
-    const displayOrder =
-      rawDisplayOrder === undefined ||
-      rawDisplayOrder === null ||
-      String(rawDisplayOrder).trim() === ""
-        ? null
-        : Number(rawDisplayOrder);
+      const isUpdated = await updateclass({
+        id: editItem.id,
+        ...values,
+      });
 
-    const payload = {
-      id: editItem.id,
+      if (!isUpdated) {
+        throw new Error("Unable to update the class. Please try again.");
+      }
 
-      class_name: String(
-        values.class_name ?? "",
-      ).trim(),
-
-      status:
-        String(
-          values.status ?? "",
-        ) || "active",
-
-      description: String(
-        values.description ?? "",
-      ).trim(),
-
-      display_order:
-        displayOrder,
-    };
-
-    console.log(
-      "UPDATE CLASS PAYLOAD:",
-      payload,
-    );
-
-    await updateclass(payload);
-
-    setEditItem(null);
-
-    /**
-     * Reload so new display order
-     * immediately changes list order.
-     */
-    await loadClasses(statusFilter);
+      setEditItem(null);
+      await loadClasses(statusFilter);
+    } finally {
+      setIsEditing(false);
+    }
   };
 
   /**
@@ -461,14 +710,44 @@ const Classes = () => {
           classItem.id === rowId,
       );
 
-    if (
-      selectedClass &&
-      statusFilter !== "trash"
-    ) {
-      setEditItem(
-        selectedClass,
-      );
-    }
+    if (!selectedClass || statusFilter === "trash") return;
+
+    // Open immediately. The class details request below only enriches this
+    // modal with its existing sections.
+    setEditItem({
+      ...selectedClass,
+      sections: [],
+    });
+
+    void (async () => {
+      try {
+        const result = await api.get(
+          `/class/get-class/${rowId}`,
+        );
+
+        if (!result?.data?.success) {
+          throw new Error("Unable to load class details.");
+        }
+
+        setEditItem((currentItem) => {
+          if (currentItem?.id !== rowId) {
+            return currentItem;
+          }
+
+          return {
+            ...currentItem,
+            ...result.data.data,
+            sections: Array.isArray(result.data.data.sections)
+              ? result.data.data.sections
+              : [],
+          };
+        });
+      } catch (error) {
+        // The modal stays usable for updating class fields or adding sections
+        // even if existing section details could not be loaded.
+        console.error("Unable to load class sections:", error);
+      }
+    })();
   };
 
   /**
@@ -522,39 +801,6 @@ const Classes = () => {
       );
     }
   };
-
-  /**
-   * EDIT FORM INITIAL VALUES
-   *
-   * NULL -> ""
-   *
-   * Therefore display order input
-   * stays EMPTY.
-   */
-  const editInitialValues:
-    | FormValues
-    | undefined = editItem
-    ? {
-        class_name:
-          editItem.class_name,
-
-        status:
-          editItem.status,
-
-        description:
-          editItem.description,
-
-        display_order:
-          editItem.display_order ===
-            null ||
-          editItem.display_order ===
-            undefined
-            ? ""
-            : String(
-                editItem.display_order,
-              ),
-      }
-    : undefined;
 
   return (
     <div>
@@ -651,25 +897,25 @@ const Classes = () => {
               }
               onEdit={
                 statusFilter !==
-                "trash"
+                  "trash"
                   ? handleEditClick
                   : undefined
               }
               onDelete={
                 statusFilter !==
-                "trash"
+                  "trash"
                   ? handleDeleteClick
                   : undefined
               }
               onRestore={
                 statusFilter ===
-                "trash"
+                  "trash"
                   ? handleRestoreClick
                   : undefined
               }
               onPermanentDelete={
                 statusFilter ===
-                "trash"
+                  "trash"
                   ? handleDeleteClick
                   : undefined
               }
@@ -691,7 +937,7 @@ const Classes = () => {
               1,
               Math.ceil(
                 filtered.length /
-                  10,
+                10,
               ),
             )}
             onPageChange={
@@ -703,7 +949,7 @@ const Classes = () => {
 
       {/* ADD */}
 
-      <FormModal
+      <ClassFormModal
         isOpen={addOpen}
         onClose={() =>
           setAddOpen(false)
@@ -711,14 +957,13 @@ const Classes = () => {
         onSubmit={
           handleAdd
         }
-        title="Add New Class"
-        fields={fields}
-        submitLabel="Add Class"
+        isSubmitting={isCreating}
+        mode="create"
       />
 
       {/* EDIT */}
 
-      <FormModal
+      <ClassFormModal
         isOpen={
           !!editItem
         }
@@ -728,12 +973,9 @@ const Classes = () => {
         onSubmit={
           handleEdit
         }
-        title="Edit Class"
-        fields={fields}
-        initialValues={
-          editInitialValues
-        }
-        submitLabel="Save Changes"
+        initialValues={editItem}
+        mode="edit"
+        isSubmitting={isEditing}
       />
 
       {/* DELETE */}
@@ -749,10 +991,9 @@ const Classes = () => {
           handleDelete
         }
         title="Delete Class"
-        description={`Are you sure you want to move "${
-          deleteItem?.class_name ??
+        description={`Are you sure you want to move "${deleteItem?.class_name ??
           ""
-        }" to trash? You can restore it later.`}
+          }" to trash? You can restore it later.`}
         confirmLabel="Move to Trash"
       />
 
@@ -769,10 +1010,9 @@ const Classes = () => {
           handleRestore
         }
         title="Restore Class"
-        description={`Are you sure you want to restore "${
-          restoreItem?.class_name ??
+        description={`Are you sure you want to restore "${restoreItem?.class_name ??
           ""
-        }"? It will be moved back to the active list.`}
+          }"? It will be moved back to the active list.`}
         confirmLabel="Restore Class"
       />
 
@@ -791,10 +1031,9 @@ const Classes = () => {
           handlePermanentDelete
         }
         title="Permanently Delete Class"
-        description={`Are you sure you want to permanently delete "${
-          permanentDeleteItem?.class_name ??
+        description={`Are you sure you want to permanently delete "${permanentDeleteItem?.class_name ??
           ""
-        }"? This action cannot be undone.`}
+          }"? This action cannot be undone.`}
         confirmLabel="Delete Permanently"
         variant="danger"
       />

@@ -1,19 +1,168 @@
-import { NextFunction, Request, Response } from "express";
+import type {
+  NextFunction,
+  Request,
+  Response,
+} from "express";
 
 import {
   ClassModel,
-  ClassPayload,
-  ClassUpdatePayload,
+  type ClassPayload,
+  type ClassUpdatePayload,
+  type SectionPayload,
 } from "../models/classes.model.js";
 
 import { AppError } from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
 
+type RequestWithUser = Request & {
+  user?: {
+    academic_year_id?: number | string;
+  };
+};
+
+const getClassId = (
+  value: string | undefined,
+): number => {
+  const id = Number(value);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new AppError("Invalid class ID.", 400);
+  }
+
+  return id;
+};
+
+/**
+ * Gets the current academic year from your existing
+ * isAuthenticated middleware.
+ */
+const getAcademicYearId = (
+  req: Request,
+): number => {
+  const academicYearId = Number(
+    (req as RequestWithUser).user
+      ?.academic_year_id,
+  );
+
+  if (
+    !Number.isInteger(academicYearId) ||
+    academicYearId <= 0
+  ) {
+    throw new AppError(
+      "Current academic session is missing or invalid.",
+      400,
+    );
+  }
+
+  return academicYearId;
+};
+
+
+const normalizeSections = (
+  value: unknown,
+): SectionPayload[] | undefined => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const rows = Array.isArray(value)
+    ? value
+    : [value];
+
+  return rows.map((row) => {
+    if (
+      !row ||
+      typeof row !== "object" ||
+      Array.isArray(row)
+    ) {
+      throw new AppError(
+        "Each section must be a valid object.",
+        400,
+      );
+    }
+
+    const section = row as SectionPayload;
+
+    if (section.id !== undefined) {
+      const id = Number(section.id);
+
+      if (!Number.isInteger(id) || id <= 0) {
+        throw new AppError(
+          "Section ID must be a valid number.",
+          400,
+        );
+      }
+
+      return { id };
+    }
+
+    if (
+      typeof section.name !== "string" ||
+      !section.name.trim()
+    ) {
+      throw new AppError(
+        "Each new section requires a name.",
+        400,
+      );
+    }
+
+    const displayOrder = section.display_order;
+
+    if (
+      displayOrder !== undefined &&
+      displayOrder !== null &&
+      (
+        !Number.isInteger(Number(displayOrder)) ||
+        Number(displayOrder) < 0
+      )
+    ) {
+      throw new AppError(
+        "Section display order must be a non-negative integer.",
+        400,
+      );
+    }
+
+    return {
+      name: section.name.trim(),
+      description: section.description ?? null,
+      display_order:
+        displayOrder === undefined ||
+          displayOrder === null ||
+          String(displayOrder).trim() === ""
+          ? null
+          : Number(displayOrder),
+    };
+  });
+};
+
+const getDisplayOrder = (
+  value: unknown,
+): number | null => {
+  if (
+    value === undefined ||
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return null;
+  }
+
+  const displayOrder = Number(value);
+
+  if (
+    !Number.isInteger(displayOrder) ||
+    displayOrder < 0
+  ) {
+    throw new AppError(
+      "Display order must be a non-negative integer.",
+      400,
+    );
+  }
+
+  return displayOrder;
+};
+
 export class ClassController {
-  /**
-   * GET ALL CLASSES
-   */
-  static findAll = catchAsync(
+  static getAll = catchAsync(
     async (
       req: Request,
       res: Response,
@@ -23,17 +172,17 @@ export class ClassController {
         req.query.status ?? "all",
       );
 
-      const allowedStatuses = [
-        "all",
-        "active",
-        "inactive",
-        "trash",
-      ];
-
-      if (!allowedStatuses.includes(status)) {
+      if (
+        ![
+          "all",
+          "active",
+          "inactive",
+          "trash",
+        ].includes(status)
+      ) {
         return next(
           new AppError(
-            "Invalid class status filter",
+            "Invalid class status filter.",
             400,
           ),
         );
@@ -44,59 +193,37 @@ export class ClassController {
 
       res.status(200).json({
         success: true,
-        message: "Classes fetched successfully",
+        message: "Classes fetched successfully.",
         data: classes,
       });
     },
   );
 
-  /**
-   * GET CLASS BY ID
-   */
-  static findById = catchAsync(
+  static getOne = catchAsync(
     async (
       req: Request,
       res: Response,
       next: NextFunction,
     ) => {
-      const id = Number(req.params.id);
-
-      if (
-        !Number.isInteger(id) ||
-        id <= 0
-      ) {
-        return next(
-          new AppError(
-            "Invalid class ID",
-            400,
-          ),
-        );
-      }
-
       const classData =
-        await ClassModel.findById(id);
+        await ClassModel.findByIdWithSections(
+          getClassId(req.params.id),
+          getAcademicYearId(req),
+        );
 
       if (!classData) {
         return next(
-          new AppError(
-            "Class not found",
-            404,
-          ),
+          new AppError("Class not found.", 404),
         );
       }
 
       res.status(200).json({
         success: true,
-        message:
-          "Class fetched successfully",
         data: classData,
       });
     },
   );
 
-  /**
-   * CREATE CLASS
-   */
   static create = catchAsync(
     async (
       req: Request,
@@ -111,131 +238,74 @@ export class ClassController {
         req.body.status ?? "active",
       ).trim();
 
-      const description = String(
-        req.body.description ?? "",
-      ).trim();
-
-      /**
-       * DISPLAY ORDER
-       *
-       * Important:
-       * Number(null) === 0
-       * Number("") === 0
-       *
-       * So check first.
-       */
-      let displayOrder:
-        | number
-        | null = null;
-
-      if (
-        req.body.display_order !== undefined &&
-        req.body.display_order !== null &&
-        String(
-          req.body.display_order,
-        ).trim() !== ""
-      ) {
-        displayOrder = Number(
-          req.body.display_order,
-        );
-
-        if (
-          !Number.isInteger(
-            displayOrder,
-          ) ||
-          displayOrder < 0
-        ) {
-          return next(
-            new AppError(
-              "Display order must be a valid non-negative integer",
-              400,
-            ),
-          );
-        }
-      }
-
-      /**
-       * Validation
-       */
       if (!className) {
         return next(
           new AppError(
-            "Class name is required",
-            400,
-          ),
-        );
-      }
-
-      if (!status) {
-        return next(
-          new AppError(
-            "Class status is required",
+            "Class name is required.",
             400,
           ),
         );
       }
 
       if (
-        !["active", "inactive"].includes(status)
+        status !== "active" &&
+        status !== "inactive"
       ) {
         return next(
           new AppError(
-            "Invalid class status",
+            "Invalid class status.",
             400,
           ),
         );
       }
 
+      const sections = normalizeSections(
+        req.body.sections,
+      );
+
       const payload: ClassPayload = {
         class_name: className,
-        status,
-        description,
-        display_order: displayOrder,
+        status: status as ClassPayload["status"],
+        description:
+          req.body.description === undefined
+            ? null
+            : String(req.body.description).trim(),
+        display_order: getDisplayOrder(
+          req.body.display_order,
+        ),
       };
 
+      if (sections !== undefined) {
+        payload.sections = sections;
+      }
+
       const classData =
-        await ClassModel.create(payload);
+        await ClassModel.create(
+          payload,
+          sections?.length
+            ? getAcademicYearId(req)
+            : undefined,
+        );
 
       res.status(201).json({
         success: true,
-        message:
-          "Class created successfully",
+        message: "Class created successfully.",
         data: classData,
       });
     },
   );
 
-  /**
-   * UPDATE CLASS
-   */
   static update = catchAsync(
     async (
       req: Request,
       res: Response,
       next: NextFunction,
     ) => {
-      const id = Number(req.body.id);
-
-      if (
-        !Number.isInteger(id) ||
-        id <= 0
-      ) {
-        return next(
-          new AppError(
-            "Invalid class ID",
-            400,
-          ),
-        );
-      }
+      const id = getClassId(req.params.id);
 
       const payload: ClassUpdatePayload = {};
 
-      /**
-       * CLASS NAME
-       */
-      if (
-        req.body.class_name !== undefined
-      ) {
+      if (req.body.class_name !== undefined) {
         const className = String(
           req.body.class_name,
         ).trim();
@@ -243,7 +313,7 @@ export class ClassController {
         if (!className) {
           return next(
             new AppError(
-              "Class name cannot be empty",
+              "Class name cannot be empty.",
               400,
             ),
           );
@@ -252,95 +322,54 @@ export class ClassController {
         payload.class_name = className;
       }
 
-      /**
-       * STATUS
-       */
-      if (
-        req.body.status !== undefined
-      ) {
+      if (req.body.status !== undefined) {
         const status = String(
           req.body.status,
         ).trim();
 
         if (
-          !["active", "inactive"].includes(status)
+          status !== "active" &&
+          status !== "inactive"
         ) {
           return next(
             new AppError(
-              "Invalid class status",
+              "Invalid class status.",
               400,
             ),
           );
         }
 
-        payload.status = status;
+        payload.status =
+          status as NonNullable<
+            ClassUpdatePayload["status"]
+          >;
       }
 
-      /**
-       * DESCRIPTION
-       */
-      if (
-        req.body.description !== undefined
-      ) {
+      if (req.body.description !== undefined) {
         payload.description =
           req.body.description === null
-            ? ""
-            : String(
-                req.body.description,
-              ).trim();
+            ? null
+            : String(req.body.description).trim();
       }
 
-      /**
-       * DISPLAY ORDER
-       *
-       * undefined -> don't change
-       * null      -> clear value
-       * ""        -> clear value
-       * "5"       -> 5
-       */
-      if (
-        req.body.display_order !== undefined
-      ) {
-        if (
-          req.body.display_order === null ||
-          String(
-            req.body.display_order,
-          ).trim() === ""
-        ) {
-          payload.display_order = null;
-        } else {
-          const displayOrder = Number(
-            req.body.display_order,
-          );
-
-          if (
-            !Number.isInteger(
-              displayOrder,
-            ) ||
-            displayOrder < 0
-          ) {
-            return next(
-              new AppError(
-                "Display order must be a valid non-negative integer",
-                400,
-              ),
-            );
-          }
-
-          payload.display_order =
-            displayOrder;
-        }
+      if (req.body.display_order !== undefined) {
+        payload.display_order = getDisplayOrder(
+          req.body.display_order,
+        );
       }
 
-      /**
-       * Nothing supplied
-       */
-      if (
-        Object.keys(payload).length === 0
-      ) {
+      const sections = normalizeSections(
+        req.body.sections,
+      );
+
+      if (sections !== undefined) {
+        payload.sections = sections;
+      }
+
+      if (Object.keys(payload).length === 0) {
         return next(
           new AppError(
-            "At least one field is required to change",
+            "At least one field is required to update a class.",
             400,
           ),
         );
@@ -350,56 +379,40 @@ export class ClassController {
         await ClassModel.update(
           id,
           payload,
+          sections?.length
+            ? getAcademicYearId(req)
+            : undefined,
         );
 
       if (!classData) {
         return next(
-          new AppError(
-            "Class not found",
-            404,
-          ),
+          new AppError("Class not found.", 404),
         );
       }
 
       res.status(200).json({
         success: true,
-        message:
-          "Class updated successfully",
+        message: "Class updated successfully.",
         data: classData,
       });
     },
   );
 
-  /**
-   * SOFT DELETE CLASS
-   */
   static delete = catchAsync(
     async (
       req: Request,
       res: Response,
       next: NextFunction,
     ) => {
-      const id = Number(req.params.id);
-
-      if (
-        !Number.isInteger(id) ||
-        id <= 0
-      ) {
-        return next(
-          new AppError(
-            "Invalid class ID",
-            400,
-          ),
-        );
-      }
-
       const classData =
-        await ClassModel.delete(id);
+        await ClassModel.delete(
+          getClassId(req.params.id),
+        );
 
       if (!classData) {
         return next(
           new AppError(
-            "Class not found or already deleted",
+            "Class not found or already deleted.",
             404,
           ),
         );
@@ -408,42 +421,27 @@ export class ClassController {
       res.status(200).json({
         success: true,
         message:
-          "Class moved to trash successfully",
+          "Class moved to trash successfully.",
         data: classData,
       });
     },
   );
 
-  /**
-   * RESTORE CLASS
-   */
   static restore = catchAsync(
     async (
       req: Request,
       res: Response,
       next: NextFunction,
     ) => {
-      const id = Number(req.params.id);
-
-      if (
-        !Number.isInteger(id) ||
-        id <= 0
-      ) {
-        return next(
-          new AppError(
-            "Invalid class ID",
-            400,
-          ),
-        );
-      }
-
       const classData =
-        await ClassModel.restore(id);
+        await ClassModel.restore(
+          getClassId(req.params.id),
+        );
 
       if (!classData) {
         return next(
           new AppError(
-            "Class not found in trash",
+            "Class not found in trash.",
             404,
           ),
         );
@@ -451,55 +449,33 @@ export class ClassController {
 
       res.status(200).json({
         success: true,
-        message:
-          "Class restored successfully",
+        message: "Class restored successfully.",
         data: classData,
       });
     },
   );
 
-  /**
-   * PERMANENT DELETE CLASS
-   */
   static hardDelete = catchAsync(
     async (
       req: Request,
       res: Response,
       next: NextFunction,
     ) => {
-      const id = Number(req.params.id);
-
-      if (
-        !Number.isInteger(id) ||
-        id <= 0
-      ) {
-        return next(
-          new AppError(
-            "Invalid class ID",
-            400,
-          ),
+      const deleted =
+        await ClassModel.hardDelete(
+          getClassId(req.params.id),
         );
-      }
 
-      const success =
-        await ClassModel.hardDelete(id);
-
-      if (!success) {
+      if (!deleted) {
         return next(
-          new AppError(
-            "Class not found",
-            404,
-          ),
+          new AppError("Class not found.", 404),
         );
       }
 
       res.status(200).json({
         success: true,
         message:
-          "Class permanently deleted",
-        data: {
-          id,
-        },
+          "Class permanently deleted successfully.",
       });
     },
   );

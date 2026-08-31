@@ -170,7 +170,6 @@ export const isAuthenticated = catchAsync(
 
     req.userId =
       Number(user.id);
-    console.log(decoded, "decoded")
 
 
     req.user = {

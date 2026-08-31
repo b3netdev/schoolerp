@@ -10,6 +10,9 @@ const Home = () => {
     if (role == "admin") {
       navigate("/admin/signin")
     }
+    if (role == "teacher") {
+      navigate("/admin/signin")
+    }
   }
 
 

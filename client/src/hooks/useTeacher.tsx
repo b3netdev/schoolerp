@@ -84,6 +84,7 @@ const useTeacher = () => {
       );
 
       if (result?.data?.success) {
+        console.log(result.data.data)
         dispatch(setTeachers(result.data.data));
 
         return {

@@ -8,36 +8,37 @@ const router = express.Router();
 router.get("/get-classes", ClassController.getAll);
 
 router.get(
-    "/get-class/:id",
-    isAuthenticated,
-    ClassController.getOne,
+  "/get-class/:id",
+  isAuthenticated,
+  ClassController.getOne,
 );
 
 router.post(
-    "/add-class",
-    isAuthenticated,
-    ClassController.create,
+  "/add-class",
+  isAuthenticated,
+  ClassController.create,
 );
 
 router.post(
-    "/update-class/:id",
-    isAuthenticated,
-    ClassController.update,
+  "/update-class/:id",
+  isAuthenticated,
+  ClassController.update,
 );
 
-router.delete(
-    "/delete-class/:id",
-    ClassController.delete,
-);
+router.delete("/delete-class/:id", ClassController.delete);
+router.patch("/restore-class/:id", ClassController.restore);
+router.delete("/hard-delete-class/:id", ClassController.hardDelete);
 
 router.patch(
-    "/restore-class/:id",
-    ClassController.restore,
+  "/update-section/:classId/:sectionId",
+  isAuthenticated,
+  ClassController.updateSection,
 );
 
 router.delete(
-    "/hard-delete-class/:id",
-    ClassController.hardDelete,
+  "/remove-section/:classId/:sectionId",
+  isAuthenticated,
+  ClassController.removeSection,
 );
 
 export default router;

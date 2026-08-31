@@ -797,14 +797,7 @@ function safeValue(
   return String(value);
 }
 
-/**
- * IMPORTANT:
- *
- * Password is ALWAYS blank when opening
- * the Edit Teacher form.
- *
- * Backend never needs to send the hash.
- */
+
 function teacherToInitialValues(
   teacher: Teacher,
 ): TeacherFormValues {
@@ -3171,9 +3164,8 @@ function TeacherFormModal({
               </div>
             </section>
 
-            {/* ===================================================== */}
+
             {/* Remarks                                               */}
-            {/* ===================================================== */}
 
             <section>
               <h4 className="mb-3 text-sm font-semibold text-foreground">

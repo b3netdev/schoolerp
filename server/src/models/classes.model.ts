@@ -20,6 +20,12 @@ export interface SectionPayload {
   display_order?: number | null;
 }
 
+export interface SectionUpdatePayload {
+  name?: string;
+  description?: string | null;
+  display_order?: number | null;
+}
+
 export interface ClassPayload {
   class_name: string;
   status: "active" | "inactive";
@@ -209,15 +215,26 @@ export class ClassModel {
 
     if (!updatedClass) return null;
 
-    const sections = data.sections?.length
-      ? await this.addSectionsToClass(
-        id,
-        this.requireAcademicYearId(academicYearId),
-        data.sections,
-      )
-      : [];
+    if (data.sections !== undefined) {
+      const validAcademicYearId = this.requireAcademicYearId(academicYearId);
 
-    return { ...updatedClass, sections };
+      await this.addSectionsToClass(
+        id,
+        validAcademicYearId,
+        data.sections,
+      );
+
+      await this.updateExistingSectionsForClass(
+        id,
+        validAcademicYearId,
+        data.sections,
+      );
+
+      // Return all active sections, not only the newly added ones.
+      return this.findByIdWithSections(id, validAcademicYearId);
+    }
+
+    return { ...updatedClass, sections: [] };
   }
 
   static async delete(id: number): Promise<Class | null> {
@@ -253,6 +270,91 @@ export class ClassModel {
     );
 
     return (result.rowCount ?? 0) > 0;
+  }
+
+  /** Removes the class-section mapping for the current academic year only. */
+  static async removeSection(
+    classId: number,
+    sectionId: number,
+    academicYearId: number,
+  ): Promise<boolean> {
+    const result = await query<{ id: number }>(`
+      UPDATE class_section_relation
+      SET deleted_at = CURRENT_TIMESTAMP,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE class_id = $1
+        AND section_id = $2
+        AND academic_year_id = $3
+        AND deleted_at IS NULL
+      RETURNING id
+    `, [classId, sectionId, academicYearId]);
+
+    return Boolean(result.rows[0]);
+  }
+
+  /**
+   * Updates an existing section only when it is assigned to this class in the
+   * supplied academic year. The section master record is updated; therefore a
+   * section shared by another class will show the new details there as well.
+   */
+  static async updateSection(
+    classId: number,
+    sectionId: number,
+    academicYearId: number,
+    data: SectionUpdatePayload,
+  ): Promise<ClassSection | null> {
+    const relationResult = await query<{ id: number }>(`
+      SELECT id
+      FROM class_section_relation
+      WHERE class_id = $1
+        AND section_id = $2
+        AND academic_year_id = $3
+        AND deleted_at IS NULL
+      LIMIT 1
+    `, [classId, sectionId, academicYearId]);
+
+    if (!relationResult.rows[0]) return null;
+
+    const updates: string[] = [];
+    const values: unknown[] = [];
+    let parameterIndex = 1;
+
+    if (data.name !== undefined) {
+      updates.push(`name = $${parameterIndex++}`);
+      values.push(data.name.trim());
+    }
+
+    if (data.description !== undefined) {
+      updates.push(`description = $${parameterIndex++}`);
+      values.push(data.description);
+    }
+
+    if (data.display_order !== undefined) {
+      updates.push(`display_order = $${parameterIndex++}`);
+      values.push(data.display_order);
+    }
+
+    if (updates.length === 0) return null;
+
+    updates.push("updated_at = CURRENT_TIMESTAMP");
+    values.push(sectionId);
+
+    const result = await query<Omit<ClassSection, "relation_id" | "teacher_id">>(`
+      UPDATE section
+      SET ${updates.join(", ")}
+      WHERE id = $${parameterIndex}
+        AND deleted_at IS NULL
+      RETURNING id, name, description, display_order
+    `, values);
+
+    const section = result.rows[0];
+    if (!section) return null;
+
+    return {
+      ...section,
+      relation_id: relationResult.rows[0].id,
+      teacher_id: null,
+    };
   }
 
   private static async addSectionsToClass(
@@ -338,6 +440,44 @@ export class ClassModel {
     }
 
     return addedSections;
+  }
+
+  /** Applies changed details for section rows already connected to this class. */
+  private static async updateExistingSectionsForClass(
+    classId: number,
+    academicYearId: number,
+    requestedSections: SectionPayload[],
+  ): Promise<void> {
+    for (const sectionData of requestedSections) {
+      if (sectionData.id === undefined) continue;
+
+      const updateData: SectionUpdatePayload = {};
+
+      if (sectionData.name !== undefined) {
+        updateData.name = sectionData.name;
+      }
+
+      if (sectionData.description !== undefined) {
+        updateData.description = sectionData.description;
+      }
+
+      if (sectionData.display_order !== undefined) {
+        updateData.display_order = sectionData.display_order;
+      }
+
+      if (Object.keys(updateData).length === 0) continue;
+
+      const updatedSection = await this.updateSection(
+        classId,
+        sectionData.id,
+        academicYearId,
+        updateData,
+      );
+
+      if (!updatedSection) {
+        throw new Error("Unable to update the selected section.");
+      }
+    }
   }
 
   private static requireAcademicYearId(academicYearId?: number): number {

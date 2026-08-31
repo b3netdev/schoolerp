@@ -2,6 +2,7 @@ import { useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
 import {
   Plus,
+  Pencil,
   Search,
   Trash2,
   X,
@@ -66,6 +67,19 @@ type ClassFormModalProps = {
   isSubmitting: boolean;
   mode: "create" | "edit";
   initialValues?: ClassItem | null;
+  onRemoveExistingSection?: (
+    classId: number,
+    sectionId: number,
+  ) => Promise<void>;
+  onUpdateExistingSection?: (
+    classId: number,
+    sectionId: number,
+    data: {
+      name: string;
+      description: string | null;
+      display_order: number | null;
+    },
+  ) => Promise<void>;
   onClose: () => void;
   onSubmit: (payload: CreateClassPayload) => Promise<void>;
 };
@@ -75,6 +89,8 @@ const ClassFormModal = ({
   isSubmitting,
   mode,
   initialValues,
+  onRemoveExistingSection,
+  onUpdateExistingSection,
   onClose,
   onSubmit,
 }: ClassFormModalProps) => {
@@ -87,6 +103,8 @@ const ClassFormModal = ({
   const [description, setDescription] = useState("");
   const [sections, setSections] = useState<SectionDraft[]>([]);
   const [error, setError] = useState("");
+  const [editingSectionKey, setEditingSectionKey] = useState<string | null>(null);
+  const [savingSectionKey, setSavingSectionKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -114,6 +132,8 @@ const ClassFormModal = ({
       })),
     );
     setError("");
+    setEditingSectionKey(null);
+    setSavingSectionKey(null);
   }, [isOpen, initialValues]);
 
   if (!isOpen) return null;
@@ -160,7 +180,14 @@ const ClassFormModal = ({
           : null,
         sections: sections.map((section) => {
           if (section.id !== undefined) {
-            return { id: section.id };
+            return {
+              id: section.id,
+              name: section.name.trim(),
+              display_order: section.display_order.trim()
+                ? Number(section.display_order)
+                : null,
+              description: section.description.trim() || null,
+            };
           }
 
           return {
@@ -311,7 +338,12 @@ const ClassFormModal = ({
               </div>
             ) : (
               <div className="space-y-3 p-4">
-                {sections.map((section, index) => (
+                {sections.map((section, index) => {
+                  const isExistingSection = section.id !== undefined;
+                  const isEditingExistingSection = editingSectionKey === section.key;
+                  const isDisabled = isSubmitting || savingSectionKey === section.key || (isExistingSection && !isEditingExistingSection);
+
+                  return (
                   <div key={section.key} className="rounded-lg border border-border bg-card p-4">
                     <div className="mb-3 flex items-center justify-between">
                       <p className="text-sm font-semibold text-card-foreground">Section {index + 1}</p>
@@ -326,9 +358,70 @@ const ClassFormModal = ({
                           Remove
                         </button>
                       ) : (
-                        <span className="text-xs font-medium text-muted-foreground">
-                          Existing section
-                        </span>
+                        <div className="flex items-center gap-1">
+                          {isEditingExistingSection ? (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!initialValues?.id || !section.id || !onUpdateExistingSection) return;
+                                if (!section.name.trim()) {
+                                  setError("Section name is required.");
+                                  return;
+                                }
+                                try {
+                                  setSavingSectionKey(section.key);
+                                  setError("");
+                                  await onUpdateExistingSection(initialValues.id, section.id, {
+                                    name: section.name.trim(),
+                                    description: section.description.trim() || null,
+                                    display_order: section.display_order.trim() ? Number(section.display_order) : null,
+                                  });
+                                  setEditingSectionKey(null);
+                                } catch (updateError) {
+                                  setError(updateError instanceof Error ? updateError.message : "Unable to update the section.");
+                                } finally {
+                                  setSavingSectionKey(null);
+                                }
+                              }}
+                              disabled={isSubmitting || savingSectionKey === section.key}
+                              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed"
+                            >
+                              Save section
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setEditingSectionKey(section.key)}
+                              disabled={isSubmitting}
+                              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-primary transition hover:bg-primary/10 disabled:cursor-not-allowed"
+                            >
+                              <Pencil className="size-3.5" />
+                              Edit
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!initialValues?.id || !section.id || !onRemoveExistingSection) return;
+                              try {
+                                setSavingSectionKey(section.key);
+                                setError("");
+                                await onRemoveExistingSection(initialValues.id, section.id);
+                                setSections((currentSections) => currentSections.filter((item) => item.key !== section.key));
+                                if (editingSectionKey === section.key) setEditingSectionKey(null);
+                              } catch (removeError) {
+                                setError(removeError instanceof Error ? removeError.message : "Unable to remove the section.");
+                              } finally {
+                                setSavingSectionKey(null);
+                              }
+                            }}
+                            disabled={isSubmitting || savingSectionKey === section.key}
+                            className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-destructive transition hover:bg-destructive/10 disabled:cursor-not-allowed"
+                          >
+                            <Trash2 className="size-3.5" />
+                            Remove
+                          </button>
+                        </div>
                       )}
                     </div>
 
@@ -337,7 +430,7 @@ const ClassFormModal = ({
                         value={section.name}
                         onChange={(event) => updateSection(section.key, "name", event.target.value)}
                         placeholder="Section name, e.g. A"
-                        disabled={isSubmitting || section.id !== undefined}
+                        disabled={isDisabled}
                         className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
                       />
                       <input
@@ -346,12 +439,20 @@ const ClassFormModal = ({
                         value={section.display_order}
                         onChange={(event) => updateSection(section.key, "display_order", event.target.value)}
                         placeholder="Order"
-                        disabled={isSubmitting || section.id !== undefined}
+                        disabled={isDisabled}
                         className="h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
                       />
                     </div>
+                    <input
+                      value={section.description}
+                      onChange={(event) => updateSection(section.key, "description", event.target.value)}
+                      placeholder="Optional section description"
+                      disabled={isDisabled}
+                      className="mt-3 h-10 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
+                    />
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -515,7 +616,7 @@ const Classes = () => {
           item: Partial<ClassItem>,
           index: number,
         ) => {
-          let displayOrder: updateclass
+          let displayOrder:
             | number
             | null = null;
 
@@ -638,6 +739,62 @@ const Classes = () => {
     } finally {
       setIsEditing(false);
     }
+  };
+
+  const handleRemoveExistingSection = async (
+    classId: number,
+    sectionId: number,
+  ) => {
+    const result = await api.delete(
+      `/class/remove-section/${classId}/${sectionId}`,
+    );
+
+    if (!result?.data?.success) {
+      throw new Error(
+        result?.data?.message || "Unable to remove the section.",
+      );
+    }
+
+    setEditItem((currentItem) => {
+      if (!currentItem) return null;
+
+      return {
+        ...currentItem,
+        sections: (currentItem.sections ?? []).filter(
+          (section) => section.id !== sectionId,
+        ),
+      };
+    });
+  };
+
+  const handleUpdateExistingSection = async (
+    classId: number,
+    sectionId: number,
+    sectionData: {
+      name: string;
+      description: string | null;
+      display_order: number | null;
+    },
+  ) => {
+    const result = await api.patch(
+      `/class/update-section/${classId}/${sectionId}`,
+      sectionData,
+    );
+
+    if (!result?.data?.success) {
+      throw new Error(result?.data?.message || "Unable to update the section.");
+    }
+
+    setEditItem((currentItem) => {
+      if (!currentItem) return null;
+
+      return {
+        ...currentItem,
+        sections: (currentItem.sections ?? []).map((section) =>
+          section.id === sectionId ? { ...section, ...result.data.data } : section,
+        ),
+      };
+    });
   };
 
   /**
@@ -974,6 +1131,8 @@ const Classes = () => {
           handleEdit
         }
         initialValues={editItem}
+        onRemoveExistingSection={handleRemoveExistingSection}
+        onUpdateExistingSection={handleUpdateExistingSection}
         mode="edit"
         isSubmitting={isEditing}
       />

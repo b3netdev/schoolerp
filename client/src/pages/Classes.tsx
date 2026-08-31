@@ -1,6 +1,8 @@
 import { useEffect, useId, useState } from "react";
 import type { FormEvent } from "react";
 import {
+  Eye,
+  Loader2,
   Plus,
   Pencil,
   Search,
@@ -478,6 +480,212 @@ const ClassFormModal = ({
   );
 };
 
+type ClassDetailsModalProps = {
+  isOpen: boolean;
+  isLoading: boolean;
+  classItem: ClassItem | null;
+  onClose: () => void;
+};
+
+const ClassDetailsModal = ({
+  isOpen,
+  isLoading,
+  classItem,
+  onClose,
+}: ClassDetailsModalProps) => {
+  if (!isOpen || !classItem) return null;
+
+  const sections = classItem.sections ?? [];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="class-details-title"
+    >
+      <section className="flex max-h-[calc(100vh-2rem)] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+        <div className="flex items-start justify-between border-b border-border px-6 py-5">
+          <div>
+            <p className="text-sm font-semibold text-primary">Academic setup</p>
+            <h2 id="class-details-title" className="mt-1 text-xl font-bold text-card-foreground">
+              Class Details
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Review the class and all sections assigned in the current academic session.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close class details modal"
+            className="grid size-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto px-6 py-6">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-xl border border-border bg-muted/35 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Class name</p>
+              <p className="mt-1 font-semibold text-card-foreground">{classItem.class_name}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/35 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</p>
+              <span className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${classItem.status === "active" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-slate-500/10 text-slate-700 dark:text-slate-300"}`}>
+                {classItem.status}
+              </span>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/35 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Display order</p>
+              <p className="mt-1 font-semibold text-card-foreground">{classItem.display_order ?? "—"}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/35 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Description</p>
+              <p className="mt-1 break-words text-sm text-card-foreground">{classItem.description || "—"}</p>
+            </div>
+          </div>
+
+          <div className="mt-6 overflow-hidden rounded-xl border border-border">
+            <div className="flex items-center justify-between border-b border-border bg-muted/35 px-4 py-3">
+              <div>
+                <h3 className="font-semibold text-card-foreground">Sections</h3>
+                <p className="mt-0.5 text-sm text-muted-foreground">{sections.length} assigned section{sections.length === 1 ? "" : "s"}</p>
+              </div>
+              {isLoading && <Loader2 className="size-5 animate-spin text-primary" aria-label="Loading sections" />}
+            </div>
+
+            {isLoading ? (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">Loading class sections…</div>
+            ) : sections.length === 0 ? (
+              <div className="px-4 py-8 text-center">
+                <p className="text-sm font-medium text-card-foreground">No sections assigned</p>
+                <p className="mt-1 text-sm text-muted-foreground">Sections can be added from the Edit Class modal.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {sections.map((section, index) => (
+                  <div key={section.id} className="grid gap-1 px-4 py-3 sm:grid-cols-[48px_minmax(0,1fr)_100px] sm:items-center">
+                    <span className="text-sm font-semibold text-muted-foreground">#{index + 1}</span>
+                    <div>
+                      <p className="font-semibold text-card-foreground">{section.name}</p>
+                      {section.description && <p className="mt-0.5 text-sm text-muted-foreground">{section.description}</p>}
+                    </div>
+                    <p className="text-sm text-muted-foreground sm:text-right">Order: {section.display_order ?? "—"}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex justify-end border-t border-border px-6 py-4">
+          <button type="button" onClick={onClose} className="h-10 rounded-lg border border-border px-4 text-sm font-semibold text-foreground transition hover:bg-muted">
+            Close
+          </button>
+        </div>
+      </section>
+    </div>
+  );
+};
+
+type AllClassesSectionsModalProps = {
+  isOpen: boolean;
+  isLoading: boolean;
+  classes: ClassItem[];
+  onClose: () => void;
+};
+
+const AllClassesSectionsModal = ({
+  isOpen,
+  isLoading,
+  classes,
+  onClose,
+}: AllClassesSectionsModalProps) => {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="all-classes-sections-title"
+    >
+      <section className="flex max-h-[calc(100vh-2rem)] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+        <div className="flex items-start justify-between border-b border-border px-6 py-5">
+          <div>
+            <p className="text-sm font-semibold text-primary">Academic setup</p>
+            <h2 id="all-classes-sections-title" className="mt-1 text-xl font-bold text-card-foreground">All Classes & Sections</h2>
+            <p className="mt-1 text-sm text-muted-foreground">A read-only overview of every active class and its assigned sections.</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close classes and sections modal" className="grid size-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground">
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto px-6 py-6">
+          {isLoading ? (
+            <div className="flex min-h-48 flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+              <Loader2 className="size-6 animate-spin text-primary" />
+              Loading classes and sections…
+            </div>
+          ) : classes.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center">
+              <p className="font-semibold text-card-foreground">No classes found</p>
+              <p className="mt-1 text-sm text-muted-foreground">Create a class to view it here.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {classes.map((classItem) => {
+                const sections = classItem.sections ?? [];
+
+                return (
+                  <article key={classItem.id} className="overflow-hidden rounded-xl border border-border">
+                    <div className="flex flex-col gap-3 bg-muted/35 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-card-foreground">{classItem.class_name}</h3>
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${classItem.status === "active" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-slate-500/10 text-slate-700 dark:text-slate-300"}`}>
+                            {classItem.status}
+                          </span>
+                        </div>
+                        {classItem.description && <p className="mt-1 text-sm text-muted-foreground">{classItem.description}</p>}
+                      </div>
+                      <p className="text-sm font-medium text-muted-foreground">{sections.length} section{sections.length === 1 ? "" : "s"}</p>
+                    </div>
+
+                    {sections.length === 0 ? (
+                      <p className="px-4 py-4 text-sm text-muted-foreground">No sections assigned.</p>
+                    ) : (
+                      <div className="divide-y divide-border">
+                        {sections.map((section, index) => (
+                          <div key={section.id} className="grid gap-1 px-4 py-3 sm:grid-cols-[52px_minmax(0,1fr)_100px] sm:items-center">
+                            <span className="text-sm font-semibold text-muted-foreground">#{index + 1}</span>
+                            <div>
+                              <p className="font-medium text-card-foreground">{section.name}</p>
+                              {section.description && <p className="mt-0.5 text-sm text-muted-foreground">{section.description}</p>}
+                            </div>
+                            <p className="text-sm text-muted-foreground sm:text-right">Order: {section.display_order ?? "—"}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end border-t border-border px-6 py-4">
+          <button type="button" onClick={onClose} className="h-10 rounded-lg border border-border px-4 text-sm font-semibold text-foreground transition hover:bg-muted">Close</button>
+        </div>
+      </section>
+    </div>
+  );
+};
+
 const columns: Column[] = [
   {
     key: "class_name",
@@ -544,6 +752,16 @@ const Classes = () => {
 
   const [editItem, setEditItem] =
     useState<ClassItem | null>(null);
+
+  const [viewItem, setViewItem] =
+    useState<ClassItem | null>(null);
+
+  const [isViewing, setIsViewing] =
+    useState(false);
+
+  const [allClassesOpen, setAllClassesOpen] = useState(false);
+  const [allClasses, setAllClasses] = useState<ClassItem[]>([]);
+  const [isLoadingAllClasses, setIsLoadingAllClasses] = useState(false);
 
   const [deleteItem, setDeleteItem] =
     useState<ClassItem | null>(null);
@@ -907,6 +1125,87 @@ const Classes = () => {
     })();
   };
 
+  const handleViewClick = (
+    row: Record<string, unknown>,
+  ) => {
+    const rowId = Number(row.id);
+    const selectedClass = data.find((classItem) => classItem.id === rowId);
+
+    if (!selectedClass) return;
+
+    setViewItem({ ...selectedClass, sections: [] });
+    setIsViewing(true);
+
+    void (async () => {
+      try {
+        const result = await api.get(`/class/get-class/${rowId}`);
+
+        if (!result?.data?.success) {
+          throw new Error("Unable to load class details.");
+        }
+
+        setViewItem((currentItem) => {
+          if (currentItem?.id !== rowId) return currentItem;
+
+          return {
+            ...currentItem,
+            ...result.data.data,
+            sections: Array.isArray(result.data.data.sections)
+              ? result.data.data.sections
+              : [],
+          };
+        });
+      } catch (error) {
+        console.error("Unable to load class details:", error);
+      } finally {
+        setIsViewing(false);
+      }
+    })();
+  };
+
+  const handleViewAllClasses = () => {
+    setAllClassesOpen(true);
+    setIsLoadingAllClasses(true);
+
+    void (async () => {
+      try {
+        const classesResult = await api.get("/class/get-classes", {
+          params: { status: "all" },
+        });
+
+        if (!classesResult?.data?.success || !Array.isArray(classesResult.data.data)) {
+          throw new Error("Unable to load classes.");
+        }
+
+        const classRows = classesResult.data.data as ClassItem[];
+        const detailedClasses = await Promise.all(
+          classRows.map(async (classItem) => {
+            const result = await api.get(`/class/get-class/${classItem.id}`);
+
+            if (!result?.data?.success) {
+              return { ...classItem, sections: [] };
+            }
+
+            return {
+              ...classItem,
+              ...result.data.data,
+              sections: Array.isArray(result.data.data.sections)
+                ? result.data.data.sections
+                : [],
+            } as ClassItem;
+          }),
+        );
+
+        setAllClasses(detailedClasses);
+      } catch (error) {
+        console.error("Unable to load all classes and sections:", error);
+        setAllClasses([]);
+      } finally {
+        setIsLoadingAllClasses(false);
+      }
+    })();
+  };
+
   /**
    * DELETE CLICK
    */
@@ -973,17 +1272,23 @@ const Classes = () => {
         title="Classes"
         description={`${data.length} class records`}
         action={
-          <button
-            onClick={() =>
-              setAddOpen(true)
-            }
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
-            data-testid="add-class-btn"
-          >
-            <Plus className="w-4 h-4" />
-
-            Add Class
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleViewAllClasses}
+              className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:bg-muted"
+            >
+              <Eye className="size-4" />
+              View Classes & Sections
+            </button>
+            <button
+              onClick={() => setAddOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              data-testid="add-class-btn"
+            >
+              <Plus className="size-4" />
+              Add Class
+            </button>
+          </div>
         }
       />
 
@@ -1058,6 +1363,7 @@ const Classes = () => {
                   ? handleEditClick
                   : undefined
               }
+              onView={handleViewClick}
               onDelete={
                 statusFilter !==
                   "trash"
@@ -1116,6 +1422,20 @@ const Classes = () => {
         }
         isSubmitting={isCreating}
         mode="create"
+      />
+
+      <ClassDetailsModal
+        isOpen={!!viewItem}
+        isLoading={isViewing}
+        classItem={viewItem}
+        onClose={() => setViewItem(null)}
+      />
+
+      <AllClassesSectionsModal
+        isOpen={allClassesOpen}
+        isLoading={isLoadingAllClasses}
+        classes={allClasses}
+        onClose={() => setAllClassesOpen(false)}
       />
 
       {/* EDIT */}

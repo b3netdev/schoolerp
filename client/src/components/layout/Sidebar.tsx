@@ -59,18 +59,18 @@ const mainNav: NavItem[] = [
     label: "Teachers",
     roles: ["admin"],
   },
-  {
-    path: "section",
-    icon: BookOpen,
-    label: "Section",
-    roles: ["admin"],
-  },
-  {
-    path: "class-section-relation",
-    icon: BookOpen,
-    label: "Class Section Relation",
-    roles: ["admin"],
-  },
+  // {
+  //   path: "section",
+  //   icon: BookOpen,
+  //   label: "Section",
+  //   roles: ["admin"],
+  // },
+  // {
+  //   path: "class-section-relation",
+  //   icon: BookOpen,
+  //   label: "Class Section Relation",
+  //   roles: ["admin"],
+  // },
   {
     path: "classes",
     icon: BookOpen,

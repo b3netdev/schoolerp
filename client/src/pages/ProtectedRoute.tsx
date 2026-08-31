@@ -22,7 +22,7 @@ const ProtectedRoute = ({
     const { portal } = useParams();
 
     const user = useAppSelector((state) => state.auth.user);
-    console.log(user,"CHECK AUTH USER")
+    
 
     const { checkAuth, loading } = useAuth();
 

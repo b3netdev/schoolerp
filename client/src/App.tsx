@@ -35,7 +35,7 @@ import { Toaster } from "./components/ui/sonner";
 import StudentSignin from "./pages/student/StudentSignin";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import StudentClassRelation from "./pages/StudentClassRelation";
-
+import TeacherSignin from "./pages/teachers/TeacherSignin";
 const queryClient = new QueryClient();
 
 function App() {
@@ -53,6 +53,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/admin/signin" element={<AdminSignin />} />
+              <Route path="/teacher/signin" element={<TeacherSignin />} />
               <Route path="/student-portal/signin" element={<StudentSignin />} />
               <Route path="/student-portal/dashboard" element={<StudentDashboard />} />
               <Route

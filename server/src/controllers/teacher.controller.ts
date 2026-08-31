@@ -863,6 +863,7 @@ export class TeacherController {
           req.body?.employee_code,
         )?.toUpperCase();
 
+
       const password =
         cleanPassword(
           req.body?.password,

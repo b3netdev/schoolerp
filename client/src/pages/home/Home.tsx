@@ -11,7 +11,7 @@ const Home = () => {
       navigate("/admin/signin")
     }
     if (role == "teacher") {
-      navigate("/admin/signin")
+      navigate("/teacher/signin")
     }
   }
 

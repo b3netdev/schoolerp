@@ -9,6 +9,12 @@ router.post("/add-teacher", TeacherController.create);
 router.post("/update-teacher", TeacherController.update);
 router.delete("/delete-teacher/:id", TeacherController.delete);
 router.post("/restore-teacher/:id", TeacherController.restore);
-router.delete("/permanent-delete-teacher/:id", TeacherController.permanentDelete);
+router.delete(
+  "/permanent-delete-teacher/:id",
+  TeacherController.permanentDelete,
+);
+
+//Teachers auth routes
+router.post("/login", TeacherController.login);
 
 export default router;

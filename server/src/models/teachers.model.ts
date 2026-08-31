@@ -71,25 +71,11 @@ export interface Teacher {
   deleted_at?: Date | null;
 }
 
-/**
- * Teacher create payload.
- *
- * Password is optional.
- */
+
 export interface TeacherPayload {
   first_name: string;
   last_name?: string;
   employee_code?: string;
-
-  /**
-   * Optional password.
-   *
-   * Not supplied / null / empty:
-   * password will be stored as NULL.
-   *
-   * Supplied:
-   * password will be bcrypt hashed.
-   */
   password?: string | null;
 
   email?: string;
@@ -129,17 +115,7 @@ export interface TeacherPayload {
   remarks?: string;
 }
 
-/**
- * Teacher update payload.
- *
- * Password is optional.
- *
- * undefined / null / empty:
- * existing password remains unchanged.
- *
- * non-empty:
- * new password will be hashed and stored.
- */
+
 export interface TeacherUpdatePayload {
   first_name?: string;
   last_name?: string;
@@ -184,12 +160,6 @@ export interface TeacherUpdatePayload {
   remarks?: string;
 }
 
-/**
- * Special interface used ONLY for login.
- *
- * This is intentionally separate from Teacher
- * because this query needs the password hash.
- */
 export interface TeacherLoginRecord {
   id: number;
   employee_code: string;
@@ -201,11 +171,7 @@ export interface TeacherLoginRecord {
   profile_image: string | null;
 }
 
-/**
- * Fields safe to return from normal teacher queries.
- *
- * Never add password here.
- */
+
 const teacherSelectFields = `
   id,
   employee_code,
@@ -384,11 +350,7 @@ export class TeacherModel {
     return `${cleanedPrefix}${paddedNumber}`;
   }
 
-  /**
-   * FIND TEACHER BY ID
-   *
-   * Password is NEVER returned.
-   */
+ 
   static async findById(
     id: number,
   ): Promise<Teacher | null> {
@@ -777,11 +739,6 @@ export class TeacherModel {
           data.employee_code ??
             null,
 
-          /**
-           * $4:
-           * tells PostgreSQL whether
-           * password should change.
-           */
           passwordProvided,
 
           /**
@@ -854,13 +811,6 @@ export class TeacherModel {
     );
   }
 
-  /**
-   * FIND TEACHER FOR LOGIN
-   *
-   * This is deliberately separate from
-   * findById/findAll because login needs
-   * access to the password hash.
-   */
   static async findByEmployeeCodeForLogin(
     employeeCode: string,
   ): Promise<TeacherLoginRecord | null> {
@@ -893,12 +843,6 @@ export class TeacherModel {
     );
   }
 
-  /**
-   * COMPARE TEACHER PASSWORD
-   *
-   * Optional helper for the login
-   * controller.
-   */
   static async comparePassword(
     plainPassword: string,
     hashedPassword: string,

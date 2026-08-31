@@ -51,7 +51,7 @@ const mainNav: NavItem[] = [
     path: "students",
     icon: GraduationCap,
     label: "Students",
-    roles: ["admin", "teacher"],
+    roles: ["admin"],
   },
   {
     path: "teachers",
@@ -75,7 +75,7 @@ const mainNav: NavItem[] = [
     path: "classes",
     icon: BookOpen,
     label: "Classes",
-    roles: ["admin", "teacher"],
+    roles: ["admin"],
   },
   {
     path: "subjects",

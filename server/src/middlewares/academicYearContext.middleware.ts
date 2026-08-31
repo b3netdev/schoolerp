@@ -2,16 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { AppError } from "../utils/AppError.js";
 import { runWithAcademicYear } from "../context/academic-year-context.js";
 
-/**
- * Must run after `isAuthenticated` (needs req.user). Establishes the
- * AsyncLocalStorage store for the rest of this request's lifetime so every
- * db.table() call — in this handler or any model/service it calls — can
- * see the trusted academic year without it being passed explicitly.
- *
- * Because this uses AsyncLocalStorage.run() per request, concurrent
- * requests each get their own isolated store; they cannot see or overwrite
- * each other's academic_year_id even while their async work interleaves.
- */
+
 export const withAcademicYearContext = (
   req: Request,
   res: Response,

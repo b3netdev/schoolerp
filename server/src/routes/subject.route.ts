@@ -14,7 +14,7 @@ import { withAcademicYearContext } from "../middlewares/academicYearContext.midd
 
 const router = express.Router();
 
-router.use(isAuthenticated, withAcademicYearContext);
+router.use( withAcademicYearContext);
 
 router.get("/get-subjects", getAllSubjects);
 router.get("/get-subject/:id", getSubjectById);

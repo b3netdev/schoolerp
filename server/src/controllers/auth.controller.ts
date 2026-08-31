@@ -5,7 +5,7 @@ import { AcademicSessionModel } from "../models/AcademicSession.model.js";
 import { AppError } from "../utils/AppError.js";
 import bcrypt from "bcrypt";
 import jwt, { SignOptions } from "jsonwebtoken";
-
+import { TeacherModel } from "../models/teachers.model.js";
 
 export const createAdmin = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
@@ -235,23 +235,77 @@ export const changePassword = catchAsync(
   },
 );
 
-export const checkAuth = catchAsync(
-  async (req: any, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      return next(new AppError("Unable to get user", 401));
-    }
-    const user = await UserModel.findById(req.user.id);
-    if (!user) return next(new AppError("User not found", 401));
 
-    res.status(200).json({
-      message: "Get user",
-      success: true,
-      data: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    });
+export const checkAuth = catchAsync(
+  async (
+    req: any,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    if (!req.user) {
+      return next(
+        new AppError("Unable to get authenticated user", 401),
+      );
+    }
+
+    if (req.user.role === "admin") {
+      const user = await UserModel.findById(req.user.id);
+
+      if (!user) {
+        return next(
+          new AppError("User not found", 401),
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Authenticated admin fetched successfully",
+        data: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          academic_year_id: req.user.academic_year_id,
+          default_academic_session:
+            req.user.default_academic_session,
+        },
+      });
+    }
+
+    if (req.user.role === "teacher") {
+      const teacher = await TeacherModel.findById(req.user.id);
+
+      if (!teacher || teacher.status !== "active") {
+        return next(
+          new AppError("Teacher not found or inactive", 401),
+        );
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Authenticated teacher fetched successfully",
+        data: {
+          id: teacher.id,
+          employee_code: teacher.employee_code,
+          name: [
+            teacher.first_name,
+            teacher.last_name,
+          ]
+            .filter(Boolean)
+            .join(" "),
+          email: teacher.email,
+          profile_image: teacher.profile_image,
+          role: "teacher",
+          academic_year_id: req.user.academic_year_id,
+          default_academic_session:
+            req.user.default_academic_session,
+        },
+      });
+    }
+
+    return next(
+      new AppError("Unsupported user role", 403),
+    );
   },
 );
+

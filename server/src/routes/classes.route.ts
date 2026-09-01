@@ -5,23 +5,22 @@ import { isAuthenticated } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
+router.use(isAuthenticated)
+
 router.get("/get-classes", ClassController.getAll);
 
 router.get(
   "/get-class/:id",
-  isAuthenticated,
   ClassController.getOne,
 );
 
 router.post(
   "/add-class",
-  isAuthenticated,
   ClassController.create,
 );
 
 router.post(
   "/update-class/:id",
-  isAuthenticated,
   ClassController.update,
 );
 
@@ -31,13 +30,11 @@ router.delete("/hard-delete-class/:id", ClassController.hardDelete);
 
 router.patch(
   "/update-section/:classId/:sectionId",
-  isAuthenticated,
   ClassController.updateSection,
 );
 
 router.delete(
   "/remove-section/:classId/:sectionId",
-  isAuthenticated,
   ClassController.removeSection,
 );
 

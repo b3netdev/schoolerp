@@ -11,9 +11,7 @@ import { AppError } from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
 
 type RequestWithUser = Request & {
-  user?: {
-    academic_year_id?: number | string;
-  };
+  user?: { academic_year_id?: number | string };
 };
 
 const examStatuses: ExamStatus[] = [
@@ -23,27 +21,21 @@ const examStatuses: ExamStatus[] = [
   "cancelled",
 ];
 
-const getValidId = (value: string | undefined): number => {
+const getValidId = (value: unknown, fieldName: string): number => {
   const id = Number(value);
 
   if (!Number.isInteger(id) || id <= 0) {
-    throw new AppError("Invalid exam ID.", 400);
+    throw new AppError(`${fieldName} must be a valid ID.`, 400);
   }
 
   return id;
 };
 
-const getAcademicYearId = (req: Request): number => {
-  const academicYearId = Number(
+const getAcademicYearId = (req: Request): number =>
+  getValidId(
     (req as RequestWithUser).user?.academic_year_id,
+    "Current academic session",
   );
-
-  if (!Number.isInteger(academicYearId) || academicYearId <= 0) {
-    throw new AppError("Current academic session is missing or invalid.", 400);
-  }
-
-  return academicYearId;
-};
 
 const getValidDate = (value: unknown, fieldName: string): string => {
   if (typeof value !== "string" || !value.trim()) {
@@ -51,11 +43,10 @@ const getValidDate = (value: unknown, fieldName: string): string => {
   }
 
   const date = value.trim();
-  const validDateFormat = /^\d{4}-\d{2}-\d{2}$/.test(date);
   const parsedDate = new Date(`${date}T00:00:00.000Z`);
 
   if (
-    !validDateFormat ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(date) ||
     Number.isNaN(parsedDate.getTime()) ||
     parsedDate.toISOString().slice(0, 10) !== date
   ) {
@@ -72,26 +63,25 @@ const ensureDateRange = (startDate: string, endDate: string) => {
 };
 
 const getValidStatus = (value: unknown): ExamStatus => {
-  const status = String(value ?? "").trim();
+  const status = String(value ?? "").trim() as ExamStatus;
 
-  if (!examStatuses.includes(status as ExamStatus)) {
+  if (!examStatuses.includes(status)) {
     throw new AppError("Invalid exam status.", 400);
   }
 
-  return status as ExamStatus;
+  return status;
 };
 
 export class ExamController {
-  /** GET /exam/get-exams?status=all|draft|published|completed|cancelled|trash */
   static getAll = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const status = String(req.query.status ?? "all");
-    const allowedFilters: ExamStatusFilter[] = ["all", "trash", ...examStatuses];
+    const status = String(req.query.status ?? "all") as ExamStatusFilter;
+    const filters: ExamStatusFilter[] = ["all", "trash", ...examStatuses];
 
-    if (!allowedFilters.includes(status as ExamStatusFilter)) {
+    if (!filters.includes(status)) {
       return next(new AppError("Invalid exam status filter.", 400));
     }
 
-    const exams = await ExamModel.findByStatus(status as ExamStatusFilter);
+    const exams = await ExamModel.findByStatus(status);
 
     res.status(200).json({
       success: true,
@@ -100,48 +90,33 @@ export class ExamController {
     });
   });
 
-  /** GET /exam/get-exam/:id */
   static getOne = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const exam = await ExamModel.findById(getValidId(req.params.id));
+    const exam = await ExamModel.findById(getValidId(req.params.id, "Exam"));
 
-    if (!exam) {
-      return next(new AppError("Exam not found.", 404));
-    }
+    if (!exam) return next(new AppError("Exam not found.", 404));
 
-    res.status(200).json({
-      success: true,
-      message: "Exam fetched successfully.",
-      data: exam,
-    });
+    res.status(200).json({ success: true, data: exam });
   });
 
-  /** POST /exam/add-exam */
   static create = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const name = String(req.body.name ?? "").trim();
     const examType = String(req.body.exam_type ?? "").trim();
     const startDate = getValidDate(req.body.start_date, "Start date");
     const endDate = getValidDate(req.body.end_date, "End date");
 
-    if (!name) {
-      return next(new AppError("Exam name is required.", 400));
-    }
-
-    if (!examType) {
-      return next(new AppError("Exam type is required.", 400));
-    }
+    if (!name) return next(new AppError("Exam name is required.", 400));
+    if (!examType) return next(new AppError("Exam type is required.", 400));
 
     ensureDateRange(startDate, endDate);
 
     const payload: CreateExamPayload = {
       name,
       exam_type: examType,
+      class_id: getValidId(req.body.class_id, "Class"),
       academic_year_id: getAcademicYearId(req),
       start_date: startDate,
       end_date: endDate,
-      status:
-        req.body.status === undefined
-          ? "draft"
-          : getValidStatus(req.body.status),
+      status: req.body.status === undefined ? "draft" : getValidStatus(req.body.status),
       description:
         req.body.description === undefined || req.body.description === null
           ? null
@@ -157,35 +132,28 @@ export class ExamController {
     });
   });
 
-  /** POST /exam/update-exam/:id */
   static update = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const id = getValidId(req.params.id);
+    const id = getValidId(req.params.id, "Exam");
     const existingExam = await ExamModel.findById(id);
 
-    if (!existingExam) {
-      return next(new AppError("Exam not found.", 404));
-    }
+    if (!existingExam) return next(new AppError("Exam not found.", 404));
 
     const payload: UpdateExamPayload = {};
 
     if (req.body.name !== undefined) {
       const name = String(req.body.name).trim();
-
-      if (!name) {
-        return next(new AppError("Exam name cannot be empty.", 400));
-      }
-
+      if (!name) return next(new AppError("Exam name cannot be empty.", 400));
       payload.name = name;
     }
 
     if (req.body.exam_type !== undefined) {
       const examType = String(req.body.exam_type).trim();
-
-      if (!examType) {
-        return next(new AppError("Exam type cannot be empty.", 400));
-      }
-
+      if (!examType) return next(new AppError("Exam type cannot be empty.", 400));
       payload.exam_type = examType;
+    }
+
+    if (req.body.class_id !== undefined) {
+      payload.class_id = getValidId(req.body.class_id, "Class");
     }
 
     if (req.body.start_date !== undefined) {
@@ -201,22 +169,18 @@ export class ExamController {
     }
 
     if (req.body.description !== undefined) {
-      payload.description =
-        req.body.description === null
-          ? null
-          : String(req.body.description).trim();
+      payload.description = req.body.description === null
+        ? null
+        : String(req.body.description).trim();
     }
 
     if (Object.keys(payload).length === 0) {
       return next(new AppError("At least one field is required to update an exam.", 400));
     }
 
-    const currentStartDate = existingExam.start_date.toISOString().slice(0, 10);
-    const currentEndDate = existingExam.end_date.toISOString().slice(0, 10);
-
     ensureDateRange(
-      payload.start_date ?? currentStartDate,
-      payload.end_date ?? currentEndDate,
+      payload.start_date ?? existingExam.start_date.toISOString().slice(0, 10),
+      payload.end_date ?? existingExam.end_date.toISOString().slice(0, 10),
     );
 
     const exam = await ExamModel.update(id, payload);
@@ -228,47 +192,27 @@ export class ExamController {
     });
   });
 
-  /** DELETE /exam/delete-exam/:id */
   static delete = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const exam = await ExamModel.softDelete(getValidId(req.params.id));
+    const exam = await ExamModel.softDelete(getValidId(req.params.id, "Exam"));
 
-    if (!exam) {
-      return next(new AppError("Exam not found or already deleted.", 404));
-    }
+    if (!exam) return next(new AppError("Exam not found or already deleted.", 404));
 
-    res.status(200).json({
-      success: true,
-      message: "Exam moved to trash successfully.",
-      data: exam,
-    });
+    res.status(200).json({ success: true, message: "Exam moved to trash successfully.", data: exam });
   });
 
-  /** PATCH /exam/restore-exam/:id */
   static restore = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const exam = await ExamModel.restore(getValidId(req.params.id));
+    const exam = await ExamModel.restore(getValidId(req.params.id, "Exam"));
 
-    if (!exam) {
-      return next(new AppError("Exam not found in trash.", 404));
-    }
+    if (!exam) return next(new AppError("Exam not found in trash.", 404));
 
-    res.status(200).json({
-      success: true,
-      message: "Exam restored successfully.",
-      data: exam,
-    });
+    res.status(200).json({ success: true, message: "Exam restored successfully.", data: exam });
   });
 
-  /** DELETE /exam/hard-delete-exam/:id */
   static hardDelete = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const deleted = await ExamModel.hardDelete(getValidId(req.params.id));
+    const deleted = await ExamModel.hardDelete(getValidId(req.params.id, "Exam"));
 
-    if (!deleted) {
-      return next(new AppError("Exam not found.", 404));
-    }
+    if (!deleted) return next(new AppError("Exam not found.", 404));
 
-    res.status(200).json({
-      success: true,
-      message: "Exam permanently deleted successfully.",
-    });
+    res.status(200).json({ success: true, message: "Exam permanently deleted successfully." });
   });
 }

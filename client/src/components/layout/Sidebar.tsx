@@ -95,6 +95,12 @@ const mainNav: NavItem[] = [
     label: "Attendance",
     roles: ["admin", "teacher"],
   },
+  {
+    path: "exam",
+    icon: ClipboardCheck,
+    label: "Exam",
+    roles: ["admin"],
+  },
   // {
   //   path: "fees",
   //   icon: CreditCard,

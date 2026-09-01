@@ -36,6 +36,7 @@ import StudentSignin from "./pages/student/StudentSignin";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import StudentClassRelation from "./pages/StudentClassRelation";
 import TeacherSignin from "./pages/teachers/TeacherSignin";
+import Exam from "./pages/Exam";
 const queryClient = new QueryClient();
 
 function App() {
@@ -90,7 +91,7 @@ function App() {
                     <ProtectedRoute allowedRoles={["teacher", "admin"]} />
                   }
                 >
-                   <Route path="academic-sessions" element={<AcademicSession />} />
+                  <Route path="academic-sessions" element={<AcademicSession />} />
                   <Route path="exams" element={<ComingSoon />} />
                   <Route path="attendance" element={<Attendance />} />
                   <Route path="marks-entry" element={<ComingSoon />} />
@@ -102,14 +103,15 @@ function App() {
                 >
                   <Route path="classes" element={<Classes />} />
                   <Route path="students" element={<Students />} />
-                   <Route path="academic-sessions" element={<AcademicSession />} />
-                   <Route path="student-class" element={<StudentClassRelation />} />
+                  <Route path="academic-sessions" element={<AcademicSession />} />
+                  <Route path="student-class" element={<StudentClassRelation />} />
                   <Route path="teachers" element={<Teachers />} />
                   <Route path="fees" element={<ComingSoon />} />
                   <Route path="section" element={<Section />} />
                   <Route path="class-section-relation" element={<ClassSectionRelation />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="streams" element={<Streams />} />
+                  <Route path="exam" element={<Exam />} />
                 </Route>
               </Route>
 

@@ -3,13 +3,14 @@ import authReducer from "./slicers/authslicer";
 import settingsReducer from "./slicers/settingsSlicer";
 import sectionReducer from "./slicers/sectionSlicer";
 import classReducer from "./slicers/classesSlicer";
-import teacherReducer from "./slicers/teacherSlice"
-import classSectionRelationReducer from "./slicers/classSectionRelationSlicer"
-import StreamReducer from "./slicers/stream.Slicer"
-import academicSessionReducer from "./slicers/AcademicSessionSlicer"
-import studentReducer from "./slicers/studentSlicer"
-import studentAuthReducer from "./slicers/studentAuthSlicer"
-import subjectReducer from "./slicers/subjectSlicer"
+import teacherReducer from "./slicers/teacherSlice";
+import classSectionRelationReducer from "./slicers/classSectionRelationSlicer";
+import StreamReducer from "./slicers/stream.Slicer";
+import academicSessionReducer from "./slicers/AcademicSessionSlicer";
+import studentReducer from "./slicers/studentSlicer";
+import studentAuthReducer from "./slicers/studentAuthSlicer";
+import subjectReducer from "./slicers/subjectSlicer";
+import examReducer from "./slicers/examSlicer";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -22,7 +23,8 @@ export const store = configureStore({
     academicSession: academicSessionReducer,
     student: studentReducer,
     studentAuth: studentAuthReducer,
-    subject:subjectReducer
+    subject: subjectReducer,
+    exam: examReducer,
   },
 });
 

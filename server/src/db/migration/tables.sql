@@ -407,3 +407,44 @@ ON public.student_attendence (
     class_section_id,
     attendance_date
 );
+
+
+
+--Exam
+CREATE TABLE exam (
+    id SERIAL PRIMARY KEY,
+
+    name VARCHAR(150) NOT NULL,
+    exam_type VARCHAR(50) NOT NULL,
+
+    academic_year_id INTEGER NOT NULL,
+
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+
+    status VARCHAR(20) NOT NULL DEFAULT 'draft',
+    description TEXT NULL,
+
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+
+    CONSTRAINT fk_exam_academic_session
+        FOREIGN KEY (academic_year_id)
+        REFERENCES public.academic_session(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT chk_exam_dates
+        CHECK (end_date >= start_date),
+
+    CONSTRAINT chk_exam_status
+        CHECK (
+            status IN (
+                'draft',
+                'published',
+                'completed',
+                'cancelled'
+            )
+        )
+);

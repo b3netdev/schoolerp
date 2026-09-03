@@ -81,7 +81,7 @@ function App() {
                   <Route path="dashboard" element={<Dashboard />} />
                   <Route path="academic-sessions" element={<AcademicSession />} />
                   <Route path="subjects" element={<Subjects />} />
-                  <Route path="timetable" element={<ComingSoon />} />
+                  <Route path="timetable" element={<Timetable />} />
                   <Route path="marksheet" element={<ComingSoon />} />
                   <Route path="profile" element={<Profile />} />
                 </Route>

@@ -449,3 +449,164 @@ CREATE TABLE exam (
         )
 );
 
+
+
+--class_routine
+CREATE TABLE public.class_routine (
+    id SERIAL PRIMARY KEY,
+
+    academic_year_id INTEGER NOT NULL,
+    class_id INTEGER NOT NULL,
+    section_id INTEGER NOT NULL,
+    subject_id INTEGER NOT NULL,
+    teacher_id INTEGER NULL,
+
+    day_of_week SMALLINT NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+
+    room_number VARCHAR(50) NULL,
+    remarks TEXT NULL,
+
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+
+    CONSTRAINT fk_class_routine_academic_year
+        FOREIGN KEY (academic_year_id)
+        REFERENCES public.academic_session(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_class_routine_class
+        FOREIGN KEY (class_id)
+        REFERENCES public.classes(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_class_routine_section
+        FOREIGN KEY (section_id)
+        REFERENCES public.section(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_class_routine_subject
+        FOREIGN KEY (subject_id)
+        REFERENCES public.subjects(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_class_routine_teacher
+        FOREIGN KEY (teacher_id)
+        REFERENCES public.teachers(id)
+        ON UPDATE CASCADE
+        ON DELETE SET NULL,
+
+    CONSTRAINT chk_class_routine_day
+        CHECK (day_of_week BETWEEN 1 AND 6),
+
+    CONSTRAINT chk_class_routine_time
+        CHECK (end_time > start_time)
+);
+
+
+--trigger function to check same teacher exists in same day , same time in another place
+
+CREATE OR REPLACE FUNCTION public.check_teacher_routine_conflict()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    conflicting_routine RECORD;
+BEGIN
+    IF NEW.teacher_id IS NULL OR NEW.deleted_at IS NOT NULL THEN
+        RETURN NEW;
+    END IF;
+
+    PERFORM pg_advisory_xact_lock(
+        hashtext(
+            'teacher-' ||
+            NEW.academic_year_id || '-' ||
+            NEW.teacher_id || '-' ||
+            NEW.day_of_week
+        )
+    );
+
+    SELECT
+        CONCAT_WS(
+            ' ',
+            t.first_name,
+            t.last_name
+        ) AS teacher_name,
+
+        c.class_name,
+
+        s.name AS section_name,
+
+        TO_CHAR(
+            cr.start_time,
+            'FMHH12:MI AM'
+        ) AS start_time,
+
+        TO_CHAR(
+            cr.end_time,
+            'FMHH12:MI AM'
+        ) AS end_time
+
+    INTO conflicting_routine
+
+    FROM public.class_routine cr
+
+    INNER JOIN public.teachers t
+        ON t.id = cr.teacher_id
+
+    INNER JOIN public.classes c
+        ON c.id = cr.class_id
+
+    INNER JOIN public.section s
+        ON s.id = cr.section_id
+
+    WHERE cr.academic_year_id = NEW.academic_year_id
+      AND cr.teacher_id = NEW.teacher_id
+      AND cr.day_of_week = NEW.day_of_week
+      AND cr.deleted_at IS NULL
+
+      /* Ignore the current row during update. */
+      AND cr.id <> COALESCE(NEW.id, 0)
+
+      /* Checks whether times overlap. */
+      AND cr.start_time < NEW.end_time
+      AND cr.end_time > NEW.start_time
+
+    LIMIT 1;
+
+    IF FOUND THEN
+        RAISE EXCEPTION
+            'Teacher % is already present in % - Section % between % and %.',
+            conflicting_routine.teacher_name,
+            conflicting_routine.class_name,
+            conflicting_routine.section_name,
+            conflicting_routine.start_time,
+            conflicting_routine.end_time
+            USING ERRCODE = '23505';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+
+--trigger to add the function
+
+CREATE TRIGGER trigger_check_teacher_routine_conflict
+BEFORE INSERT OR UPDATE OF
+    academic_year_id,
+    teacher_id,
+    day_of_week,
+    start_time,
+    end_time,
+    deleted_at
+ON public.class_routine
+FOR EACH ROW
+EXECUTE FUNCTION public.check_teacher_routine_conflict();
+

@@ -24,6 +24,7 @@ import StudentAuthRouter from "./routes/student-auth.route.js";
 import SubjectRouter from "./routes/subject.route.js";
 import StudentAttendenceRouter from "./routes/studentAttendance.route.js";
 import ExamRouter from "./routes/exam.route.js";
+import RoutineRouter from './routes/classRoutine.route.js'
 import cookieParser from "cookie-parser";
 const app = express();
 
@@ -64,6 +65,7 @@ app.use(
 );
 app.use(`/${process.env.API_VERSION}/profile`, ProfileRouter);
 app.use(`/${process.env.API_VERSION}/exam`, ExamRouter);
+app.use(`/${process.env.API_VERSION}/routine`, RoutineRouter);
 
 app.use(errorHandler);
 

@@ -115,6 +115,10 @@ const getDuration = (startTime: string, endTime: string) => {
 };
 
 const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
   if (
     error &&
     typeof error === "object" &&
@@ -231,6 +235,30 @@ export default function Timetable() {
     return Array.from(uniqueSlots.values()).sort((first, second) =>
       first.startTime.localeCompare(second.startTime),
     );
+  };
+
+  /**
+   * Updates the displayed timetable without another GET request.
+   * Existing manually-added empty time slots are preserved.
+   */
+  const updateRoutineState = (nextRoutines: Routine[]) => {
+    setRoutines(nextRoutines);
+
+    setSlots((currentSlots) => {
+      const slotMap = new Map(currentSlots.map((slot) => [slot.id, slot]));
+
+      nextRoutines.forEach((routine) => {
+        const startTime = toInputTime(routine.start_time);
+        const endTime = toInputTime(routine.end_time);
+        const id = getSlotId(startTime, endTime);
+
+        slotMap.set(id, { id, startTime, endTime });
+      });
+
+      return Array.from(slotMap.values()).sort((first, second) =>
+        first.startTime.localeCompare(second.startTime),
+      );
+    });
   };
 
   const loadSubjects = async () => {
@@ -451,14 +479,26 @@ export default function Timetable() {
       setIsSaving(true);
       setError("");
 
-      if (selectedCell.routine) {
-        await api.post(
-          `/routine/update-routine/${selectedCell.routine.id}`,
-          payload,
-        );
-      } else {
-        await api.post("/routine/add-routine", payload);
+      const response = selectedCell.routine
+        ? await api.post(
+            `/routine/update-routine/${selectedCell.routine.id}`,
+            payload,
+          )
+        : await api.post("/routine/add-routine", payload);
+
+      const savedRoutine = response.data?.data as Routine | undefined;
+
+      if (!response.data?.success || !savedRoutine) {
+        throw new Error(response.data?.message || "Unable to save routine.");
       }
+
+      const nextRoutines = selectedCell.routine
+        ? routines.map((routine) =>
+            routine.id === savedRoutine.id ? savedRoutine : routine,
+          )
+        : [...routines, savedRoutine];
+
+      updateRoutineState(nextRoutines);
 
       setMessage(
         selectedCell.routine
@@ -466,7 +506,6 @@ export default function Timetable() {
           : "Routine added successfully.",
       );
       setSelectedCell(null);
-      await loadRoutines(selectedClassId, selectedSectionId);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -477,15 +516,24 @@ export default function Timetable() {
   const handleDeleteRoutine = async () => {
     if (!selectedCell?.routine) return;
 
+    const routineId = selectedCell.routine.id;
+
     try {
       setIsSaving(true);
       setError("");
 
-      await api.delete(`/routine/delete-routine/${selectedCell.routine.id}`);
+      const response = await api.delete(`/routine/delete-routine/${routineId}`);
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || "Unable to remove routine.");
+      }
+
+      updateRoutineState(
+        routines.filter((routine) => routine.id !== routineId),
+      );
 
       setMessage("Routine removed successfully.");
       setSelectedCell(null);
-      await loadRoutines(selectedClassId, selectedSectionId);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -816,14 +864,9 @@ export default function Timetable() {
                     subject_id: event.target.value,
                   }))
                 }
-                disabled={isSaving || subjectOptions.length === 0}
                 className="h-11 w-full rounded-lg border border-input bg-background px-3 font-normal outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
               >
-                <option value="">
-                  {subjectOptions.length === 0
-                    ? "No subject assigned to this class and section"
-                    : "Select subject"}
-                </option>
+                <option value="">Select subject</option>
                 {subjectOptions.map((subject) => (
                   <option key={subject.id} value={subject.id}>
                     {subject.name}

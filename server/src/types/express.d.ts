@@ -26,20 +26,8 @@ declare global {
     }
 
     interface Request {
-      /**
-       * Simple authenticated user ID.
-       * Set by isAuthenticated middleware.
-       */
       userId?: number;
-
-      /**
-       * Full authenticated admin/teacher/user.
-       */
       user?: AuthenticatedUser;
-
-      /**
-       * Authenticated student.
-       */
       student?: AuthenticatedStudent;
     }
   }

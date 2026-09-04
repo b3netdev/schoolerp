@@ -95,7 +95,6 @@ function App() {
                   <Route path="exams" element={<ComingSoon />} />
                   <Route path="attendance" element={<Attendance />} />
                   <Route path="marks-entry" element={<ComingSoon />} />
-                  <Route path="notices" element={<ComingSoon />} />
                 </Route>
 
                 <Route
@@ -111,6 +110,7 @@ function App() {
                   <Route path="class-section-relation" element={<ClassSectionRelation />} />
                   <Route path="settings" element={<Settings />} />
                   <Route path="streams" element={<Streams />} />
+                  <Route path="notices" element={<NoticeBoard />} />
                   <Route path="exam" element={<Exam />} />
                 </Route>
               </Route>

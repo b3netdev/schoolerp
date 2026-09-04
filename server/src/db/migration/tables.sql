@@ -610,3 +610,44 @@ ON public.class_routine
 FOR EACH ROW
 EXECUTE FUNCTION public.check_teacher_routine_conflict();
 
+
+
+-- notice table
+
+CREATE TABLE  public.notice(
+id serial primary key,
+notice_for VARCHAR(20) check (notice_for in ('student', 'teacher', 'admin')),
+posted_by INTEGER NOT NULL,
+title VARCHAR(100) NOT NULL,
+description TEXT NOT NULL,
+academic_year_id INTEGER NOT NULL,
+class_id INTEGER NOT NULL,
+section_id INTEGER NOT NULL,
+created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+deleted_at TIMESTAMP NULL,
+
+		CONSTRAINT fk_notice_academic_year
+        FOREIGN KEY (academic_year_id)
+        REFERENCES academic_session(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+	    CONSTRAINT fk_routine_class
+        FOREIGN KEY (class_id)
+        REFERENCES classes(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+		CONSTRAINT fk_class_routine_section
+        FOREIGN KEY (section_id)
+        REFERENCES public.section(id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+		CONSTRAINT fk_class_routine_posted_by
+		FOREIGN KEY (posted_by)
+		REFERENCES public.users(id)
+		ON UPDATE CASCADE
+        ON DELETE RESTRICT
+);

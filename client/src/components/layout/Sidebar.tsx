@@ -107,12 +107,12 @@ const mainNav: NavItem[] = [
   //   label: "Fees",
   //   roles: ["admin"],
   // },
-  {
-    path: "exams",
-    icon: FileText,
-    label: "Results",
-    roles: ["admin", "teacher"],
-  },
+  // {
+  //   path: "exams",
+  //   icon: FileText,
+  //   label: "Results",
+  //   roles: ["admin", "teacher"],
+  // },
   // {
   //   path: "marks-entry",
   //   icon: ClipboardList,

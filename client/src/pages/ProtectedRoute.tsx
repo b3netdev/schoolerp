@@ -22,6 +22,7 @@ const ProtectedRoute = ({
     const { portal } = useParams();
 
     const user = useAppSelector((state) => state.auth.user);
+    console.log(user,"USERS")
     
 
     const { checkAuth, loading } = useAuth();
@@ -46,18 +47,20 @@ const ProtectedRoute = ({
 
     if (checkPortal) {
         if (!portal || !validRoles.includes(portal as UserRole)) {
+            console.log("HELLO")
             return <Navigate to={`/${user.role}/dashboard`} replace />;
         }
-
-
         if (portal !== user.role) {
+            console.log("HELLO1")
             return <Navigate to={`/${user.role}/dashboard`} replace />;
         }
     }
-
+    
     if (!allowedRoles.includes(user.role)) {
+        console.log("HELLO2",allowedRoles)
         return <Navigate to={`/${user.role}/dashboard`} replace />;
     }
+    // console.log("HELLO3")
 
     return children ? <>{children}</> : <Outlet />;
 };

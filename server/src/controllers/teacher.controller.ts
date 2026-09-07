@@ -9,6 +9,8 @@ import {
 } from "../models/teachers.model.js";
 
 import { SettingsModel } from "../models/settings.model.js";
+
+import { AcademicSessionModel } from "../models/AcademicSession.model.js";
 import { AppError } from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
 
@@ -554,6 +556,21 @@ export class TeacherController {
       }
 
       /**
+       * The active academic session is saved in the JWT.
+       * Every protected request can then use req.user.academic_year_id.
+       */
+      const defaultSession = await AcademicSessionModel.getDefaultSession();
+
+      if (!defaultSession) {
+        return next(
+          new AppError(
+            "No default academic session has been configured. Please contact the administrator.",
+            400,
+          ),
+        );
+      }
+
+      /**
        * Generate JWT.
        */
       const token = jwt.sign(
@@ -562,7 +579,13 @@ export class TeacherController {
 
           employee_code: teacher.employee_code,
 
+          email: teacher.email ?? undefined,
+
           role: "teacher",
+
+          default_academic_session: defaultSession.name,
+
+          academic_year_id: defaultSession.id,
         },
         jwtSecret,
         {

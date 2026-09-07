@@ -335,6 +335,61 @@ export class ClassRoutineModel {
     return this.findById(id, academicYearId);
   }
 
+  static async getMyAssignedRoutine(
+    teacherId: number,
+    academicYearId: number,
+  ): Promise<ClassRoutine[]> {
+    const result = await query<ClassRoutine>(
+      `
+      SELECT
+        cr.id,
+        cr.academic_year_id,
+
+        cr.class_id,
+        c.class_name,
+
+        cr.section_id,
+        s.name AS section_name,
+
+        cr.subject_id,
+        sub.name AS subject_name,
+
+        cr.teacher_id,
+
+        cr.day_of_week,
+        cr.start_time,
+        cr.end_time,
+        cr.room_number,
+        cr.remarks,
+
+        cr.created_at,
+        cr.updated_at
+
+      FROM public.class_routine cr
+
+      INNER JOIN public.classes c
+        ON c.id = cr.class_id
+
+      INNER JOIN public.section s
+        ON s.id = cr.section_id
+
+      INNER JOIN public.subjects sub
+        ON sub.id = cr.subject_id
+
+      WHERE cr.teacher_id = $1
+        AND cr.academic_year_id = $2
+        AND cr.deleted_at IS NULL
+
+      ORDER BY
+        cr.day_of_week ASC,
+        cr.start_time ASC
+    `,
+      [teacherId, academicYearId],
+    );
+
+    return result.rows;
+  }
+
   static async hardDelete(
     id: number,
     academicYearId: number,

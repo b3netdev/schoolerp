@@ -37,6 +37,7 @@ import StudentDashboard from "./pages/student/StudentDashboard";
 import StudentClassRelation from "./pages/StudentClassRelation";
 import TeacherSignin from "./pages/teachers/TeacherSignin";
 import Exam from "./pages/Exam";
+import MyRoutine from "./pages/teachers/MyRoutine";
 const queryClient = new QueryClient();
 
 function App() {
@@ -95,6 +96,13 @@ function App() {
                   <Route path="exams" element={<ComingSoon />} />
                   <Route path="attendance" element={<Attendance />} />
                   <Route path="marks-entry" element={<ComingSoon />} />
+                </Route>
+                <Route
+                  element={
+                    <ProtectedRoute allowedRoles={["teacher"]} />
+                  }
+                >
+                  <Route path="myroutine" element={<MyRoutine />} />
                 </Route>
 
                 <Route

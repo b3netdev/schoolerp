@@ -98,7 +98,6 @@ const validateStartAndEndTime = (startTime: string, endTime: string): void => {
 };
 
 export class ClassRoutineController {
-  
   static getAll = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const status = String(req.query.status ?? "all");
@@ -137,7 +136,6 @@ export class ClassRoutineController {
     },
   );
 
-
   static getOne = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const routine = await ClassRoutineModel.findById(
@@ -156,7 +154,6 @@ export class ClassRoutineController {
       });
     },
   );
-
 
   static create = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
@@ -201,7 +198,6 @@ export class ClassRoutineController {
       });
     },
   );
-
 
   static update = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
@@ -301,7 +297,6 @@ export class ClassRoutineController {
     },
   );
 
- 
   static delete = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const routine = await ClassRoutineModel.delete(
@@ -321,7 +316,6 @@ export class ClassRoutineController {
     },
   );
 
- 
   static restore = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const routine = await ClassRoutineModel.restore(
@@ -341,7 +335,50 @@ export class ClassRoutineController {
     },
   );
 
- 
+  static getMyAssignedRoutine = catchAsync(
+    async (req: Request, res: Response, next: NextFunction) => {
+      if (!req.user || !req.userId) {
+        return next(new AppError("Please login first", 401));
+      }
+      console.log(req.user)
+
+      if (req.user.role !== "teacher") {
+        return next(
+          new AppError("Only teachers can access their assigned routine", 403),
+        );
+      }
+
+      const teacherId = req.userId;
+      const academicYearId = req.user.academic_year_id;
+      console.log(req.user.academic_year_id,"REQ>USER>ACADEMICYEAR")
+
+      if (
+        !Number.isInteger(teacherId) ||
+        teacherId <= 0 ||
+        !Number.isInteger(academicYearId) ||
+        academicYearId <= 0
+      ) {
+        return next(
+          new AppError(
+            "Unable to get your active academic session. Please login again.",
+            401,
+          ),
+        );
+      }
+
+      const routines = await ClassRoutineModel.getMyAssignedRoutine(
+        teacherId,
+        academicYearId,
+      );
+
+      return res.status(200).json({
+        status: "success",
+        results: routines.length,
+        data: routines,
+      });
+    },
+  );
+
   static hardDelete = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const isDeleted = await ClassRoutineModel.hardDelete(

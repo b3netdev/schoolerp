@@ -16,13 +16,18 @@ router.get("/get-routines", ClassRoutineController.getAll);
 router.get("/get-routine/:id", ClassRoutineController.getOne);
 
 
-router.use(authorizeRoles("admin"));
 
-router.post("/add-routine", ClassRoutineController.create);
-router.post("/update-routine/:id", ClassRoutineController.update);
 
-router.delete("/delete-routine/:id", ClassRoutineController.delete);
-router.patch("/restore-routine/:id", ClassRoutineController.restore);
-router.delete("/hard-delete-routine/:id", ClassRoutineController.hardDelete);
+router.post("/add-routine",authorizeRoles("admin"), ClassRoutineController.create);
+router.post("/update-routine/:id",authorizeRoles("admin"), ClassRoutineController.update);
+
+router.delete("/delete-routine/:id",authorizeRoles("admin"), ClassRoutineController.delete);
+router.patch("/restore-routine/:id",authorizeRoles("admin"), ClassRoutineController.restore);
+router.delete("/hard-delete-routine/:id",authorizeRoles("admin"), ClassRoutineController.hardDelete);
+router.get(
+  "/assigned-routine",
+  authorizeRoles("teacher"),
+  ClassRoutineController.getMyAssignedRoutine
+);
 
 export default router;

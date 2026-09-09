@@ -16,6 +16,7 @@ import { Avatar } from "@/components/common/Avatar";
 import api from "@/lib/api";
 import { AcademicYear, setAcademicYear } from "../../../redux/slicers/academicYearSlice";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
+import { setAuth } from "../../../redux/slicers/authslicer";
 
 // Add your API class import here.
 // Example:
@@ -50,7 +51,7 @@ export function Navbar({
   const dispatch = useAppDispatch();
 
   const selectedAcademicYear = useAppSelector(
-    (state:any) => state.academicYear.selectedAcademicYear,
+    (state: any) => state.academicYear.selectedAcademicYear,
   );
 
   const portal = user?.role || "admin";
@@ -87,6 +88,8 @@ export function Navbar({
           if (currentSession) {
             dispatch(setAcademicYear(currentSession));
           }
+
+
         }
       } catch (error) {
         console.error("Academic session fetch error:", error);
@@ -98,11 +101,21 @@ export function Navbar({
     fetchAcademicSessions();
   }, [dispatch, user?.academic_year_id]);
 
-  const handleAcademicYearChange = (academicYearId: number) => {
+  const handleAcademicYearChange = async (academicYearId: number) => {
     const selectedSession =
       academicYears.find(
         (session) => Number(session.id) === Number(academicYearId),
       ) || null;
+
+    console.log(selectedSession, "SELECETED SESSION")
+    const data = await api.post("/auth/switch-academic-session", {
+      academic_session_id: selectedSession?.id,
+    });
+
+    if (data?.data?.success == true) {
+      dispatch(setAuth(data.data.data))
+       navigate(`/${data.data. data.role}/dashboard`);
+    }
 
     dispatch(setAcademicYear(selectedSession));
   };

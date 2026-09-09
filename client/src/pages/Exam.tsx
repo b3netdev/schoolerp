@@ -18,7 +18,7 @@ import { ListingSkeleton } from "@/components/tables/ListingSkeleton";
 import api from "@/lib/api";
 
 
-import type {Exam as ExamItem,ExamStatus} from "../../redux/slicers/examSlicer";
+import type { Exam as ExamItem, ExamStatus } from "../../redux/slicers/examSlicer";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { addExam, deleteExam, setExams, updateExam } from "../../redux/slicers/examSlicer";
 
@@ -110,9 +110,11 @@ const formatDate = (value: string) => {
 };
 
 export default function Exam() {
+  const { selectedAcademicYear } = useAppSelector(state => state.academicYear)
+
   const dispatch = useAppDispatch();
   const exams = useAppSelector((state) => state.exam.exams);
-  const {user} = useAppSelector((state) => state.auth);
+  const { user } = useAppSelector((state) => state.auth);
   console.log("user", user);
 
   const [filter, setFilter] = useState<ExamFilter>("all");
@@ -136,13 +138,22 @@ export default function Exam() {
   };
 
   const fetchExams = async (nextFilter: ExamFilter = filter) => {
+    if (!selectedAcademicYear?.id) {
+      dispatch(setExams([]));
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError("");
 
-      const result = await api.get("/exam/get-exams", {
-        params: { status: nextFilter },
-      });
+      const result = await api.post(
+        `/exam/get-exams?status=${nextFilter}`,
+        {
+          default_academic_session: selectedAcademicYear.id,
+        },
+      );
 
       if (!result.data?.success) {
         throw new Error(result.data?.message || "Unable to fetch exams.");
@@ -156,10 +167,9 @@ export default function Exam() {
       setIsLoading(false);
     }
   };
-
   useEffect(() => {
     void fetchExams(filter);
-  }, [filter]);
+  }, [filter,selectedAcademicYear]);
 
   useEffect(() => {
     const fetchClasses = async () => {

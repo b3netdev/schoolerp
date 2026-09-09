@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { catchAsync } from "../utils/catchAsync.js";
 import { AppError } from "../utils/AppError.js";
 import { AcademicSessionModel } from "../models/AcademicSession.model.js";
+import jwt, { SignOptions } from "jsonwebtoken";
 
 type AcademicSessionStatusFilter = "all" | "active" | "inactive" | "trash";
 
@@ -188,5 +189,6 @@ export class AcademicSessionController {
         });
     });
 
+ 
     
 }

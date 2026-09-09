@@ -37,10 +37,13 @@ export const adminLogin = catchAsync(
     const { email, password } = req.body;
     if (!email || !password)
       return next(new AppError("Email or password is required", 400));
-    const DefaultAcademicSession = await AcademicSessionModel.getDefaultSession();
+    const DefaultAcademicSession =
+      await AcademicSessionModel.getDefaultSession();
     //console.log("DefaultAcademicSession", DefaultAcademicSession);
     if (!DefaultAcademicSession) {
-      return next(new AppError("No default academic session is configured", 500));
+      return next(
+        new AppError("No default academic session is configured", 500),
+      );
     }
     const user = await UserModel.findByEmail(email);
     if (!user) return next(new AppError("Wrong email or password", 401));
@@ -105,7 +108,9 @@ export const switchAcademicSession = catchAsync(
       return next(new AppError("Academic session not found", 404));
     }
     if (session.status !== "active") {
-      return next(new AppError("Cannot switch to an inactive academic session", 400));
+      return next(
+        new AppError("Cannot switch to an inactive academic session", 400),
+      );
     }
 
     const expiresIn = (process.env.JWT_EXPIRES_IN ||
@@ -139,8 +144,12 @@ export const switchAcademicSession = catchAsync(
       success: true,
       message: "Academic session switched successfully",
       data: {
+        id: req.user.id,
+        name: req.user.name,
+        email: req.user.email,
+        role: req.user.role,
         academic_year_id: session.id,
-        academic_session: session,
+        default_academic_session: session,
       },
     });
   },
@@ -149,7 +158,7 @@ export const switchAcademicSession = catchAsync(
 export const signOut = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const isProduction = process.env.NODE_ENV === "production";
-    
+
     res.clearCookie("authtoken", {
       httpOnly: true,
       secure: isProduction,
@@ -204,9 +213,7 @@ export const changePassword = catchAsync(
     }
     const { currentPassword, newPassword } = req.body;
     if (!currentPassword || !newPassword) {
-      return next(
-        new AppError("Current and new password are required", 400),
-      );
+      return next(new AppError("Current and new password are required", 400));
     }
     if (newPassword.length < 6) {
       return next(
@@ -235,26 +242,17 @@ export const changePassword = catchAsync(
   },
 );
 
-
 export const checkAuth = catchAsync(
-  async (
-    req: any,
-    res: Response,
-    next: NextFunction,
-  ) => {
+  async (req: any, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return next(
-        new AppError("Unable to get authenticated user", 401),
-      );
+      return next(new AppError("Unable to get authenticated user", 401));
     }
 
     if (req.user.role === "admin") {
       const user = await UserModel.findById(req.user.id);
 
       if (!user) {
-        return next(
-          new AppError("User not found", 401),
-        );
+        return next(new AppError("User not found", 401));
       }
 
       return res.status(200).json({
@@ -266,8 +264,7 @@ export const checkAuth = catchAsync(
           email: user.email,
           role: user.role,
           academic_year_id: req.user.academic_year_id,
-          default_academic_session:
-            req.user.default_academic_session,
+          default_academic_session: req.user.default_academic_session,
         },
       });
     }
@@ -276,9 +273,7 @@ export const checkAuth = catchAsync(
       const teacher = await TeacherModel.findById(req.user.id);
 
       if (!teacher || teacher.status !== "active") {
-        return next(
-          new AppError("Teacher not found or inactive", 401),
-        );
+        return next(new AppError("Teacher not found or inactive", 401));
       }
 
       return res.status(200).json({
@@ -287,25 +282,18 @@ export const checkAuth = catchAsync(
         data: {
           id: teacher.id,
           employee_code: teacher.employee_code,
-          name: [
-            teacher.first_name,
-            teacher.last_name,
-          ]
+          name: [teacher.first_name, teacher.last_name]
             .filter(Boolean)
             .join(" "),
           email: teacher.email,
           profile_image: teacher.profile_image,
           role: "teacher",
           academic_year_id: req.user.academic_year_id,
-          default_academic_session:
-            req.user.default_academic_session,
+          default_academic_session: req.user.default_academic_session,
         },
       });
     }
 
-    return next(
-      new AppError("Unsupported user role", 403),
-    );
+    return next(new AppError("Unsupported user role", 403));
   },
 );
-

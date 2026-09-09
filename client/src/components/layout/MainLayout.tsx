@@ -29,6 +29,8 @@ export function MainLayout() {
   const [sidebarOpen, setSidebarOpen] =
     useState(false);
   const { user } = useAppSelector(state => state.auth)
+  const { selectedAcademicYear  } = useAppSelector(state => state.academicYear)
+  console.log(selectedAcademicYear,"ACADEMIC YEAR")
   const { logOut } = useAuth()
 
   const location = useLocation();

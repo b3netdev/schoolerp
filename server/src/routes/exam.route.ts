@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.use(isAuthenticated);
 
-router.get("/get-exams", ExamController.getAll);
+router.post("/get-exams", ExamController.getAll);
 router.get("/get-exam/:id", ExamController.getOne);
 
 router.post("/add-exam", ExamController.create);

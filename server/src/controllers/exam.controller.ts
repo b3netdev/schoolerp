@@ -73,147 +73,200 @@ const getValidStatus = (value: unknown): ExamStatus => {
 };
 
 export class ExamController {
-  static getAll = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const status = String(req.query.status ?? "all") as ExamStatusFilter;
-    const filters: ExamStatusFilter[] = ["all", "trash", ...examStatuses];
-    console.log("REQ>USER", req.user); 
+  static getAll = catchAsync(
+    async (req: Request, res: Response, next: NextFunction) => {
+      const status = String(req.query.status ?? "all") as ExamStatusFilter;
+      const filters: ExamStatusFilter[] = ["all", "trash", ...examStatuses];
 
-    if (!filters.includes(status)) {
-      return next(new AppError("Invalid exam status filter.", 400));
-    }
+      if (!filters.includes(status)) {
+        return next(new AppError("Invalid exam status filter.", 400));
+      }
 
-    const exams = await ExamModel.findByStatus(status);
+      
 
-    res.status(200).json({
-      success: true,
-      message: "Exams fetched successfully.",
-      data: exams,
-    });
-  });
+      const academicYearId = getValidId(
+        req.body.default_academic_session,
+        "Academic session",
+      );
 
-  static getOne = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const exam = await ExamModel.findById(getValidId(req.params.id, "Exam"));
+      const exams = await ExamModel.findByStatus(academicYearId, status);
 
-    if (!exam) return next(new AppError("Exam not found.", 404));
+      res.status(200).json({
+        success: true,
+        message: "Exams fetched successfully.",
+        data: exams,
+      });
+    },
+  );
 
-    res.status(200).json({ success: true, data: exam });
-  });
+  static getOne = catchAsync(
+    async (req: Request, res: Response, next: NextFunction) => {
+      const exam = await ExamModel.findById(getValidId(req.params.id, "Exam"));
 
-  static create = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const name = String(req.body.name ?? "").trim();
-    const examType = String(req.body.exam_type ?? "").trim();
-    const startDate = getValidDate(req.body.start_date, "Start date");
-    const endDate = getValidDate(req.body.end_date, "End date");
+      if (!exam) return next(new AppError("Exam not found.", 404));
 
-    if (!name) return next(new AppError("Exam name is required.", 400));
-    if (!examType) return next(new AppError("Exam type is required.", 400));
+      res.status(200).json({ success: true, data: exam });
+    },
+  );
 
-    ensureDateRange(startDate, endDate);
+  static create = catchAsync(
+    async (req: Request, res: Response, next: NextFunction) => {
+      const name = String(req.body.name ?? "").trim();
+      const examType = String(req.body.exam_type ?? "").trim();
+      const startDate = getValidDate(req.body.start_date, "Start date");
+      const endDate = getValidDate(req.body.end_date, "End date");
 
-    const payload: CreateExamPayload = {
-      name,
-      exam_type: examType,
-      class_id: getValidId(req.body.class_id, "Class"),
-      academic_year_id: getAcademicYearId(req),
-      start_date: startDate,
-      end_date: endDate,
-      status: req.body.status === undefined ? "draft" : getValidStatus(req.body.status),
-      description:
-        req.body.description === undefined || req.body.description === null
-          ? null
-          : String(req.body.description).trim(),
-    };
+      if (!name) return next(new AppError("Exam name is required.", 400));
+      if (!examType) return next(new AppError("Exam type is required.", 400));
 
-    const exam = await ExamModel.create(payload);
+      ensureDateRange(startDate, endDate);
 
-    res.status(201).json({
-      success: true,
-      message: "Exam created successfully.",
-      data: exam,
-    });
-  });
+      const payload: CreateExamPayload = {
+        name,
+        exam_type: examType,
+        class_id: getValidId(req.body.class_id, "Class"),
+        academic_year_id: getAcademicYearId(req),
+        start_date: startDate,
+        end_date: endDate,
+        status:
+          req.body.status === undefined
+            ? "draft"
+            : getValidStatus(req.body.status),
+        description:
+          req.body.description === undefined || req.body.description === null
+            ? null
+            : String(req.body.description).trim(),
+      };
 
-  static update = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const id = getValidId(req.params.id, "Exam");
-    const existingExam = await ExamModel.findById(id);
+      const exam = await ExamModel.create(payload);
 
-    if (!existingExam) return next(new AppError("Exam not found.", 404));
+      res.status(201).json({
+        success: true,
+        message: "Exam created successfully.",
+        data: exam,
+      });
+    },
+  );
 
-    const payload: UpdateExamPayload = {};
+  static update = catchAsync(
+    async (req: Request, res: Response, next: NextFunction) => {
+      const id = getValidId(req.params.id, "Exam");
+      const existingExam = await ExamModel.findById(id);
 
-    if (req.body.name !== undefined) {
-      const name = String(req.body.name).trim();
-      if (!name) return next(new AppError("Exam name cannot be empty.", 400));
-      payload.name = name;
-    }
+      if (!existingExam) return next(new AppError("Exam not found.", 404));
 
-    if (req.body.exam_type !== undefined) {
-      const examType = String(req.body.exam_type).trim();
-      if (!examType) return next(new AppError("Exam type cannot be empty.", 400));
-      payload.exam_type = examType;
-    }
+      const payload: UpdateExamPayload = {};
 
-    if (req.body.class_id !== undefined) {
-      payload.class_id = getValidId(req.body.class_id, "Class");
-    }
+      if (req.body.name !== undefined) {
+        const name = String(req.body.name).trim();
+        if (!name) return next(new AppError("Exam name cannot be empty.", 400));
+        payload.name = name;
+      }
 
-    if (req.body.start_date !== undefined) {
-      payload.start_date = getValidDate(req.body.start_date, "Start date");
-    }
+      if (req.body.exam_type !== undefined) {
+        const examType = String(req.body.exam_type).trim();
+        if (!examType)
+          return next(new AppError("Exam type cannot be empty.", 400));
+        payload.exam_type = examType;
+      }
 
-    if (req.body.end_date !== undefined) {
-      payload.end_date = getValidDate(req.body.end_date, "End date");
-    }
+      if (req.body.class_id !== undefined) {
+        payload.class_id = getValidId(req.body.class_id, "Class");
+      }
 
-    if (req.body.status !== undefined) {
-      payload.status = getValidStatus(req.body.status);
-    }
+      if (req.body.start_date !== undefined) {
+        payload.start_date = getValidDate(req.body.start_date, "Start date");
+      }
 
-    if (req.body.description !== undefined) {
-      payload.description = req.body.description === null
-        ? null
-        : String(req.body.description).trim();
-    }
+      if (req.body.end_date !== undefined) {
+        payload.end_date = getValidDate(req.body.end_date, "End date");
+      }
 
-    if (Object.keys(payload).length === 0) {
-      return next(new AppError("At least one field is required to update an exam.", 400));
-    }
+      if (req.body.status !== undefined) {
+        payload.status = getValidStatus(req.body.status);
+      }
 
-    ensureDateRange(
-      payload.start_date ?? existingExam.start_date.toISOString().slice(0, 10),
-      payload.end_date ?? existingExam.end_date.toISOString().slice(0, 10),
-    );
+      if (req.body.description !== undefined) {
+        payload.description =
+          req.body.description === null
+            ? null
+            : String(req.body.description).trim();
+      }
 
-    const exam = await ExamModel.update(id, payload);
+      if (Object.keys(payload).length === 0) {
+        return next(
+          new AppError(
+            "At least one field is required to update an exam.",
+            400,
+          ),
+        );
+      }
 
-    res.status(200).json({
-      success: true,
-      message: "Exam updated successfully.",
-      data: exam,
-    });
-  });
+      ensureDateRange(
+        payload.start_date ??
+          existingExam.start_date.toISOString().slice(0, 10),
+        payload.end_date ?? existingExam.end_date.toISOString().slice(0, 10),
+      );
 
-  static delete = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const exam = await ExamModel.softDelete(getValidId(req.params.id, "Exam"));
+      const exam = await ExamModel.update(id, payload);
 
-    if (!exam) return next(new AppError("Exam not found or already deleted.", 404));
+      res.status(200).json({
+        success: true,
+        message: "Exam updated successfully.",
+        data: exam,
+      });
+    },
+  );
 
-    res.status(200).json({ success: true, message: "Exam moved to trash successfully.", data: exam });
-  });
+  static delete = catchAsync(
+    async (req: Request, res: Response, next: NextFunction) => {
+      const exam = await ExamModel.softDelete(
+        getValidId(req.params.id, "Exam"),
+      );
 
-  static restore = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const exam = await ExamModel.restore(getValidId(req.params.id, "Exam"));
+      if (!exam)
+        return next(new AppError("Exam not found or already deleted.", 404));
 
-    if (!exam) return next(new AppError("Exam not found in trash.", 404));
+      res
+        .status(200)
+        .json({
+          success: true,
+          message: "Exam moved to trash successfully.",
+          data: exam,
+        });
+    },
+  );
 
-    res.status(200).json({ success: true, message: "Exam restored successfully.", data: exam });
-  });
+  static restore = catchAsync(
+    async (req: Request, res: Response, next: NextFunction) => {
+      const exam = await ExamModel.restore(getValidId(req.params.id, "Exam"));
 
-  static hardDelete = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const deleted = await ExamModel.hardDelete(getValidId(req.params.id, "Exam"));
+      if (!exam) return next(new AppError("Exam not found in trash.", 404));
 
-    if (!deleted) return next(new AppError("Exam not found.", 404));
+      res
+        .status(200)
+        .json({
+          success: true,
+          message: "Exam restored successfully.",
+          data: exam,
+        });
+    },
+  );
 
-    res.status(200).json({ success: true, message: "Exam permanently deleted successfully." });
-  });
+  static hardDelete = catchAsync(
+    async (req: Request, res: Response, next: NextFunction) => {
+      const deleted = await ExamModel.hardDelete(
+        getValidId(req.params.id, "Exam"),
+      );
+
+      if (!deleted) return next(new AppError("Exam not found.", 404));
+
+      res
+        .status(200)
+        .json({
+          success: true,
+          message: "Exam permanently deleted successfully.",
+        });
+    },
+  );
 }

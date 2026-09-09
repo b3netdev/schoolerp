@@ -47,14 +47,14 @@ export class AcademicSessionController {
     });
 
     static create = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-        if (req.body?.default_session) {
+        if (req.body?.default_session == "true") {
             const existingDefaultSession = await AcademicSessionModel.getDefaultSession();
-            if (existingDefaultSession) {
+            if (existingDefaultSession?.default_session === true) {
                 return next(new AppError('A default academic session already exists. Please unset it before setting a new default session.', 409));
             }
         }
 
-        console.log("Creating academic session with payload:", req.body); // Debugging line
+        console.log("Creating academic session with payload:", req.body); 
         const session = await AcademicSessionModel.create(req.body);
         res.status(201).json({
             success: true,

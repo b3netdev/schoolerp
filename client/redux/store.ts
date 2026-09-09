@@ -11,6 +11,7 @@ import studentReducer from "./slicers/studentSlicer";
 import studentAuthReducer from "./slicers/studentAuthSlicer";
 import subjectReducer from "./slicers/subjectSlicer";
 import examReducer from "./slicers/examSlicer";
+import academicYearReducer from "./slicers/academicYearSlice";
 export const store = configureStore({
   reducer: {
     auth: authReducer,
@@ -25,6 +26,7 @@ export const store = configureStore({
     studentAuth: studentAuthReducer,
     subject: subjectReducer,
     exam: examReducer,
+    academicYear: academicYearReducer,
   },
 });
 

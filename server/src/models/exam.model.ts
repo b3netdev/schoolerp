@@ -49,26 +49,32 @@ const selectFields = `
 
 export class ExamModel {
   static async findByStatus(
+    academicYearId: number,
     statusFilter: ExamStatusFilter = "all",
   ): Promise<Exam[]> {
-    let whereClause = "WHERE e.deleted_at IS NULL";
-    const values: ExamStatus[] = [];
+    let whereClause = "WHERE e.academic_year_id = $1 AND e.deleted_at IS NULL";
+    const values: unknown[] = [academicYearId];
 
     if (statusFilter === "trash") {
-      whereClause = "WHERE e.deleted_at IS NOT NULL";
+      whereClause =
+        "WHERE e.academic_year_id = $1 AND e.deleted_at IS NOT NULL";
     } else if (statusFilter !== "all") {
-      whereClause = "WHERE e.deleted_at IS NULL AND e.status = $1";
+      whereClause = `
+      WHERE e.academic_year_id = $1
+      AND e.deleted_at IS NULL
+      AND e.status = $2
+    `;
       values.push(statusFilter);
     }
 
     const result = await query<Exam>(
       `
-        SELECT ${selectFields}
-        FROM ${tableName} e
-        INNER JOIN classes c ON c.id = e.class_id
-        ${whereClause}
-        ORDER BY e.start_date DESC, e.id DESC
-      `,
+      SELECT ${selectFields}
+      FROM exam e
+      INNER JOIN classes c ON c.id = e.class_id
+      ${whereClause}
+      ORDER BY e.start_date DESC, e.id DESC
+    `,
       values,
     );
 
@@ -119,7 +125,10 @@ export class ExamModel {
     return exam;
   }
 
-  static async update(id: number, data: UpdateExamPayload): Promise<Exam | null> {
+  static async update(
+    id: number,
+    data: UpdateExamPayload,
+  ): Promise<Exam | null> {
     const updates: string[] = [];
     const values: unknown[] = [];
     let parameterIndex = 1;
@@ -136,7 +145,8 @@ export class ExamModel {
     if (data.start_date !== undefined) addUpdate("start_date", data.start_date);
     if (data.end_date !== undefined) addUpdate("end_date", data.end_date);
     if (data.status !== undefined) addUpdate("status", data.status);
-    if (data.description !== undefined) addUpdate("description", data.description);
+    if (data.description !== undefined)
+      addUpdate("description", data.description);
 
     if (updates.length === 0) return this.findById(id);
 

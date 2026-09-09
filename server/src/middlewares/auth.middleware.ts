@@ -144,8 +144,6 @@ export const authorizeRoles = (...roles: Role[]) =>
     if (!req.user) {
       return next(new AppError("Unable to get authenticated user", 401));
     }
-    console.log(req.user.role,"REQ.USER.ROLE")
-
     if (!roles.includes(req.user.role as Role)) {
       return next(new AppError("Permission denied", 403));
     }

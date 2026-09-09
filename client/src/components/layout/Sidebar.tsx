@@ -135,7 +135,7 @@ const mainNav: NavItem[] = [
     path: "timetable",
     icon: Calendar,
     label: "Timetable",
-    roles: ["admin", "teacher", "student"],
+    roles: ["admin"],
   },
 ];
 

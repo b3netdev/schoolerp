@@ -76,6 +76,7 @@ export class ExamController {
   static getAll = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const status = String(req.query.status ?? "all") as ExamStatusFilter;
     const filters: ExamStatusFilter[] = ["all", "trash", ...examStatuses];
+    console.log("REQ>USER", req.user); 
 
     if (!filters.includes(status)) {
       return next(new AppError("Invalid exam status filter.", 400));

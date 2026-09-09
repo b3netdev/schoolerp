@@ -234,20 +234,7 @@ const validateTeacherStatus = (status?: string): string | undefined => {
   return cleanedStatus;
 };
 
-/**
- * Build CREATE payload.
- *
- * Password is optional.
- *
- * If password is not provided:
- * password -> undefined
- *
- * Model will store NULL.
- *
- * If password is provided:
- * controller sends plain password to model,
- * model bcrypt hashes before database insert.
- */
+
 const buildCreatePayload = (
   data: TeacherPayload,
   finalEmployeeCode: string,
@@ -633,6 +620,7 @@ export class TeacherController {
   static findAll = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const statusParam = req.query.status;
+      console.log(req.user)
 
       let status: TeacherStatusFilter = "all";
 
@@ -688,13 +676,7 @@ export class TeacherController {
     },
   );
 
-  /**
-   * ========================================
-   * CREATE
-   *
-   * Password is optional.
-   * ========================================
-   */
+  
   static create = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const requestData = req.body as TeacherPayload;
@@ -748,18 +730,7 @@ export class TeacherController {
     },
   );
 
-  /**
-   * ========================================
-   * UPDATE
-   *
-   * Password behavior:
-   *
-   * missing -> unchanged
-   * null    -> unchanged
-   * ""      -> unchanged
-   * value   -> hash + update
-   * ========================================
-   */
+ 
   static update = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const id = Number(req.body.id);
@@ -808,11 +779,7 @@ export class TeacherController {
 
       const updatePayload = buildUpdatePayload(requestData, finalEmployeeCode);
 
-      /**
-       * Empty password is converted to
-       * undefined and therefore doesn't
-       * count as an update.
-       */
+      
       const hasAtLeastOneUpdate = Object.values(updatePayload).some(
         (value) => value !== undefined,
       );
@@ -852,11 +819,7 @@ export class TeacherController {
     },
   );
 
-  /**
-   * ========================================
-   * SOFT DELETE
-   * ========================================
-   */
+ 
   static delete = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const id = Number(req.params.id);
@@ -879,11 +842,7 @@ export class TeacherController {
     },
   );
 
-  /**
-   * ========================================
-   * RESTORE
-   * ========================================
-   */
+ 
   static restore = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const id = Number(req.params.id);

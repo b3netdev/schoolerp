@@ -1,8 +1,9 @@
 import express from "express";
 import { TeacherController } from "../controllers/teacher.controller.js";
-
+import { isAuthenticated } from "../middlewares/auth.middleware.js";
 const router = express.Router();
 
+router.use(isAuthenticated);
 router.get("/get-teachers", TeacherController.findAll);
 router.get("/get-teacher/:id", TeacherController.findById);
 router.post("/add-teacher", TeacherController.create);

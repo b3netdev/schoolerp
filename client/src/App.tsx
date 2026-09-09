@@ -92,7 +92,6 @@ function App() {
                     <ProtectedRoute allowedRoles={["teacher", "admin"]} />
                   }
                 >
-                  <Route path="academic-sessions" element={<AcademicSession />} />
                   <Route path="exams" element={<ComingSoon />} />
                   <Route path="attendance" element={<Attendance />} />
                   <Route path="marks-entry" element={<ComingSoon />} />
@@ -108,6 +107,7 @@ function App() {
                 <Route
                   element={<ProtectedRoute allowedRoles={["admin"]} />}
                 >
+                  <Route path="academic-sessions" element={<AcademicSession />} />
                   <Route path="classes" element={<Classes />} />
                   <Route path="students" element={<Students />} />
                   <Route path="academic-sessions" element={<AcademicSession />} />

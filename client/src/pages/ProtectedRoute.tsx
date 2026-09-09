@@ -22,11 +22,10 @@ const ProtectedRoute = ({
     const { portal } = useParams();
 
     const user = useAppSelector((state) => state.auth.user);
-    console.log(user,"USERS")
     
 
     const { checkAuth, loading } = useAuth();
-
+    
     useEffect(() => {
         const verifyAuth = async () => {
             if (!user) {

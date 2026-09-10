@@ -15,31 +15,31 @@ type Day = {
 };
 
 type ClassSectionRelation = {
-  id: number;
-  class_id: number;
+  id: number | string;
+  class_id: number | string;
   class_name: string;
-  section_id: number;
+  section_id: number | string;
   section_name: string;
   section_stream?: string | null;
   deleted_at?: string | null;
 };
 
 type ClassOption = {
-  id: number;
+  id: number | string;
   class_name: string;
   status: "active" | "inactive";
   deleted_at?: string | null;
 };
 
 type Routine = {
-  id: number;
-  class_id: number;
+  id: number | string;
+  class_id: number | string;
   class_name: string;
-  section_id: number;
+  section_id: number | string;
   section_name: string;
-  subject_id: number;
+  subject_id: number | string;
   subject_name: string;
-  teacher_id: number | null;
+  teacher_id: number | string | null;
   teacher_name: string | null;
   day_of_week: DayOfWeek;
   start_time: string;
@@ -137,6 +137,11 @@ const getErrorMessage = (error: unknown) => {
   return "Something went wrong. Please try again.";
 };
 
+const toPositiveInteger = (value: unknown): number | null => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
 export default function Timetable() {
   const dispatch = useAppDispatch();
   const { getClassSections } = useClassSection();
@@ -181,7 +186,7 @@ export default function Timetable() {
     () =>
       classes
         .filter((item) => item.status === "active" && !item.deleted_at)
-        .map((item) => ({ id: item.id, name: item.class_name }))
+        .map((item) => ({ id: Number(item.id), name: item.class_name }))
         .sort((first, second) => first.name.localeCompare(second.name)),
     [classes],
   );
@@ -192,33 +197,34 @@ export default function Timetable() {
     if (!Number.isInteger(classId) || classId <= 0) return [];
 
     return activeRelations
-      .filter((relation) => relation.class_id === classId)
+      .filter((relation) => Number(relation.class_id) === classId)
       .map((relation) => ({
-        id: relation.section_id,
+        id: Number(relation.section_id),
         name: relation.section_name,
-        relationId: relation.id,
+        relationId: Number(relation.id),
       }))
       .sort((first, second) => first.name.localeCompare(second.name));
   }, [activeRelations, selectedClassId]);
 
   const selectedClass = classOptions.find(
-    (item) => item.id === Number(selectedClassId),
+    (item) => Number(item.id) === Number(selectedClassId),
   );
   const selectedSection = sectionOptions.find(
-    (item) => item.id === Number(selectedSectionId),
+    (item) => Number(item.id) === Number(selectedSectionId),
   );
 
   const selectedClassSectionRelation = activeRelations.find(
     (relation) =>
-      relation.class_id === Number(selectedClassId) &&
-      relation.section_id === Number(selectedSectionId),
+      Number(relation.class_id) === Number(selectedClassId) &&
+      Number(relation.section_id) === Number(selectedSectionId),
   );
 
   const subjectOptions = useMemo(
     () =>
       (subjects as Subject[]).filter(
         (subject) =>
-          subject.class_section_id === selectedClassSectionRelation?.id,
+          Number(subject.class_section_id) ===
+          Number(selectedClassSectionRelation?.id),
       ),
     [selectedClassSectionRelation?.id, subjects],
   );
@@ -363,10 +369,31 @@ export default function Timetable() {
   }, [selectedAcademicYearId]);
 
   useEffect(() => {
+    setSelectedClassId("");
+    setSelectedSectionId("");
+    setRoutines([]);
+    setSlots(defaultSlots);
+    setMessage("");
+    setError("");
+  }, [selectedAcademicYearId]);
+
+  useEffect(() => {
     setSelectedSectionId("");
     setRoutines([]);
     setSlots(defaultSlots);
   }, [selectedClassId]);
+
+  useEffect(() => {
+    if (!selectedSectionId) return;
+
+    const selectedSectionExists = sectionOptions.some(
+      (item) => Number(item.id) === Number(selectedSectionId),
+    );
+
+    if (!selectedSectionExists) {
+      setSelectedSectionId("");
+    }
+  }, [sectionOptions, selectedSectionId]);
 
   useEffect(() => {
     void loadRoutines(selectedClassId, selectedSectionId);
@@ -495,9 +522,12 @@ export default function Timetable() {
         throw new Error(response.data?.message || "Unable to save routine.");
       }
 
-      const nextRoutines = selectedCell.routine
+      const currentRoutineId = toPositiveInteger(selectedCell.routine?.id);
+      const savedRoutineId = toPositiveInteger(savedRoutine.id);
+
+      const nextRoutines = selectedCell.routine && currentRoutineId && savedRoutineId
         ? routines.map((routine) =>
-            routine.id === savedRoutine.id ? savedRoutine : routine,
+            toPositiveInteger(routine.id) === savedRoutineId ? savedRoutine : routine,
           )
         : [...routines, savedRoutine];
 
@@ -519,7 +549,11 @@ export default function Timetable() {
   const handleDeleteRoutine = async () => {
     if (!selectedCell?.routine) return;
 
-    const routineId = selectedCell.routine.id;
+    const routineId = toPositiveInteger(selectedCell.routine.id);
+    if (!routineId) {
+      setError("Unable to identify selected routine.");
+      return;
+    }
 
     try {
       setIsSaving(true);
@@ -532,7 +566,7 @@ export default function Timetable() {
       }
 
       updateRoutineState(
-        routines.filter((routine) => routine.id !== routineId),
+        routines.filter((routine) => toPositiveInteger(routine.id) !== routineId),
       );
 
       setMessage("Routine removed successfully.");

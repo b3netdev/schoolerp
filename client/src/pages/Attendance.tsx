@@ -231,6 +231,10 @@ export default function Attendance() {
   const classSectionState = useAppSelector(
     (state) => state.classSection.classSectionRelations,
   );
+  const selectedAcademicYear = useAppSelector(
+    (state: any) => state.academicYear.selectedAcademicYear,
+  );
+
   const studentState = useAppSelector((state) => state.student.students);
 
   const classSectionRelations =
@@ -436,7 +440,7 @@ export default function Attendance() {
     if (selectedClassSectionId && selectedDate) {
       void loadExistingAttendance();
     }
-  }, [selectedClassSectionId, selectedDate, loadExistingAttendance]);
+  }, [selectedClassSectionId, selectedDate, selectedAcademicYear?.id, loadExistingAttendance]);
 
   const setStudentAttendance = (
     studentId: number,
@@ -539,10 +543,7 @@ export default function Attendance() {
     } catch (error: unknown) {
       console.error("Failed to save attendance:", error);
       setErrorMessage(
-        getApiErrorMessage(
-          error,
-          "Unable to save attendance. Please try again.",
-        ),
+        getApiErrorMessage(error, "Unable to save attendance. Please try again."),
       );
     } finally {
       setSubmitting(false);

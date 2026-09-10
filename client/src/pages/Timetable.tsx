@@ -145,6 +145,9 @@ export default function Timetable() {
   const { classSectionRelations } = useAppSelector(
     (state) => state.classSection,
   );
+  const selectedAcademicYearId = useAppSelector(
+    (state: any) => state.academicYear.selectedAcademicYear?.id,
+  );
   const { teachers } = useAppSelector((state) => state.teacher);
   const subjects = useAppSelector((state) => state.subject.subjects);
 
@@ -357,7 +360,7 @@ export default function Timetable() {
 
   useEffect(() => {
     void loadInitialData();
-  }, []);
+  }, [selectedAcademicYearId]);
 
   useEffect(() => {
     setSelectedSectionId("");
@@ -367,7 +370,7 @@ export default function Timetable() {
 
   useEffect(() => {
     void loadRoutines(selectedClassId, selectedSectionId);
-  }, [selectedClassId, selectedSectionId]);
+  }, [selectedClassId, selectedSectionId, selectedAcademicYearId]);
 
   const getRoutine = (day: DayOfWeek, slot: TimeSlot) =>
     routines.find(

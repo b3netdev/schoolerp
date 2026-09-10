@@ -127,6 +127,7 @@ export class StudentAttendanceModel {
   static async findByClassAndDate(
     classSectionId: number,
     attendanceDate: string,
+    academicYearId: number,
   ): Promise<StudentAttendance[]> {
     const result = await query<StudentAttendance>(
       `
@@ -134,9 +135,10 @@ export class StudentAttendanceModel {
         FROM ${tableName}
         WHERE class_section_id = $1
           AND attendance_date = $2
+          AND academic_year_id = $3
         ORDER BY student_id ASC
       `,
-      [classSectionId, attendanceDate],
+      [classSectionId, attendanceDate, academicYearId],
     );
 
     return result.rows;
@@ -147,15 +149,17 @@ export class StudentAttendanceModel {
    */
   static async findByStudent(
     studentId: number,
+    academicYearId: number,
   ): Promise<StudentAttendance[]> {
     const result = await query<StudentAttendance>(
       `
         SELECT *
         FROM ${tableName}
         WHERE student_id = $1
+          AND academic_year_id = $2
         ORDER BY attendance_date DESC
       `,
-      [studentId],
+      [studentId, academicYearId],
     );
 
     return result.rows;
@@ -197,14 +201,16 @@ export class StudentAttendanceModel {
   static async deleteByClassAndDate(
     classSectionId: number,
     attendanceDate: string,
+    academicYearId: number,
   ): Promise<number> {
     const result = await query(
       `
         DELETE FROM ${tableName}
         WHERE class_section_id = $1
           AND attendance_date = $2
+          AND academic_year_id = $3
       `,
-      [classSectionId, attendanceDate],
+      [classSectionId, attendanceDate, academicYearId],
     );
 
     return result.rowCount || 0;

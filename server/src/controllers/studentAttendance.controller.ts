@@ -13,21 +13,22 @@ import {
 import { catchAsync } from "../utils/catchAsync.js";
 import { AppError } from "../utils/AppError.js";
 
-/**
- * Custom request properties populated by
- * your JWT/setAttended middleware.
- */
-interface AttendanceRequest extends Request {
-  admin_id?: number;
-  teacher_id?: number;
-  academic_year_id?: number;
-}
+
+const getAcademicYearIdFromSession = (req: Request): number => {
+  const academicYearId = Number(req.user?.academic_year_id);
+
+  if (!Number.isInteger(academicYearId) || academicYearId <= 0) {
+    throw new AppError(
+      "Academic year is missing from authenticated session",
+      400,
+    );
+  }
+
+  return academicYearId;
+};
 
 export class StudentAttendanceController {
-  /**
-   * POST
-   * /student-attendence/submit-attendence
-   */
+  
   static bulkSave = catchAsync(
     async (
       req: Request,
@@ -35,7 +36,7 @@ export class StudentAttendanceController {
       next: NextFunction,
     ) => {
       const attendanceReq =
-        req as AttendanceRequest;
+        req;
         // console.log(req)
         // return
       const {
@@ -44,42 +45,12 @@ export class StudentAttendanceController {
         attendance,
       } = req.body;
 
-      /*
-       * These values come from JWT middleware.
-       * Do NOT accept them from frontend.
-       */
-      const admin_id =
-        attendanceReq.admin_id ?? null;
-
-      const teacher_id =
-        attendanceReq.teacher_id ?? null;
-
-      const academic_year_id =
-        attendanceReq.academic_year_id;
-
-    
-
-      const hasAdmin = admin_id !== null;
-      const hasTeacher = teacher_id !== null;
-
-     
-     
-
-    
-
-      if (
-        !academic_year_id ||
-        !Number.isInteger(
-          Number(academic_year_id),
-        )
-      ) {
-        return next(
-          new AppError(
-            "Academic year is missing from authenticated session",
-            400,
-          ),
-        );
-      }
+      
+      const userId = Number(attendanceReq.userId);
+      const userRole = attendanceReq.user?.role;
+      const admin_id = userRole === "admin" && Number.isInteger(userId) ? userId : null;
+      const teacher_id = userRole === "teacher" && Number.isInteger(userId) ? userId : null;
+      const academic_year_id = getAcademicYearIdFromSession(req);
 
    
 
@@ -98,10 +69,6 @@ export class StudentAttendanceController {
         );
       }
 
-      /* ---------------------------------------------------- */
-      /* Date                                                */
-      /* ---------------------------------------------------- */
-
       if (!attendance_date) {
         return next(
           new AppError(
@@ -111,9 +78,7 @@ export class StudentAttendanceController {
         );
       }
 
-      /* ---------------------------------------------------- */
-      /* Attendance array                                    */
-      /* ---------------------------------------------------- */
+    
 
       if (
         !Array.isArray(attendance) ||
@@ -132,9 +97,7 @@ export class StudentAttendanceController {
         "absent",
       ];
 
-      /* ---------------------------------------------------- */
-      /* Validate each student                               */
-      /* ---------------------------------------------------- */
+     
 
       for (const row of attendance as AttendanceRow[]) {
         const studentId = Number(
@@ -167,10 +130,6 @@ export class StudentAttendanceController {
         }
       }
 
-      /* ---------------------------------------------------- */
-      /* Prevent duplicate students in request               */
-      /* ---------------------------------------------------- */
-
       const studentIds = (
         attendance as AttendanceRow[]
       ).map((row) =>
@@ -192,9 +151,7 @@ export class StudentAttendanceController {
         );
       }
 
-      /* ---------------------------------------------------- */
-      /* Normalize payload                                   */
-      /* ---------------------------------------------------- */
+      
 
       const normalizedAttendance: AttendanceRow[] =
         (
@@ -206,9 +163,7 @@ export class StudentAttendanceController {
           attended: row.attended,
         }));
 
-      /* ---------------------------------------------------- */
-      /* Save                                                */
-      /* ---------------------------------------------------- */
+     
 
       const result =
         await StudentAttendanceModel.bulkUpsert(
@@ -261,6 +216,7 @@ export class StudentAttendanceController {
       const attendanceDate =
         req.query.date as string;
 
+      const academicYearId = getAcademicYearIdFromSession(req);
       if (
         !Number.isInteger(classSectionId) ||
         classSectionId <= 0
@@ -286,6 +242,7 @@ export class StudentAttendanceController {
         await StudentAttendanceModel.findByClassAndDate(
           classSectionId,
           attendanceDate,
+          academicYearId,
         );
 
       res.status(200).json({
@@ -296,10 +253,7 @@ export class StudentAttendanceController {
     },
   );
 
-  /**
-   * GET
-   * /student-attendence/student/:studentId
-   */
+  
   static getStudentAttendance =
     catchAsync(
       async (
@@ -323,9 +277,12 @@ export class StudentAttendanceController {
           );
         }
 
+        const academicYearId = getAcademicYearIdFromSession(req);
+
         const attendance =
           await StudentAttendanceModel.findByStudent(
             studentId,
+            academicYearId,
           );
 
         res.status(200).json({
@@ -336,10 +293,7 @@ export class StudentAttendanceController {
       },
     );
 
-  /**
-   * DELETE
-   * /student-attendence/class/:classSectionId?date=2026-08-18
-   */
+  
   static deleteClassAttendance =
     catchAsync(
       async (
@@ -353,6 +307,7 @@ export class StudentAttendanceController {
 
         const attendanceDate =
           req.query.date as string;
+        const academicYearId = getAcademicYearIdFromSession(req);
 
         if (
           !Number.isInteger(
@@ -381,6 +336,7 @@ export class StudentAttendanceController {
           await StudentAttendanceModel.deleteByClassAndDate(
             classSectionId,
             attendanceDate,
+            academicYearId,
           );
 
         res.status(200).json({

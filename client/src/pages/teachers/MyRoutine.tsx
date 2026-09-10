@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import api from "@/lib/api";
+import { useAppSelector } from "../../../redux/hooks";
 
 type Routine = {
   id: number;
@@ -86,6 +87,9 @@ const getApiErrorMessage = (error: unknown) => {
 };
 
 export default function MyRoutine() {
+  const selectedAcademicYearId = useAppSelector(
+    (state: any) => state.academicYear.selectedAcademicYear?.id,
+  );
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [selectedDay, setSelectedDay] = useState<number>(getCurrentSchoolDay);
   const [isLoading, setIsLoading] = useState(true);
@@ -108,7 +112,7 @@ export default function MyRoutine() {
 
   useEffect(() => {
     void loadRoutine();
-  }, []);
+  }, [selectedAcademicYearId]);
 
   const selectedDayInfo = DAYS.find((day) => day.id === selectedDay) ?? DAYS[0];
 

@@ -96,6 +96,9 @@ export default function NoticeBoard() {
   const { classSectionRelations } = useAppSelector(
     (state) => state.classSection,
   );
+  const selectedAcademicYearId = useAppSelector(
+    (state: any) => state.academicYear.selectedAcademicYear?.id,
+  );
 
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
@@ -213,11 +216,11 @@ export default function NoticeBoard() {
 
   useEffect(() => {
     void Promise.all([loadClasses(), getClassSections("all")]);
-  }, []);
+  }, [selectedAcademicYearId]);
 
   useEffect(() => {
     void loadNotices();
-  }, [filterDate, filterClassId, filterSectionId]);
+  }, [filterDate, filterClassId, filterSectionId, selectedAcademicYearId]);
 
   const openAddModal = () => {
     setEditingNotice(null);

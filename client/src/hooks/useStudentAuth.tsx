@@ -4,7 +4,7 @@ import { useAppDispatch } from "../../redux/hooks";
 import { setStudentAuth, clearStudentAuth } from "../../redux/slicers/studentAuthSlicer";
 
 type LoginPayload = {
-  identifier: string;
+  student_code: string;
   password: string;
 };
 

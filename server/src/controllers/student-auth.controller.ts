@@ -66,25 +66,21 @@ const clearAuthCookies = (res: Response) => {
   res.clearCookie(STUDENT_REFRESH_TOKEN_COOKIE, { path: "/" });
 };
 
-/**
- * Login with student_code, phone, or email — whichever the student enters —
- * plus password. The frontend exposes this as a single "identifier" field.
- */
 export const studentLogin = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
-    const identifier = String(req.body.identifier ?? "").trim();
+    const studentCode = String(req.body.student_code ?? "").trim();
     const password = String(req.body.password ?? "");
 
-    if (!identifier || !password) {
+    if (!studentCode || !password) {
       return next(
-        new AppError("Student code / phone / email and password are required", 400),
+        new AppError("Student code and password are required", 400),
       );
     }
 
-    const student = await StudentModel.findByLoginIdentifier(identifier);
+    const student = await StudentModel.findByStudentCodeForLogin(studentCode);
 
     if (!student) {
-      return next(new AppError("Invalid credentials", 401));
+      return next(new AppError("Invalid student code or password", 401));
     }
 
     if (!student.is_active || student.status !== "active") {
@@ -94,7 +90,7 @@ export const studentLogin = catchAsync(
     const passwordMatches = await bcrypt.compare(password, student.password);
 
     if (!passwordMatches) {
-      return next(new AppError("Invalid credentials", 401));
+      return next(new AppError("Invalid student code or password", 401));
     }
 
     await setAuthCookies(res, student.id, student.student_code);

@@ -5,7 +5,7 @@ import styles from "../admin/AdminSignin.module.css";
 import useStudentAuth from "@/hooks/useStudentAuth";
 
 const StudentSignin = () => {
-  const [identifier, setIdentifier] = useState("");
+  const [studentCode, setStudentCode] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
   const { studentLogin, loading } = useStudentAuth();
@@ -13,7 +13,7 @@ const StudentSignin = () => {
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    const data = await studentLogin({ identifier, password });
+    const data = await studentLogin({ student_code: studentCode, password });
 
     if (data) {
       navigate("/student-portal/dashboard");
@@ -34,27 +34,27 @@ const StudentSignin = () => {
           </h1>
 
           <p>
-            Sign in with your student code, phone number, or email to view
-            your classes, attendance, and results.
+            Sign in with your student code and password to view your classes,
+            attendance, and results.
           </p>
         </div>
 
         <div className={styles.formCard}>
           <div className={styles.formHeader}>
             <h2>Student Sign In</h2>
-            <p>Enter your student code, phone, or email, and your password.</p>
+            <p>Enter your student code and password.</p>
           </div>
 
           <form onSubmit={handleSubmit} className={styles.form}>
             <div className={styles.formGroup}>
-              <label htmlFor="identifier">Student Code / Phone / Email</label>
+              <label htmlFor="student_code">Student Code</label>
 
               <Input
-                id="identifier"
+                id="student_code"
                 type="text"
                 placeholder="e.g. STU000123"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
+                value={studentCode}
+                onChange={(e) => setStudentCode(e.target.value.toUpperCase())}
                 required
                 className={styles.inputField}
               />

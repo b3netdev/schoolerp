@@ -363,15 +363,15 @@ export class StudentModel {
   }
 
   /** Includes the password hash — for internal auth use only. */
-  static async findByLoginIdentifier(
-    identifier: string,
+  static async findByStudentCodeForLogin(
+    studentCode: string,
   ): Promise<StudentWithPassword | null> {
     const result = await db.query<StudentWithPassword>(
       `SELECT * FROM ${tableName}
         WHERE deleted_at IS NULL
-          AND (student_code = $1 OR phone = $1 OR LOWER(email) = LOWER($1))
+          AND UPPER(student_code) = UPPER($1)
         LIMIT 1`,
-      [identifier],
+      [studentCode],
     );
 
     return result.rows[0] ?? null;

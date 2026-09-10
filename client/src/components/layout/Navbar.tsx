@@ -17,6 +17,8 @@ import api from "@/lib/api";
 import { AcademicYear, setAcademicYear } from "../../../redux/slicers/academicYearSlice";
 import { useAppDispatch, useAppSelector } from "../../../redux/hooks";
 import { setAuth } from "../../../redux/slicers/authslicer";
+import { useLocation } from "react-router-dom";
+
 
 // Add your API class import here.
 // Example:
@@ -46,6 +48,18 @@ export function Navbar({
   const [profileOpen, setProfileOpen] = useState(false);
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
+  const [path,setPath ] = useState("")
+  const location = useLocation();
+  
+  useEffect(() => {
+    const path = location.pathname.substring(location.pathname.lastIndexOf("/") + 1);
+    setPath(path);
+  }, [location.pathname]);
+
+
+
+
+   console.log(location,"LOCATION")
 
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -114,7 +128,7 @@ export function Navbar({
 
     if (data?.data?.success == true) {
       dispatch(setAuth(data.data.data))
-       navigate(`/${data.data. data.role}/dashboard`);
+       navigate(`/${data.data. data.role}/${path}`);
     }
 
     dispatch(setAcademicYear(selectedSession));

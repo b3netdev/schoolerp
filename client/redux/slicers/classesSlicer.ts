@@ -24,7 +24,7 @@ const classSlice = createSlice({
         },
 
         updateClass: (state, action: PayloadAction<Class>) => {
-            console.log(action.payload, "Inside class redux");
+           
 
             const index = state.classes.findIndex(
                 (classItem) => classItem.id === action.payload.id

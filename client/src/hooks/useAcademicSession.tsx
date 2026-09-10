@@ -122,7 +122,7 @@ const useAcademicSession = () => {
         );
 
         if (result.status === 204 || result.data?.status === 'success') {
-          console.log('test1');
+     
           dispatch(AcademicSessionDelete(id));
         }
 

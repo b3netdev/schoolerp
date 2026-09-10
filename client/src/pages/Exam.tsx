@@ -115,7 +115,7 @@ export default function Exam() {
   const dispatch = useAppDispatch();
   const exams = useAppSelector((state) => state.exam.exams);
   const { user } = useAppSelector((state) => state.auth);
-  console.log("user", user);
+
 
   const [filter, setFilter] = useState<ExamFilter>("all");
   const [search, setSearch] = useState("");

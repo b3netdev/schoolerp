@@ -494,7 +494,6 @@ export default function Students() {
 
     if (result) {
       setAddOpen(false);
-      await loadStudents(statusFilter, page, itemsPerPage);
     }
   } finally {
     setLoading(false);
@@ -523,7 +522,6 @@ const handleEdit = async (values: FormValues) => {
 
     if (result) {
       setEditItem(null);
-      await loadStudents(statusFilter, page, itemsPerPage);
     }
   } finally {
     setLoading(false);
@@ -534,7 +532,6 @@ const handleEdit = async (values: FormValues) => {
     const result = await deleteStudentRecord(deleteItem.id);
     if (result) {
       setDeleteItem(null);
-      await loadStudents(statusFilter, page, itemsPerPage);
     }
   };
 
@@ -543,7 +540,6 @@ const handleEdit = async (values: FormValues) => {
     const result = await restoreStudentRecord(restoreItem.id);
     if (result) {
       setRestoreItem(null);
-      await loadStudents(statusFilter, page, itemsPerPage);
     }
   };
 
@@ -552,7 +548,6 @@ const handleEdit = async (values: FormValues) => {
     const result = await hardDeleteStudentRecord(permanentDeleteItem.id);
     if (result) {
       setPermanentDeleteItem(null);
-      await loadStudents(statusFilter, page, itemsPerPage);
     }
   };
 
@@ -614,7 +609,6 @@ const handleEdit = async (values: FormValues) => {
       setUploadSummary(result?.message ?? "Students uploaded successfully.");
       setSelectedFile(null);
       setUploadOpen(false);
-      await loadStudents(statusFilter, page, itemsPerPage);
     } catch (error: any) {
       const backendErrors = error?.response?.data?.errors ?? [];
       const message = error?.response?.data?.message ?? "Unable to upload students.";

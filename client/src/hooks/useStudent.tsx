@@ -131,6 +131,16 @@ const useStudent = () => {
         },
       });
 
+      const createdRecords = Array.isArray(result?.data?.data?.created)
+        ? result.data.data.created
+        : [];
+
+      createdRecords.forEach((record: any) => {
+        if (record?.id) {
+          dispatch(addStudent(record));
+        }
+      });
+
       return result?.data;
     } catch (error) {
       throw error;

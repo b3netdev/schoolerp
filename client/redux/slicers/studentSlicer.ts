@@ -65,7 +65,18 @@ const studentSlice = createSlice({
   initialState,
   reducers: {
     addStudent: (state, action: PayloadAction<Student>) => {
-      state.students.unshift(action.payload);
+      const exists = state.students.some((student) => student.id === action.payload.id);
+
+      if (!exists) {
+        state.students = [action.payload, ...state.students].slice(0, state.pagination.limit || 10);
+        state.pagination.total = Math.max(0, state.pagination.total + 1);
+        state.pagination.totalPages = Math.max(1, Math.ceil(state.pagination.total / state.pagination.limit));
+      } else {
+        const index = state.students.findIndex((student) => student.id === action.payload.id);
+        if (index !== -1) {
+          state.students[index] = action.payload;
+        }
+      }
     },
 
     updateStudent: (state, action: PayloadAction<Student>) => {
@@ -75,13 +86,23 @@ const studentSlice = createSlice({
 
       if (index !== -1) {
         state.students[index] = action.payload;
+      } else {
+        state.students = [action.payload, ...state.students].slice(0, state.pagination.limit || 10);
+        state.pagination.total = Math.max(0, state.pagination.total + 1);
+        state.pagination.totalPages = Math.max(1, Math.ceil(state.pagination.total / state.pagination.limit));
       }
     },
 
     deleteStudent: (state, action: PayloadAction<number>) => {
+      const existed = state.students.some((student) => student.id === action.payload);
       state.students = state.students.filter(
         (student) => student.id !== action.payload,
       );
+
+      if (existed) {
+        state.pagination.total = Math.max(0, state.pagination.total - 1);
+        state.pagination.totalPages = Math.max(1, Math.ceil(state.pagination.total / state.pagination.limit));
+      }
     },
 
     setStudents: (state, action: PayloadAction<Student[]>) => {

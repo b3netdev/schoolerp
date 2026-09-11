@@ -3728,7 +3728,6 @@ export default function Teachers() {
       setUploadSummary(result?.message ?? "Teachers uploaded successfully.");
       setSelectedFile(null);
       setUploadOpen(false);
-      await loadTeachers(statusFilter, page, itemsPerPage);
     } catch (error: any) {
       const backendErrors = error?.response?.data?.errors ?? [];
       const message = error?.response?.data?.message ?? "Unable to upload teachers.";
@@ -3759,10 +3758,6 @@ export default function Teachers() {
 
       if (data) {
         setAddOpen(false);
-
-        await loadTeachers(
-          statusFilter,
-        );
       }
     };
 
@@ -3791,12 +3786,8 @@ export default function Teachers() {
         );
 
       if (result) {
-        await loadTeachers(
-          statusFilter,
-        );
+        setEditItem(null);
       }
-
-      setEditItem(null);
     };
 
   const handleDelete =
@@ -3815,12 +3806,8 @@ export default function Teachers() {
       if (
         result?.success
       ) {
-        await loadTeachers(
-          statusFilter,
-        );
+        setDeleteItem(null);
       }
-
-      setDeleteItem(null);
     };
 
   const handleRestore =
@@ -3839,12 +3826,8 @@ export default function Teachers() {
       if (
         result?.success
       ) {
-        await loadTeachers(
-          statusFilter,
-        );
+        setRestoreItem(null);
       }
-
-      setRestoreItem(null);
     };
 
   const handlePermanentDelete =
@@ -3863,14 +3846,10 @@ export default function Teachers() {
       if (
         result?.success
       ) {
-        await loadTeachers(
-          statusFilter,
+        setPermanentDeleteItem(
+          null,
         );
       }
-
-      setPermanentDeleteItem(
-        null,
-      );
     };
 
   const handleStatusChange =

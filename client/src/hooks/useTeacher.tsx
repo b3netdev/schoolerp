@@ -125,6 +125,16 @@ const useTeacher = () => {
         },
       });
 
+      const createdRecords = Array.isArray(result?.data?.data?.created)
+        ? result.data.data.created
+        : [];
+
+      createdRecords.forEach((record: any) => {
+        if (record?.id) {
+          dispatch(addTeacher(record));
+        }
+      });
+
       return result?.data;
     } catch (error) {
       throw error;

@@ -85,7 +85,23 @@ const teacherSlice = createSlice({
       state,
       action: PayloadAction<Teacher>,
     ) => {
-      state.teachers.unshift(action.payload);
+      const exists = state.teachers.some(
+        (teacher) => teacher.id === action.payload.id,
+      );
+
+      if (!exists) {
+        state.teachers = [action.payload, ...state.teachers].slice(0, state.pagination.limit || 10);
+        state.pagination.total = Math.max(0, state.pagination.total + 1);
+        state.pagination.totalPages = Math.max(1, Math.ceil(state.pagination.total / state.pagination.limit));
+      } else {
+        const index = state.teachers.findIndex(
+          (teacher) => teacher.id === action.payload.id,
+        );
+
+        if (index !== -1) {
+          state.teachers[index] = action.payload;
+        }
+      }
     },
 
     updateTeacher: (
@@ -99,6 +115,10 @@ const teacherSlice = createSlice({
 
       if (index !== -1) {
         state.teachers[index] = action.payload;
+      } else {
+        state.teachers = [action.payload, ...state.teachers].slice(0, state.pagination.limit || 10);
+        state.pagination.total = Math.max(0, state.pagination.total + 1);
+        state.pagination.totalPages = Math.max(1, Math.ceil(state.pagination.total / state.pagination.limit));
       }
     },
 
@@ -106,10 +126,19 @@ const teacherSlice = createSlice({
       state,
       action: PayloadAction<number>,
     ) => {
+      const existed = state.teachers.some(
+        (teacher) => teacher.id === action.payload,
+      );
+
       state.teachers = state.teachers.filter(
         (teacher) =>
           teacher.id !== action.payload,
       );
+
+      if (existed) {
+        state.pagination.total = Math.max(0, state.pagination.total - 1);
+        state.pagination.totalPages = Math.max(1, Math.ceil(state.pagination.total / state.pagination.limit));
+      }
     },
 
     setTeachers: (

@@ -207,6 +207,9 @@ export class StudentController {
       const statusParam = req.query.status;
       const pageParam = req.query.page;
       const limitParam = req.query.limit;
+      const classIdParam = req.query.class_id;
+      const sectionIdParam = req.query.section_id;
+      const classSectionIdParam = req.query.class_section_id;
 
       let status: StudentStatusFilter = "all";
 
@@ -230,7 +233,22 @@ export class StudentController {
       const page = Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1;
       const limit = [5, 10, 20].includes(limitValue) ? limitValue : 10;
 
-      const result = await StudentModel.findByStatus(status, page, limit);
+      const classIdValue = Number(Array.isArray(classIdParam) ? classIdParam[0] : classIdParam);
+      const sectionIdValue = Number(Array.isArray(sectionIdParam) ? sectionIdParam[0] : sectionIdParam);
+      const classSectionIdValue = Number(Array.isArray(classSectionIdParam) ? classSectionIdParam[0] : classSectionIdParam);
+
+      const classId = Number.isInteger(classIdValue) && classIdValue > 0 ? classIdValue : undefined;
+      const sectionId = Number.isInteger(sectionIdValue) && sectionIdValue > 0 ? sectionIdValue : undefined;
+      const classSectionId = Number.isInteger(classSectionIdValue) && classSectionIdValue > 0 ? classSectionIdValue : undefined;
+
+      const result = await StudentModel.findByStatus(
+        status,
+        page,
+        limit,
+        classId,
+        sectionId,
+        classSectionId,
+      );
 
       res.status(200).json({
         success: true,

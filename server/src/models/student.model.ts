@@ -281,34 +281,51 @@ export class StudentModel {
     status: StudentStatusFilter = "all",
     page: number = 1,
     limit: number = 10,
+    classId?: number,
+    sectionId?: number,
+    classSectionId?: number,
   ): Promise<StudentListResult> {
     const safePage = Number.isInteger(page) && page > 0 ? page : 1;
     const validLimits = [5, 10, 20];
     const safeLimit = validLimits.includes(Number(limit)) ? Number(limit) : 10;
 
-    let whereClause = `
-    s.deleted_at IS NULL
-  `;
-
     const values: string[] = [];
+    const whereParts: string[] = ["s.deleted_at IS NULL"];
 
     if (status === "trash") {
-      whereClause = `
-      s.deleted_at IS NOT NULL
-    `;
+      whereParts[0] = "s.deleted_at IS NOT NULL";
     } else if (status !== "all") {
       values.push(status);
-
-      whereClause = `
-      s.deleted_at IS NULL
-      AND s.status = $1
-    `;
+      whereParts.push(`s.status = $${values.length}`);
     }
+
+    if (classSectionId && Number.isInteger(classSectionId) && classSectionId > 0) {
+      values.push(String(classSectionId));
+      whereParts.push(`sc.class_section_id = $${values.length}`);
+    } else {
+      if (classId && Number.isInteger(classId) && classId > 0) {
+        values.push(String(classId));
+        whereParts.push(`csr.class_id = $${values.length}`);
+      }
+
+      if (sectionId && Number.isInteger(sectionId) && sectionId > 0) {
+        values.push(String(sectionId));
+        whereParts.push(`csr.section_id = $${values.length}`);
+      }
+    }
+
+    const whereClause = whereParts.join(" AND ");
 
     const totalResult = await db.query<{ total: number }>(
       `
       SELECT COUNT(*)::int AS total
       FROM students AS s
+      LEFT JOIN student_class_relation AS sc
+        ON s.id = sc.student_id
+        AND sc.deleted_at IS NULL
+      LEFT JOIN class_section_relation AS csr
+        ON sc.class_section_id = csr.id
+        AND csr.deleted_at IS NULL
       WHERE ${whereClause}
       `,
       values,

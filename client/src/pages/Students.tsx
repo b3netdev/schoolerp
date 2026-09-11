@@ -224,6 +224,8 @@ export default function Students() {
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState("");
+  const [selectedSectionId, setSelectedSectionId] = useState("");
 
   const [statusFilter, setStatusFilter] = useState<StudentStatusFilter>("all");
 
@@ -245,14 +247,43 @@ export default function Students() {
   const [codeSettingsLoading, setCodeSettingsLoading] = useState(false);
   const [codeSettingsError, setCodeSettingsError] = useState("");
 
+  const classOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          classSectionRelations.map((item) => [String(item.class_id), item.class_name]),
+        ).entries(),
+      ).map(([id, name]) => ({ id, name })),
+    [classSectionRelations],
+  );
+
+  const sectionOptions = useMemo(
+    () =>
+      classSectionRelations
+        .filter((item) => String(item.class_id) === selectedClassId)
+        .map((item) => ({
+          id: String(item.section_id),
+          name: item.section_name,
+        })),
+    [classSectionRelations, selectedClassId],
+  );
+
   const loadStudents = async (
     status: StudentStatusFilter,
     currentPage = page,
     currentLimit = itemsPerPage,
+    classId = selectedClassId ? Number(selectedClassId) : undefined,
+    sectionId = selectedSectionId ? Number(selectedSectionId) : undefined,
   ) => {
     try {
       setIsLoading(true);
-      const response = await getStudents(status, currentPage, currentLimit);
+      const response = await getStudents(
+        status,
+        currentPage,
+        currentLimit,
+        classId,
+        sectionId,
+      );
 
       if (response && currentPage > response.totalPages) {
         setPage(Math.max(1, response.totalPages));
@@ -265,9 +296,9 @@ export default function Students() {
   };
 
   useEffect(() => {
-    void loadStudents(statusFilter, page, itemsPerPage);
+    void loadStudents(statusFilter, page, itemsPerPage, selectedClassId ? Number(selectedClassId) : undefined, selectedSectionId ? Number(selectedSectionId) : undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, page, itemsPerPage]);
+  }, [statusFilter, page, itemsPerPage, selectedClassId, selectedSectionId]);
 
   useEffect(() => {
     getClassSections("all");
@@ -739,7 +770,48 @@ const handleEdit = async (values: FormValues) => {
               />
             </div>
 
-            <div className="flex items-center gap-3 lg:ml-auto">
+            <div className="flex flex-wrap items-center gap-3 lg:ml-auto">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Class</span>
+                <select
+                  value={selectedClassId}
+                  onChange={(e) => {
+                    const nextClassId = e.target.value;
+                    setSelectedClassId(nextClassId);
+                    setSelectedSectionId("");
+                    setPage(1);
+                  }}
+                  className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  <option value="">All Classes</option>
+                  {classOptions.map((classItem) => (
+                    <option key={classItem.id} value={classItem.id}>
+                      {classItem.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Section</span>
+                <select
+                  value={selectedSectionId}
+                  onChange={(e) => {
+                    setSelectedSectionId(e.target.value);
+                    setPage(1);
+                  }}
+                  disabled={!selectedClassId}
+                  className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="">All Sections</option>
+                  {sectionOptions.map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
                 <span>Rows</span>
                 <select

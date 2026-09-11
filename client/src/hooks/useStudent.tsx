@@ -37,10 +37,20 @@ const useStudent = () => {
     status: StudentStatusFilter = "all",
     page = 1,
     limit = 10,
+    classId?: number,
+    sectionId?: number,
+    classSectionId?: number,
   ) => {
     try {
       const result = await api.get("/student/get-students", {
-        params: { status, page, limit },
+        params: {
+          status,
+          page,
+          limit,
+          ...(classId ? { class_id: classId } : {}),
+          ...(sectionId ? { section_id: sectionId } : {}),
+          ...(classSectionId ? { class_section_id: classSectionId } : {}),
+        },
       });
 
       if (result?.data?.success) {

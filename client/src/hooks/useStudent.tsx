@@ -17,10 +17,10 @@ export interface AddStudentPayload {
   password?: string;
   status?: string;
 
-  /** References an existing class_section_relation row (class + section + teacher for the current year). */
+  
   class_section_id?: number;
 
-  /** Dynamic profile fields (student_meta is a key/value store) — any keys the UI wants to collect. */
+
   meta?: Record<string, string | number | boolean | null>;
 }
 
@@ -99,7 +99,7 @@ const useStudent = () => {
       const result = await api.post(`/student/restore-student/${id}`);
 
       if (result?.data?.success) {
-        dispatch(deleteStudent(id));
+        dispatch(addStudent(result.data.data));
         return true;
       }
     } catch (error) {

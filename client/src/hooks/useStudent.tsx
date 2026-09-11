@@ -2,6 +2,7 @@ import api from "@/lib/api";
 import { useAppDispatch } from "../../redux/hooks";
 import {
   setStudents,
+  setStudentsPageData,
   addStudent,
   updateStudent,
   deleteStudent,
@@ -32,17 +33,25 @@ export type StudentStatusFilter = "all" | "active" | "inactive" | "trash";
 const useStudent = () => {
   const dispatch = useAppDispatch();
 
-  const getStudents = async (status: StudentStatusFilter = "all") => {
+  const getStudents = async (
+    status: StudentStatusFilter = "all",
+    page = 1,
+    limit = 10,
+  ) => {
     try {
       const result = await api.get("/student/get-students", {
-        params: { status },
+        params: { status, page, limit },
       });
 
       if (result?.data?.success) {
-        dispatch(setStudents(result.data.data));
+        dispatch(setStudentsPageData(result.data.data));
+        return result.data.data;
       }
+
+      return null;
     } catch (error) {
       console.log(error);
+      return null;
     }
   };
 
@@ -111,6 +120,23 @@ const useStudent = () => {
     }
   };
 
+  const bulkUploadStudents = async (file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const result = await api.post("/student/bulk-upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      return result?.data;
+    } catch (error) {
+      throw error;
+    }
+  };
+
   return {
     getStudents,
     addStudentRecord,
@@ -118,6 +144,7 @@ const useStudent = () => {
     deleteStudentRecord,
     restoreStudentRecord,
     hardDeleteStudentRecord,
+    bulkUploadStudents,
   };
 };
 

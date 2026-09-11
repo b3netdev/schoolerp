@@ -46,10 +46,11 @@ export default function TeacherSignin({
       setIsSubmitting(true);
       console.log(teacherId, password, "DATA")
 
-      const data = await api.post(`teacher/login`, { employee_code: teacherId, password: password })
-      if (data?.data?.success == true) {
-        dispatch(setAuth(data.data.data))
-         navigate(`/${data.role}/dashboard`);
+      const response = await api.post(`teacher/login`, { employee_code: teacherId, password: password })
+      if (response?.data?.success == true) {
+        const user = response.data.data
+        dispatch(setAuth(user))
+        navigate(`/${user.role}/dashboard`);
       }
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to sign in. Please check your details and try again.");

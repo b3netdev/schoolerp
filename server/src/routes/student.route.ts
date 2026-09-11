@@ -1,7 +1,8 @@
 import express from "express";
-import { StudentController } from "../controllers/student.controller.js";
+import { StudentController, uploadStudentBulkFile } from "../controllers/student.controller.js";
 import { isAuthenticated } from "../middlewares/auth.middleware.js";
 import { withAcademicYearContext } from "../middlewares/academicYearContext.middleware.js";
+import { authorizeRoles } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
@@ -17,5 +18,11 @@ router.post("/update-student", StudentController.update);
 router.delete("/delete-student/:id", StudentController.delete);
 router.post("/restore-student/:id", StudentController.restore);
 router.delete("/permanent-delete-student/:id", StudentController.permanentDelete);
+router.post(
+  "/bulk-upload",
+  authorizeRoles("admin"),
+  uploadStudentBulkFile,
+  StudentController.bulkUpload,
+);
 
 export default router;

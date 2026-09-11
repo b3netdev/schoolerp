@@ -16,8 +16,9 @@ type RequestWithUser = Request & {
   };
 };
 
-const getClassId = (value: string | undefined): number => {
-  const id = Number(value);
+const getClassId = (value: string | string[] | undefined): number => {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  const id = Number(rawValue);
 
   if (!Number.isInteger(id) || id <= 0) {
     throw new AppError("Invalid class ID.", 400);

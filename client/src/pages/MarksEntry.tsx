@@ -92,7 +92,7 @@ export default function MarksEntry() {
       const nextIdx = GRADE_SCALE.indexOf(g) - 1;
       const upper = nextIdx >= 0 ? GRADE_SCALE[nextIdx].min : MAX_MARKS + 1;
       return m >= g.min && m < upper;
-    }),
+    }).length,
   })).filter(g => g.count > 0);
 
   return (

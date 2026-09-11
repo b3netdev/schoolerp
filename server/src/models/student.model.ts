@@ -1,7 +1,10 @@
 import { db, type DatabaseValue } from "../db/query-builder.js";
+import { AppError } from "../utils/AppError.js";
 import {
   StudentClassRelationModel,
   type StudentClassRelation,
+  InvalidStudentClassReferenceError,
+  DuplicateStudentEnrollmentError,
 } from "./student-class-relation.model.js";
 
 export interface Student {
@@ -81,6 +84,14 @@ export interface StudentUpdateData {
 }
 
 export type StudentStatusFilter = "all" | "active" | "inactive" | "trash";
+
+export interface StudentListResult {
+  students: StudentWithMeta[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
 
 const tableName = "students";
 const metaTableName = "student_meta";
@@ -268,7 +279,13 @@ export class StudentModel {
 
   static async findByStatus(
     status: StudentStatusFilter = "all",
-  ): Promise<StudentWithMeta[]> {
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<StudentListResult> {
+    const safePage = Number.isInteger(page) && page > 0 ? page : 1;
+    const validLimits = [5, 10, 20];
+    const safeLimit = validLimits.includes(Number(limit)) ? Number(limit) : 10;
+
     let whereClause = `
     s.deleted_at IS NULL
   `;
@@ -287,6 +304,24 @@ export class StudentModel {
       AND s.status = $1
     `;
     }
+
+    const totalResult = await db.query<{ total: number }>(
+      `
+      SELECT COUNT(*)::int AS total
+      FROM students AS s
+      WHERE ${whereClause}
+      `,
+      values,
+    );
+
+    const total = Number(totalResult.rows[0]?.total ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / safeLimit));
+    const normalizedPage = Math.min(safePage, totalPages);
+    const offset = (normalizedPage - 1) * safeLimit;
+
+    const paginatedParams = [...values, String(safeLimit), String(offset)];
+    const limitParamIndex = values.length + 1;
+    const offsetParamIndex = values.length + 2;
 
     const result = await db.query<
       Student & {
@@ -321,8 +356,10 @@ export class StudentModel {
 
       WHERE ${whereClause}
       ORDER BY s.id DESC
+      LIMIT $${limitParamIndex}
+      OFFSET $${offsetParamIndex}
     `,
-      values,
+      paginatedParams,
     );
 
     const rows = result.rows;
@@ -331,13 +368,21 @@ export class StudentModel {
       rows.map((row) => row.id),
     );
 
-    return rows.map((row) => ({
+    const students = rows.map((row) => ({
       ...toStudent(row),
       class_section_id: row.class_section_id ?? undefined,
       class_name: row.class_name ?? undefined,
       section_name: row.section_name ?? undefined,
       meta: metaByStudent.get(row.id) ?? {},
     }));
+
+    return {
+      students,
+      total,
+      page: normalizedPage,
+      limit: safeLimit,
+      totalPages,
+    };
   }
 
   static async findById(id: number): Promise<StudentWithMeta | null> {
@@ -394,10 +439,21 @@ export class StudentModel {
       }
 
       if (data.classAssignment) {
-        await StudentClassRelationModel.create({
-          student_id: student.id,
-          class_section_id: data.classAssignment.class_section_id,
-        });
+        try {
+          await StudentClassRelationModel.create({
+            student_id: student.id,
+            class_section_id: data.classAssignment.class_section_id,
+          });
+        } catch (error) {
+          if (
+            error instanceof InvalidStudentClassReferenceError ||
+            error instanceof DuplicateStudentEnrollmentError
+          ) {
+            throw new AppError(error.message, 400);
+          }
+
+          throw error;
+        }
       }
 
       const created = await this.findById(student.id);

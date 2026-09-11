@@ -38,12 +38,26 @@ export interface Student {
   deleted_at?: string | null;
 }
 
+export interface StudentPaginationState {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 interface StudentState {
   students: Student[];
+  pagination: StudentPaginationState;
 }
 
 const initialState: StudentState = {
   students: [],
+  pagination: {
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  },
 };
 
 const studentSlice = createSlice({
@@ -73,10 +87,34 @@ const studentSlice = createSlice({
     setStudents: (state, action: PayloadAction<Student[]>) => {
       state.students = action.payload;
     },
+
+    setStudentsPageData: (
+      state,
+      action: PayloadAction<{
+        students: Student[];
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      }>,
+    ) => {
+      state.students = action.payload.students;
+      state.pagination = {
+        page: action.payload.page,
+        limit: action.payload.limit,
+        total: action.payload.total,
+        totalPages: action.payload.totalPages,
+      };
+    },
   },
 });
 
-export const { addStudent, updateStudent, deleteStudent, setStudents } =
-  studentSlice.actions;
+export const {
+  addStudent,
+  updateStudent,
+  deleteStudent,
+  setStudents,
+  setStudentsPageData,
+} = studentSlice.actions;
 
 export default studentSlice.reducer;

@@ -26,7 +26,12 @@ const fields: FieldDef[] = [
   { key: "email", label: "Email", type: "email", placeholder: "parent@example.com" },
   {
     key: "relationship", label: "Relationship", type: "select",
-    options: ["Father", "Mother", "Guardian", "Sibling"],
+    options: [
+      { label: "Father", value: "Father" },
+      { label: "Mother", value: "Mother" },
+      { label: "Guardian", value: "Guardian" },
+      { label: "Sibling", value: "Sibling" },
+    ],
   },
 ];
 
@@ -44,22 +49,29 @@ export default function Parents() {
     p.studentName.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleAdd = (values: Record<string, string>) => {
+  const handleAdd = (values: Record<string, string | number | boolean>) => {
     const newParent: Parent = {
       id: Date.now(),
-      parentName: values.parentName,
-      studentName: values.studentName,
-      phone: values.phone,
-      email: values.email,
-      relationship: values.relationship || "Guardian",
+      parentName: String(values.parentName ?? ""),
+      studentName: String(values.studentName ?? ""),
+      phone: String(values.phone ?? ""),
+      email: String(values.email ?? ""),
+      relationship: String(values.relationship ?? "Guardian"),
     };
     setData(prev => [newParent, ...prev]);
   };
 
-  const handleEdit = (values: Record<string, string>) => {
+  const handleEdit = (values: Record<string, string | number | boolean>) => {
     if (!editItem) return;
     setData(prev =>
-      prev.map(p => p.id === editItem.id ? { ...p, ...values } : p)
+      prev.map(p => p.id === editItem.id ? {
+        ...p,
+        parentName: String(values.parentName ?? p.parentName),
+        studentName: String(values.studentName ?? p.studentName),
+        phone: String(values.phone ?? p.phone),
+        email: String(values.email ?? p.email),
+        relationship: String(values.relationship ?? p.relationship),
+      } : p)
     );
   };
 

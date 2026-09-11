@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import bcrypt from "bcrypt";
+import multer from "multer";
 
 import {
   StudentModel,
@@ -10,6 +11,26 @@ import {
 import { SettingsModel } from "../models/settings.model.js";
 import { AppError } from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
+import {
+  parseStudentBulkRows,
+  validateStudentBulkRow,
+} from "../utils/studentBulkUpload.js";
+
+export const uploadStudentBulkFile = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowedExtensions = [".csv", ".xls", ".xlsx"];
+    const extension = file.originalname.split(".").pop()?.toLowerCase();
+
+    if (file.mimetype.includes("spreadsheet") || file.mimetype.includes("csv") || extension && allowedExtensions.includes(`.${extension}`)) {
+      cb(null, true);
+      return;
+    }
+
+    cb(new AppError("Only .csv, .xls, and .xlsx files are allowed", 400));
+  },
+}).single("file");
 
 type AutoStudentCodeRules = {
   generationType: "auto";
@@ -184,6 +205,9 @@ export class StudentController {
   static findAll = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const statusParam = req.query.status;
+      const pageParam = req.query.page;
+      const limitParam = req.query.limit;
+
       let status: StudentStatusFilter = "all";
 
       if (typeof statusParam === "string" && statusParam.trim() !== "") {
@@ -200,12 +224,18 @@ export class StudentController {
         status = normalizedStatus as StudentStatusFilter;
       }
 
-      const students = await StudentModel.findByStatus(status);
+      const pageValue = Number(Array.isArray(pageParam) ? pageParam[0] : pageParam ?? "1");
+      const limitValue = Number(Array.isArray(limitParam) ? limitParam[0] : limitParam ?? "10");
+
+      const page = Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1;
+      const limit = [5, 10, 20].includes(limitValue) ? limitValue : 10;
+
+      const result = await StudentModel.findByStatus(status, page, limit);
 
       res.status(200).json({
         success: true,
         message: "Students fetched successfully",
-        data: students,
+        data: result,
       });
     },
   );
@@ -513,6 +543,190 @@ export class StudentController {
       res.status(200).json({
         success: true,
         message: "Student permanently deleted successfully",
+      });
+    },
+  );
+
+  static bulkUpload = catchAsync(
+    async (req: Request, res: Response, next: NextFunction) => {
+      if (!req.file) {
+        return next(new AppError("Please upload a CSV or Excel file", 400));
+      }
+
+      const settings = await getStudentCodeRules();
+      const rawRows = await parseStudentBulkRows(req.file.buffer, req.file.originalname);
+
+      if (rawRows.length === 0) {
+        return next(new AppError("The uploaded spreadsheet does not contain any rows", 400));
+      }
+
+      const existingRows = (
+        await StudentModel.findByStatus("all", 1, Number.MAX_SAFE_INTEGER)
+      ).students;
+      const existingEmails = new Set<string>(
+        existingRows
+          .map((student) => student.email)
+          .filter((email): email is string => Boolean(email))
+          .map((email) => email.trim().toLowerCase()),
+      );
+      const existingPhones = new Set<string>(
+        existingRows
+          .map((student) => student.phone)
+          .filter((phone): phone is string => Boolean(phone))
+          .map((phone) => phone.trim()),
+      );
+      const existingStudentCodes = new Set<string>(
+        existingRows
+          .map((student) => student.student_code)
+          .filter((studentCode): studentCode is string => Boolean(studentCode))
+          .map((studentCode) => studentCode.trim().toUpperCase()),
+      );
+
+      const validRows: Array<{
+        rowNumber: number;
+        createData: StudentCreateData;
+      }> = [];
+      const invalidRows: Array<{ rowNumber: number; errors: string[] }> = [];
+
+      for (let rowIndex = 0; rowIndex < rawRows.length; rowIndex += 1) {
+        const row = rawRows[rowIndex];
+
+        const result = await validateStudentBulkRow(
+          row,
+          {
+            generationType: settings.generationType,
+            prefix: settings.prefix,
+            requiredLength: settings.requiredLength,
+          },
+          {
+            existingEmails,
+            existingPhones,
+            existingStudentCodes,
+          },
+        );
+
+        if (!result.valid || !result.normalized) {
+          invalidRows.push({
+            rowNumber: rowIndex + 2,
+            errors: result.errors,
+          });
+          continue;
+        }
+
+        const normalizedRow = result.normalized;
+        const classSectionId = normalizedRow.class_section_id ? Number(normalizedRow.class_section_id) : undefined;
+
+        let finalStudentCode = normalizedRow.student_code;
+        if (settings.generationType === "auto") {
+          finalStudentCode = await StudentModel.generateStudentCode(
+            settings.prefix,
+            settings.prefix.length + settings.requiredLength,
+          );
+        }
+
+        if (finalStudentCode) {
+          const formattedStudentCode = finalStudentCode.trim().toUpperCase();
+          if (existingStudentCodes.has(formattedStudentCode)) {
+            invalidRows.push({
+              rowNumber: rowIndex + 2,
+              errors: ["Student code already exists"],
+            });
+            continue;
+          }
+          existingStudentCodes.add(formattedStudentCode);
+        }
+
+        if (normalizedRow.email) {
+          const email = normalizedRow.email.trim().toLowerCase();
+          if (existingEmails.has(email)) {
+            invalidRows.push({
+              rowNumber: rowIndex + 2,
+              errors: ["Email already exists"],
+            });
+            continue;
+          }
+          existingEmails.add(email);
+        }
+
+        if (normalizedRow.phone) {
+          const phone = normalizedRow.phone.trim();
+          if (existingPhones.has(phone)) {
+            invalidRows.push({
+              rowNumber: rowIndex + 2,
+              errors: ["Phone already exists"],
+            });
+            continue;
+          }
+          existingPhones.add(phone);
+        }
+
+        const password = normalizedRow.password ?? "";
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        validRows.push({
+          rowNumber: rowIndex + 2,
+          createData: {
+            student_code: finalStudentCode ?? "",
+            first_name: normalizedRow.first_name ?? "",
+            last_name: normalizedRow.last_name,
+            email: normalizedRow.email,
+            phone: normalizedRow.phone,
+            hashedPassword,
+            status: normalizedRow.status ?? "active",
+            classAssignment:
+              Number.isInteger(classSectionId) && classSectionId! > 0
+                ? { class_section_id: classSectionId! }
+                : undefined,
+          },
+        });
+      }
+
+      if (validRows.length > 0) {
+        const remainingValidRows: Array<{ rowNumber: number; createData: StudentCreateData }> = [];
+
+        for (const validRow of validRows) {
+          try {
+            await StudentModel.create(validRow.createData);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Unable to create student";
+            invalidRows.push({
+              rowNumber: validRow.rowNumber,
+              errors: [message],
+            });
+          }
+
+          if (!invalidRows.some((row) => row.rowNumber === validRow.rowNumber)) {
+            remainingValidRows.push(validRow);
+          }
+        }
+
+        validRows.length = 0;
+        remainingValidRows.forEach((row) => validRows.push(row));
+      }
+
+      if (invalidRows.length > 0) {
+        res.status(400).json({
+          success: false,
+          message:
+            validRows.length > 0
+              ? `Bulk upload completed with ${validRows.length} valid record(s) and ${invalidRows.length} invalid row(s).`
+              : "Bulk upload failed because the submitted data contains invalid rows.",
+          data: {
+            inserted: validRows.length,
+            invalidRows,
+          },
+          errors: invalidRows,
+        });
+        return;
+      }
+
+      res.status(201).json({
+        success: true,
+        message: `${validRows.length} student record(s) uploaded successfully`,
+        data: {
+          inserted: validRows.length,
+          invalidRows: [],
+        },
       });
     },
   );

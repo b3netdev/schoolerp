@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Search, LoaderCircle } from "lucide-react";
+import { Plus, Search, LoaderCircle, Upload, Download, FileSpreadsheet } from "lucide-react";
 import { DataTable, Column } from "@/components/tables/DataTable";
 import { FormModal, FieldDef, FormValues } from "@/components/common/FormModal";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
@@ -8,6 +8,8 @@ import { Pagination } from "@/components/common/Pagination";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusTabs, StatusTabOption } from "@/components/common/StatusTabs";
 import { ListingSkeleton } from "@/components/tables/ListingSkeleton";
+import { Modal } from "@/components/common/Modal";
+import * as XLSX from "xlsx";
 import { useAppSelector } from "../../redux/hooks";
 import useStudent, {
   StudentStatusFilter,
@@ -198,8 +200,10 @@ export default function Students() {
     deleteStudentRecord,
     restoreStudentRecord,
     hardDeleteStudentRecord,
+    bulkUploadStudents,
   } = useStudent();
 
+  const { user } = useAppSelector((state) => state.auth);
   const { getSettingsbyKey } = useSettings();
   const getSettingsByKeyRef = useRef(getSettingsbyKey);
 
@@ -210,6 +214,7 @@ export default function Students() {
   const { getClassSections } = useClassSection();
 
   const students = useAppSelector((state) => state.student.students);
+  const pagination = useAppSelector((state) => state.student.pagination);
 
   const { classSectionRelations } = useAppSelector(
     (state) => state.classSection
@@ -217,6 +222,7 @@ export default function Students() {
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
 
   const [statusFilter, setStatusFilter] = useState<StudentStatusFilter>("all");
@@ -227,6 +233,11 @@ export default function Students() {
   const [permanentDeleteItem, setPermanentDeleteItem] = useState<Student | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [loading , setLoading] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadSummary, setUploadSummary] = useState<string | null>(null);
+  const [uploadErrors, setUploadErrors] = useState<Array<{ rowNumber: number; errors: string[] }>>([]);
 
   const [studentCodeRules, setStudentCodeRules] = useState<StudentCodeRules>({
     generationType: "auto",
@@ -234,12 +245,18 @@ export default function Students() {
   const [codeSettingsLoading, setCodeSettingsLoading] = useState(false);
   const [codeSettingsError, setCodeSettingsError] = useState("");
 
-  const itemsPerPage = 10;
-
-  const loadStudents = async (status: StudentStatusFilter) => {
+  const loadStudents = async (
+    status: StudentStatusFilter,
+    currentPage = page,
+    currentLimit = itemsPerPage,
+  ) => {
     try {
       setIsLoading(true);
-      await getStudents(status);
+      const response = await getStudents(status, currentPage, currentLimit);
+
+      if (response && currentPage > response.totalPages) {
+        setPage(Math.max(1, response.totalPages));
+      }
     } catch (error) {
       console.error("Failed to fetch students:", error);
     } finally {
@@ -248,9 +265,9 @@ export default function Students() {
   };
 
   useEffect(() => {
-    loadStudents(statusFilter);
+    void loadStudents(statusFilter, page, itemsPerPage);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [statusFilter, page, itemsPerPage]);
 
   useEffect(() => {
     getClassSections("all");
@@ -446,8 +463,8 @@ export default function Students() {
     );
   }, [search, tableData]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage));
-  const paginatedData = filtered.slice((page - 1) * itemsPerPage, page * itemsPerPage);
+  const totalPages = Math.max(1, pagination.totalPages || 1);
+  const paginatedData = filtered;
 
   const buildAddPayload = (values: FormValues): AddStudentPayload => ({
     first_name: String(values.first_name ?? "").trim(),
@@ -477,7 +494,7 @@ export default function Students() {
 
     if (result) {
       setAddOpen(false);
-      await loadStudents(statusFilter);
+      await loadStudents(statusFilter, page, itemsPerPage);
     }
   } finally {
     setLoading(false);
@@ -506,7 +523,7 @@ const handleEdit = async (values: FormValues) => {
 
     if (result) {
       setEditItem(null);
-      await loadStudents(statusFilter);
+      await loadStudents(statusFilter, page, itemsPerPage);
     }
   } finally {
     setLoading(false);
@@ -517,7 +534,7 @@ const handleEdit = async (values: FormValues) => {
     const result = await deleteStudentRecord(deleteItem.id);
     if (result) {
       setDeleteItem(null);
-      await loadStudents(statusFilter);
+      await loadStudents(statusFilter, page, itemsPerPage);
     }
   };
 
@@ -526,7 +543,7 @@ const handleEdit = async (values: FormValues) => {
     const result = await restoreStudentRecord(restoreItem.id);
     if (result) {
       setRestoreItem(null);
-      await loadStudents(statusFilter);
+      await loadStudents(statusFilter, page, itemsPerPage);
     }
   };
 
@@ -535,7 +552,76 @@ const handleEdit = async (values: FormValues) => {
     const result = await hardDeleteStudentRecord(permanentDeleteItem.id);
     if (result) {
       setPermanentDeleteItem(null);
-      await loadStudents(statusFilter);
+      await loadStudents(statusFilter, page, itemsPerPage);
+    }
+  };
+
+  const handleDownloadSample = () => {
+    const sampleRows = [
+      ["first_name", "last_name", "email", "phone", "password", "status", "class_section_id"],
+      ["Alice", "Johnson", "alice@example.com", "9876543210", "secret123", "active", "1"],
+      ["Bob", "Smith", "bob@example.com", "9123456780", "secret123", "inactive", "2"],
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(sampleRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
+    XLSX.writeFile(workbook, "student_bulk_upload_sample.csv");
+  };
+
+  const handleExportStudents = (format: "csv" | "xlsx") => {
+    const exportRows = search.trim() ? filtered : tableData;
+
+    const rows = exportRows.map((student) => ({
+      "Student Code": student.student_code ?? "",
+      "First Name": student.first_name ?? "",
+      "Last Name": student.last_name ?? "",
+      "Email": student.email ?? "",
+      "Phone": student.phone ?? "",
+      Status: student.status ?? "",
+      Class: student.class_name ?? "",
+      Section: student.section_name ?? "",
+      "Created At": student.created_at ? new Date(student.created_at).toLocaleString() : "",
+    }));
+
+    if (rows.length === 0) {
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
+
+    const filename = `students_export.${format === "csv" ? "csv" : "xlsx"}`;
+
+    if (format === "csv") {
+      XLSX.writeFile(workbook, filename, { bookType: "csv" });
+      return;
+    }
+
+    XLSX.writeFile(workbook, filename, { bookType: "xlsx" });
+  };
+
+  const handleBulkUpload = async () => {
+    if (!selectedFile) return;
+
+    try {
+      setUploading(true);
+      setUploadErrors([]);
+      setUploadSummary(null);
+
+      const result = await bulkUploadStudents(selectedFile);
+      setUploadSummary(result?.message ?? "Students uploaded successfully.");
+      setSelectedFile(null);
+      setUploadOpen(false);
+      await loadStudents(statusFilter, page, itemsPerPage);
+    } catch (error: any) {
+      const backendErrors = error?.response?.data?.errors ?? [];
+      const message = error?.response?.data?.message ?? "Unable to upload students.";
+      setUploadSummary(message);
+      setUploadErrors(Array.isArray(backendErrors) ? backendErrors : []);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -601,16 +687,43 @@ const handleEdit = async (values: FormValues) => {
 
       <PageHeader
         title="Students"
-        description={`${students.length} student records`}
+        description={`${pagination.total} student records`}
         action={
-          <button
-            onClick={() => setAddOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
-            data-testid="add-student-btn"
-          >
-            <Plus className="w-4 h-4" />
-            Add Student
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {user?.role === "admin" && (
+              <>
+                <button
+                  onClick={() => handleExportStudents("csv")}
+                  className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-background text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  Export CSV
+                </button>
+                <button
+                  onClick={() => handleExportStudents("xlsx")}
+                  className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-background text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Export Excel
+                </button>
+                <button
+                  onClick={() => setUploadOpen(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2 border border-border bg-background text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
+                >
+                  <Upload className="w-4 h-4" />
+                  Upload CSV/Excel
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => setAddOpen(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
+              data-testid="add-student-btn"
+            >
+              <Plus className="w-4 h-4" />
+              Add Student
+            </button>
+          </div>
         }
       />
 
@@ -631,16 +744,37 @@ const handleEdit = async (values: FormValues) => {
                 data-testid="students-search"
               />
             </div>
-            <StatusTabs
-              options={statusTabs}
-              value={statusFilter}
-              onChange={(value) => {
-                setStatusFilter(value);
-                setPage(1);
-              }}
-              disabled={isLoading}
-              className="lg:ml-auto"
-            />
+
+            <div className="flex items-center gap-3 lg:ml-auto">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Rows</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    const nextLimit = Number(e.target.value);
+                    setItemsPerPage(nextLimit);
+                    setPage(1);
+                  }}
+                  className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  {[5, 10, 20].map((limit) => (
+                    <option key={limit} value={limit}>
+                      {limit}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <StatusTabs
+                options={statusTabs}
+                value={statusFilter}
+                onChange={(value) => {
+                  setStatusFilter(value);
+                  setPage(1);
+                }}
+                disabled={isLoading}
+              />
+            </div>
           </div>
         </div>
 
@@ -661,7 +795,7 @@ const handleEdit = async (values: FormValues) => {
 
         <div className="px-6 py-4 border-t border-border flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
-            Showing {paginatedData.length} of {filtered.length} students
+            Showing {filtered.length} of {pagination.total} students
           </span>
           <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
@@ -727,6 +861,89 @@ const handleEdit = async (values: FormValues) => {
         confirmLabel="Delete Permanently"
         variant="danger"
       />
+
+      <Modal isOpen={uploadOpen} onClose={() => setUploadOpen(false)} title="Bulk Student Upload" size="lg">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border border-dashed border-border bg-muted/40 p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                <FileSpreadsheet className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Upload CSV or Excel file</p>
+                <p className="text-xs text-muted-foreground">Accepted: .csv, .xls, .xlsx</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleDownloadSample}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-muted"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download sample
+            </button>
+          </div>
+
+          <input
+            type="file"
+            accept=".csv,.xls,.xlsx"
+            onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+            className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground"
+          />
+
+          {selectedFile && (
+            <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-foreground">
+              Selected file: <span className="font-medium">{selectedFile.name}</span>
+            </div>
+          )}
+
+          {uploadSummary && (
+            <div className={`rounded-lg border px-3 py-2 text-sm ${uploadSummary.toLowerCase().includes("failed") || uploadSummary.toLowerCase().includes("invalid") ? "border-red-200 bg-red-50 text-red-700" : "border-green-200 bg-green-50 text-green-700"}`}>
+              {uploadSummary}
+            </div>
+          )}
+
+          {uploadErrors.length > 0 && (
+            <div className="max-h-64 overflow-auto rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <p className="mb-2 font-medium">Invalid rows:</p>
+              <ul className="space-y-2">
+                {uploadErrors.map((entry) => (
+                  <li key={`row-${entry.rowNumber}`}>
+                    <span className="font-semibold">Row {entry.rowNumber}:</span>
+                    <ul className="ml-4 list-disc">
+                      {entry.errors.map((error, index) => <li key={`${entry.rowNumber}-${index}`}>{error}</li>)}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setUploadOpen(false);
+                setSelectedFile(null);
+                setUploadErrors([]);
+                setUploadSummary(null);
+              }}
+              className="rounded-lg bg-muted px-4 py-2 text-sm font-medium text-foreground"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkUpload}
+              disabled={!selectedFile || uploading}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {uploading && <LoaderCircle className="h-4 w-4 animate-spin" />}
+              {uploading ? "Uploading..." : "Upload Students"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

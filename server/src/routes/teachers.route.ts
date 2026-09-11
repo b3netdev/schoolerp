@@ -1,6 +1,13 @@
 import express from "express";
-import { TeacherController } from "../controllers/teacher.controller.js";
-import { isAuthenticated } from "../middlewares/auth.middleware.js";
+import {
+  TeacherController,
+  uploadTeacherBulkFile,
+} from "../controllers/teacher.controller.js";
+import {
+  isAuthenticated,
+  authorizeRoles,
+} from "../middlewares/auth.middleware.js";
+
 const router = express.Router();
 
 router.post("/login", TeacherController.login);
@@ -18,6 +25,12 @@ router.get(
 router.delete(
   "/permanent-delete-teacher/:id",
   TeacherController.permanentDelete,
+);
+router.post(
+  "/bulk-upload",
+  authorizeRoles("admin"),
+  uploadTeacherBulkFile,
+  TeacherController.bulkUpload,
 );
 
 //Teachers auth routes

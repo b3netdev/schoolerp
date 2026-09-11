@@ -54,12 +54,26 @@ export interface Teacher {
   deleted_at?: string | null;
 }
 
+export interface TeacherPaginationState {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 interface TeacherState {
   teachers: Teacher[];
+  pagination: TeacherPaginationState;
 }
 
 const initialState: TeacherState = {
   teachers: [],
+  pagination: {
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  },
 };
 
 const teacherSlice = createSlice({
@@ -104,6 +118,25 @@ const teacherSlice = createSlice({
     ) => {
       state.teachers = action.payload;
     },
+
+    setTeachersPageData: (
+      state,
+      action: PayloadAction<{
+        teachers: Teacher[];
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      }>,
+    ) => {
+      state.teachers = action.payload.teachers;
+      state.pagination = {
+        page: action.payload.page,
+        limit: action.payload.limit,
+        total: action.payload.total,
+        totalPages: action.payload.totalPages,
+      };
+    },
   },
 });
 
@@ -112,6 +145,7 @@ export const {
   updateTeacher,
   deleteTeacher,
   setTeachers,
+  setTeachersPageData,
 } = teacherSlice.actions;
 
 export default teacherSlice.reducer;

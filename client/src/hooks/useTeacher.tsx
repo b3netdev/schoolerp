@@ -4,6 +4,7 @@ import { useAppDispatch } from "../../redux/hooks";
 
 import {
   setTeachers,
+  setTeachersPageData,
   addTeacher,
   updateTeacher,
   deleteTeacher,
@@ -74,18 +75,19 @@ const useTeacher = () => {
 
   const getTeachers = async (
     status: TeacherStatusFilter = "all",
+    page = 1,
+    limit = 10,
   ) => {
     try {
       const result = await api.get(
         "/teacher/get-teachers",
         {
-          params: { status },
+          params: { status, page, limit },
         },
       );
 
       if (result?.data?.success) {
-        console.log(result.data.data)
-        dispatch(setTeachers(result.data.data));
+        dispatch(setTeachersPageData(result.data.data));
 
         return {
           success: true,
@@ -109,6 +111,23 @@ const useTeacher = () => {
           error?.response?.data?.message ||
           "An error occurred while fetching teachers",
       };
+    }
+  };
+
+  const bulkUploadTeachers = async (file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const result = await api.post("/teacher/bulk-upload", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      return result?.data;
+    } catch (error) {
+      throw error;
     }
   };
 
@@ -260,6 +279,7 @@ const useTeacher = () => {
 
   return {
     getTeachers,
+    bulkUploadTeachers,
     addteacher,
     updateteacher,
     deleteteacher,

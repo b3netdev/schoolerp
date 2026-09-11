@@ -1,4 +1,6 @@
 import { NextFunction, Request, Response } from "express";
+import multer from "multer";
+import bcrypt from "bcrypt";
 
 import jwt from "jsonwebtoken";
 
@@ -13,6 +15,30 @@ import { SettingsModel } from "../models/settings.model.js";
 import { AcademicSessionModel } from "../models/AcademicSession.model.js";
 import { AppError } from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
+import {
+  parseTeacherBulkRows,
+  validateTeacherBulkRow,
+} from "../utils/teacherBulkUpload.js";
+
+export const uploadTeacherBulkFile = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowedExtensions = [".csv", ".xls", ".xlsx"];
+    const extension = file.originalname.split(".").pop()?.toLowerCase();
+
+    if (
+      file.mimetype.includes("spreadsheet") ||
+      file.mimetype.includes("csv") ||
+      (extension && allowedExtensions.includes(`.${extension}`))
+    ) {
+      cb(null, true);
+      return;
+    }
+
+    cb(new AppError("Only .csv, .xls, and .xlsx files are allowed", 400));
+  },
+}).single("file");
 
 type TeacherStatusFilter = "all" | "active" | "inactive" | "resigned" | "trash";
 
@@ -620,7 +646,8 @@ export class TeacherController {
   static findAll = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
       const statusParam = req.query.status;
-      console.log(req.user)
+      const pageParam = req.query.page;
+      const limitParam = req.query.limit;
 
       let status: TeacherStatusFilter = "all";
 
@@ -644,12 +671,18 @@ export class TeacherController {
         status = normalizedStatus as TeacherStatusFilter;
       }
 
-      const teachers = await TeacherModel.findAll(status);
+      const pageValue = Number(Array.isArray(pageParam) ? pageParam[0] : pageParam ?? "1");
+      const limitValue = Number(Array.isArray(limitParam) ? limitParam[0] : limitParam ?? "10");
+
+      const page = Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1;
+      const limit = [5, 10, 20].includes(limitValue) ? limitValue : 10;
+
+      const result = await TeacherModel.findAll(status, page, limit);
 
       return res.status(200).json({
         success: true,
         message: "Teachers fetched successfully",
-        data: teachers,
+        data: result,
       });
     },
   );
@@ -882,6 +915,187 @@ export class TeacherController {
       return res.status(200).json({
         success: true,
         message: "Teacher permanently deleted successfully",
+      });
+    },
+  );
+
+  static bulkUpload = catchAsync(
+    async (req: Request, res: Response, next: NextFunction) => {
+      if (!req.file) {
+        return next(new AppError("Please upload a CSV or Excel file", 400));
+      }
+
+      const settings = await getEmployeeCodeRules();
+      const rawRows = await parseTeacherBulkRows(req.file.buffer, req.file.originalname);
+
+      if (rawRows.length === 0) {
+        return next(new AppError("The uploaded spreadsheet does not contain any rows", 400));
+      }
+
+      const existingRows = (await TeacherModel.findAll("all", 1, Number.MAX_SAFE_INTEGER)).teachers;
+      const existingEmails = new Set<string>(
+        existingRows
+          .map((teacher) => teacher.email)
+          .filter((email): email is string => Boolean(email))
+          .map((email) => email.trim().toLowerCase()),
+      );
+      const existingPhones = new Set<string>(
+        existingRows
+          .map((teacher) => teacher.phone)
+          .filter((phone): phone is string => Boolean(phone))
+          .map((phone) => phone.trim()),
+      );
+      const existingEmployeeCodes = new Set<string>(
+        existingRows
+          .map((teacher) => teacher.employee_code)
+          .filter((employeeCode): employeeCode is string => Boolean(employeeCode))
+          .map((employeeCode) => employeeCode.trim().toUpperCase()),
+      );
+
+      const validRows: Array<{ rowNumber: number; createData: TeacherPayload }> = [];
+      const invalidRows: Array<{ rowNumber: number; errors: string[] }> = [];
+
+      for (let rowIndex = 0; rowIndex < rawRows.length; rowIndex += 1) {
+        const row = rawRows[rowIndex];
+
+        const result = await validateTeacherBulkRow(
+          row,
+          {
+            generationType: settings.generationType,
+            prefix: settings.prefix,
+            requiredLength: settings.requiredLength,
+          },
+          {
+            existingEmails,
+            existingPhones,
+            existingEmployeeCodes,
+          },
+        );
+
+        if (!result.valid || !result.normalized) {
+          invalidRows.push({
+            rowNumber: rowIndex + 2,
+            errors: result.errors,
+          });
+          continue;
+        }
+
+        const normalizedRow = result.normalized;
+
+        let finalEmployeeCode = normalizedRow.employee_code;
+        if (settings.generationType === "auto") {
+          finalEmployeeCode = await TeacherModel.generateEmployeeCode(
+            settings.prefix,
+            settings.prefix.length + settings.requiredLength,
+          );
+        }
+
+        if (finalEmployeeCode) {
+          const formattedEmployeeCode = finalEmployeeCode.trim().toUpperCase();
+          if (existingEmployeeCodes.has(formattedEmployeeCode)) {
+            invalidRows.push({
+              rowNumber: rowIndex + 2,
+              errors: ["Employee code already exists"],
+            });
+            continue;
+          }
+          existingEmployeeCodes.add(formattedEmployeeCode);
+        }
+
+        if (normalizedRow.email) {
+          const email = normalizedRow.email.trim().toLowerCase();
+          if (existingEmails.has(email)) {
+            invalidRows.push({
+              rowNumber: rowIndex + 2,
+              errors: ["Email already exists"],
+            });
+            continue;
+          }
+          existingEmails.add(email);
+        }
+
+        if (normalizedRow.phone) {
+          const phone = normalizedRow.phone.trim();
+          if (existingPhones.has(phone)) {
+            invalidRows.push({
+              rowNumber: rowIndex + 2,
+              errors: ["Phone already exists"],
+            });
+            continue;
+          }
+          existingPhones.add(phone);
+        }
+
+        validRows.push({
+          rowNumber: rowIndex + 2,
+          createData: {
+            first_name: normalizedRow.first_name ?? "",
+            last_name: normalizedRow.last_name,
+            employee_code: finalEmployeeCode ?? undefined,
+            password: normalizedRow.password,
+            email: normalizedRow.email,
+            phone: normalizedRow.phone,
+            gender: normalizedRow.gender,
+            date_of_birth: normalizedRow.date_of_birth,
+            blood_group: normalizedRow.blood_group,
+            marital_status: normalizedRow.marital_status,
+            qualification: normalizedRow.qualification,
+            specialization: normalizedRow.specialization,
+            experience_years: normalizedRow.experience_years ? Number(normalizedRow.experience_years) : undefined,
+            joining_date: normalizedRow.joining_date,
+            employment_type: normalizedRow.employment_type,
+            status: normalizedRow.status ?? "active",
+            basic_salary: normalizedRow.basic_salary ? Number(normalizedRow.basic_salary) : undefined,
+            remarks: normalizedRow.remarks,
+          },
+        });
+      }
+
+      if (validRows.length > 0) {
+        const remainingValidRows: Array<{ rowNumber: number; createData: TeacherPayload }> = [];
+
+        for (const validRow of validRows) {
+          try {
+            await TeacherModel.create(validRow.createData);
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Unable to create teacher";
+            invalidRows.push({
+              rowNumber: validRow.rowNumber,
+              errors: [message],
+            });
+          }
+
+          if (!invalidRows.some((row) => row.rowNumber === validRow.rowNumber)) {
+            remainingValidRows.push(validRow);
+          }
+        }
+
+        validRows.length = 0;
+        remainingValidRows.forEach((row) => validRows.push(row));
+      }
+
+      if (invalidRows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          message:
+            validRows.length > 0
+              ? `Bulk upload completed with ${validRows.length} valid record(s) and ${invalidRows.length} invalid row(s).`
+              : "Bulk upload failed because the submitted data contains invalid rows.",
+          data: {
+            inserted: validRows.length,
+            invalidRows,
+          },
+          errors: invalidRows,
+        });
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: `${validRows.length} teacher record(s) uploaded successfully`,
+        data: {
+          inserted: validRows.length,
+          invalidRows: [],
+        },
       });
     },
   );

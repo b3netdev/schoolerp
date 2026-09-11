@@ -16,6 +16,13 @@ type TeacherStatusFilter =
   | "resigned"
   | "trash";
 
+export interface TeacherListResult {
+  teachers: Teacher[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
 
 export interface Teacher {
   id: number;
@@ -242,43 +249,65 @@ export class TeacherModel {
    */
   static async findAll(
     status: TeacherStatusFilter = "all",
-  ): Promise<Teacher[]> {
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<TeacherListResult> {
+    const safePage = Number.isInteger(page) && page > 0 ? page : 1;
+    const validLimits = [5, 10, 20];
+    const safeLimit = validLimits.includes(Number(limit)) ? Number(limit) : 10;
+
     const values: unknown[] = [];
     const conditions: string[] = [];
 
     if (status === "trash") {
-      conditions.push(
-        "deleted_at IS NOT NULL",
-      );
+      conditions.push("deleted_at IS NOT NULL");
     } else {
-      conditions.push(
-        "deleted_at IS NULL",
-      );
+      conditions.push("deleted_at IS NULL");
 
       if (status !== "all") {
         values.push(status);
-
-        conditions.push(
-          `status = $${values.length}`,
-        );
+        conditions.push(`status = $${values.length}`);
       }
     }
 
-    const result =
-      await query<Teacher>(
-        `
+    const totalResult = await query<{ total: number }>(
+      `
+        SELECT COUNT(*)::int AS total
+        FROM ${tableName}
+        WHERE ${conditions.join(" AND ")}
+      `,
+      values,
+    );
+
+    const total = Number(totalResult.rows[0]?.total ?? 0);
+    const totalPages = Math.max(1, Math.ceil(total / safeLimit));
+    const normalizedPage = Math.min(safePage, totalPages);
+    const offset = (normalizedPage - 1) * safeLimit;
+
+    const paginatedValues = [...values, safeLimit, offset];
+    const limitIndex = values.length + 1;
+    const offsetIndex = values.length + 2;
+
+    const result = await query<Teacher>(
+      `
         SELECT
           ${teacherSelectFields}
         FROM ${tableName}
-        WHERE ${conditions.join(
-          " AND ",
-        )}
+        WHERE ${conditions.join(" AND ")}
         ORDER BY id DESC
-        `,
-        values,
-      );
+        LIMIT $${limitIndex}
+        OFFSET $${offsetIndex}
+      `,
+      paginatedValues,
+    );
 
-    return result.rows;
+    return {
+      teachers: result.rows,
+      total,
+      page: normalizedPage,
+      limit: safeLimit,
+      totalPages,
+    };
   }
 
   /**

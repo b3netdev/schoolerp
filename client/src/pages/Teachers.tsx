@@ -10,11 +10,14 @@ import * as Yup from "yup";
 import {
   CircleCheck,
   CircleX,
+  Download,
   Eye,
   EyeOff,
+  FileSpreadsheet,
   LoaderCircle,
   Plus,
   Search,
+  Upload,
 } from "lucide-react";
 
 import {
@@ -25,6 +28,7 @@ import {
 import { Modal } from "@/components/common/Modal";
 import { toast } from "sonner";
 import useCheck from "@/hooks/useCheck";
+import * as XLSX from "xlsx";
 
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { Breadcrumb } from "@/components/common/Breadcrumb";
@@ -3261,7 +3265,16 @@ export default function Teachers() {
           .teachers,
     );
 
-    console.log(teachers)
+  const pagination =
+    useAppSelector(
+      (state) =>
+        state.teacher
+          .pagination,
+    );
+
+  const { user } = useAppSelector(
+    (state) => state.auth,
+  );
 
   const { classes } =
     useAppSelector(
@@ -3276,6 +3289,7 @@ export default function Teachers() {
 
   const {
     getTeachers,
+    bulkUploadTeachers,
     addteacher,
     updateteacher,
     deleteteacher,
@@ -3332,6 +3346,11 @@ export default function Teachers() {
   ] = useState(1);
 
   const [
+    itemsPerPage,
+    setItemsPerPage,
+  ] = useState(10);
+
+  const [
     viewItem,
     setViewItem,
   ] =
@@ -3375,6 +3394,11 @@ export default function Teachers() {
     addOpen,
     setAddOpen,
   ] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadSummary, setUploadSummary] = useState<string | null>(null);
+  const [uploadErrors, setUploadErrors] = useState<Array<{ rowNumber: number; errors: string[] }>>([]);
 
   const [
     statusFilter,
@@ -3392,18 +3416,24 @@ export default function Teachers() {
       "all",
     );
 
-  const itemsPerPage = 10;
-
   const loadTeachers =
     async (
       status: StatusFilter,
+      currentPage = page,
+      currentLimit = itemsPerPage,
     ) => {
       try {
         setIsLoading(true);
 
-        await getTeachers(
+        const response = await getTeachers(
           status,
+          currentPage,
+          currentLimit,
         );
+
+        if (response?.success && currentPage > response.data.totalPages) {
+          setPage(Math.max(1, response.data.totalPages));
+        }
       } catch (error) {
         console.error(
           "Failed to fetch teachers:",
@@ -3417,12 +3447,14 @@ export default function Teachers() {
   useEffect(() => {
     void loadTeachers(
       statusFilter,
+      page,
+      itemsPerPage,
     );
 
     void getClasses();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [statusFilter, page, itemsPerPage]);
 
   const teacherFormOpen =
     addOpen ||
@@ -3667,22 +3699,45 @@ export default function Teachers() {
     ]);
 
   const totalPages =
-    Math.max(
-      1,
-      Math.ceil(
-        filtered.length /
-          itemsPerPage,
-      ),
-    );
+    Math.max(1, pagination.totalPages || 1);
 
-  const paginatedTeachers =
-    filtered.slice(
-      (page - 1) *
-        itemsPerPage,
+  const paginatedTeachers = filtered;
 
-      page *
-        itemsPerPage,
-    );
+  const handleDownloadTeacherSample = () => {
+    const sampleRows = [
+      ["first_name", "last_name", "email", "phone", "password", "status", "employee_code"],
+      ["Alice", "Johnson", "alice@example.com", "9876543210", "secret123", "active", "T001"],
+      ["Bob", "Smith", "bob@example.com", "9123456780", "secret123", "inactive", "T002"],
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(sampleRows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Teachers");
+    XLSX.writeFile(workbook, "teacher_bulk_upload_sample.csv");
+  };
+
+  const handleBulkUpload = async () => {
+    if (!selectedFile) return;
+
+    try {
+      setUploading(true);
+      setUploadErrors([]);
+      setUploadSummary(null);
+
+      const result = await bulkUploadTeachers(selectedFile);
+      setUploadSummary(result?.message ?? "Teachers uploaded successfully.");
+      setSelectedFile(null);
+      setUploadOpen(false);
+      await loadTeachers(statusFilter, page, itemsPerPage);
+    } catch (error: any) {
+      const backendErrors = error?.response?.data?.errors ?? [];
+      const message = error?.response?.data?.message ?? "Unable to upload teachers.";
+      setUploadSummary(message);
+      setUploadErrors(Array.isArray(backendErrors) ? backendErrors : []);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   /* ---------------------------------------------------------------- */
   /* CRUD handlers                                                     */
@@ -3827,11 +3882,40 @@ export default function Teachers() {
       );
 
       setPage(1);
-
-      await loadTeachers(
-        status,
-      );
     };
+
+  const handleExportTeachers = (format: "csv" | "xlsx") => {
+    const exportRows = search.trim() ? filtered : tableData;
+
+    const rows = exportRows.map((teacher) => ({
+      "Employee Code": teacher.employee_code ?? "",
+      "First Name": teacher.first_name ?? "",
+      "Last Name": teacher.last_name ?? "",
+      Email: teacher.email ?? "",
+      Phone: teacher.phone ?? "",
+      Status: teacher.status ?? "",
+      Qualification: teacher.qualification ?? "",
+      Specialization: teacher.specialization ?? "",
+      "Created At": teacher.created_at ? new Date(teacher.created_at).toLocaleString() : "",
+    }));
+
+    if (rows.length === 0) {
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Teachers");
+
+    const filename = `teachers_export.${format === "csv" ? "csv" : "xlsx"}`;
+
+    if (format === "csv") {
+      XLSX.writeFile(workbook, filename, { bookType: "csv" });
+      return;
+    }
+
+    XLSX.writeFile(workbook, filename, { bookType: "xlsx" });
+  };
 
   const handleClassChange =
     (
@@ -3857,22 +3941,50 @@ export default function Teachers() {
 
       <PageHeader
         title="Teachers"
-        description={`${teachers.length} teaching staff members`}
+        description={`${pagination.total} teaching staff members`}
         action={
-          <button
-            onClick={() =>
-              setAddOpen(
-                true,
-              )
-            }
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-            data-testid="add-teacher-btn"
-            type="button"
-          >
-            <Plus className="h-4 w-4" />
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => handleExportTeachers("csv")}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+              type="button"
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </button>
+            <button
+              onClick={() => handleExportTeachers("xlsx")}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+              type="button"
+            >
+              <FileSpreadsheet className="h-4 w-4" />
+              Export Excel
+            </button>
+            {user?.role === "admin" && (
+              <button
+                onClick={() => setUploadOpen(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                type="button"
+              >
+                <Upload className="h-4 w-4" />
+                Upload CSV/Excel
+              </button>
+            )}
+            <button
+              onClick={() =>
+                setAddOpen(
+                  true,
+                )
+              }
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+              data-testid="add-teacher-btn"
+              type="button"
+            >
+              <Plus className="h-4 w-4" />
 
-            Add Teacher
-          </button>
+              Add Teacher
+            </button>
+          </div>
         }
       />
 
@@ -3943,21 +4055,40 @@ export default function Teachers() {
             </Select>
           </div>
 
-          <StatusTabs
-            options={
-              statusTabs
-            }
-            value={
-              statusFilter
-            }
-            onChange={
-              handleStatusChange
-            }
-            disabled={
-              isLoading
-            }
-            className="lg:ml-auto"
-          />
+          <div className="flex items-center gap-3 lg:ml-auto">
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>Rows</span>
+              <select
+                value={itemsPerPage}
+                onChange={(event) => {
+                  setItemsPerPage(Number(event.target.value));
+                  setPage(1);
+                }}
+                className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                {[5, 10, 20].map((limit) => (
+                  <option key={limit} value={limit}>
+                    {limit}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <StatusTabs
+              options={
+                statusTabs
+              }
+              value={
+                statusFilter
+              }
+              onChange={
+                handleStatusChange
+              }
+              disabled={
+                isLoading
+              }
+            />
+          </div>
         </div>
 
         {/* Table */}
@@ -4055,7 +4186,7 @@ export default function Teachers() {
             }{" "}
             of{" "}
             {
-              filtered.length
+              pagination.total
             }{" "}
             teachers
           </span>
@@ -4074,6 +4205,98 @@ export default function Teachers() {
         </div>
       </div>
 
+
+      <Modal
+        isOpen={uploadOpen}
+        onClose={() => {
+          setUploadOpen(false);
+          setSelectedFile(null);
+          setUploadErrors([]);
+          setUploadSummary(null);
+        }}
+        title="Bulk Teacher Upload"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between rounded-lg border border-dashed border-border bg-muted/40 p-4">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                <FileSpreadsheet className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-foreground">Upload CSV or Excel file</p>
+                <p className="text-xs text-muted-foreground">Accepted: .csv, .xls, .xlsx</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleDownloadTeacherSample}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-muted"
+            >
+              <Download className="h-3.5 w-3.5" />
+              Download sample
+            </button>
+          </div>
+
+          <input
+            type="file"
+            accept=".csv,.xls,.xlsx"
+            onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+            className="block w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground"
+          />
+
+          {selectedFile && (
+            <div className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm text-foreground">
+              Selected file: <span className="font-medium">{selectedFile.name}</span>
+            </div>
+          )}
+
+          {uploadSummary && (
+            <div className={`rounded-lg border px-3 py-2 text-sm ${uploadSummary.toLowerCase().includes("failed") || uploadSummary.toLowerCase().includes("invalid") ? "border-red-200 bg-red-50 text-red-700" : "border-green-200 bg-green-50 text-green-700"}`}>
+              {uploadSummary}
+            </div>
+          )}
+
+          {uploadErrors.length > 0 && (
+            <div className="max-h-64 overflow-auto rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <p className="mb-2 font-medium">Invalid rows:</p>
+              <ul className="space-y-2">
+                {uploadErrors.map((entry) => (
+                  <li key={`row-${entry.rowNumber}`}>
+                    <span className="font-semibold">Row {entry.rowNumber}:</span>
+                    <ul className="ml-4 list-disc">
+                      {entry.errors.map((error, index) => <li key={`${entry.rowNumber}-${index}`}>{error}</li>)}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setUploadOpen(false);
+                setSelectedFile(null);
+                setUploadErrors([]);
+                setUploadSummary(null);
+              }}
+              className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkUpload}
+              disabled={!selectedFile || uploading}
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {uploading ? "Uploading..." : "Upload"}
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal
         isOpen={Boolean(

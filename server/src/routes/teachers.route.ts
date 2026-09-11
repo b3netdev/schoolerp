@@ -3,6 +3,7 @@ import { TeacherController } from "../controllers/teacher.controller.js";
 import { isAuthenticated } from "../middlewares/auth.middleware.js";
 const router = express.Router();
 
+router.post("/login", TeacherController.login);
 router.use(isAuthenticated);
 router.get("/get-teachers", TeacherController.findAll);
 router.get("/get-teacher/:id", TeacherController.findById);
@@ -20,6 +21,5 @@ router.delete(
 );
 
 //Teachers auth routes
-router.post("/login", TeacherController.login);
 
 export default router;

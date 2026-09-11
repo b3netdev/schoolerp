@@ -1,10 +1,4 @@
-/* ============================================================
-   AdminSignin.module.css
-   Theme: blue-slate (matches globals.css HSL palette)
-   Responsive: mobile-first, breakpoint at 768px
-   ============================================================ */
 
-/* ---------- Page shell ---------- */
 .signinPage {
     position: relative;
     min-height: 100svh;
@@ -56,9 +50,7 @@
     }
 }
 
-/* ============================================================
-   LEFT PANEL — branding / copy
-   ============================================================ */
+
 .leftContent {
     display: flex;
     flex-direction: column;

@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useMemo, useState } from "react";
-import { Clock3, Eye, LoaderCircle, Plus, Trash2, X } from "lucide-react";
+import { Clock3, Download, Eye, LoaderCircle, Plus, Trash2, X } from "lucide-react";
 
 import api from "@/lib/api";
 import useClassSection from "@/hooks/useClassSection";
@@ -152,6 +152,9 @@ export default function Timetable() {
   );
   const selectedAcademicYearId = useAppSelector(
     (state: any) => state.academicYear.selectedAcademicYear?.id,
+  );
+  const selectedAcademicYear = useAppSelector(
+    (state: any) => state.academicYear.selectedAcademicYear,
   );
   const { teachers } = useAppSelector((state) => state.teacher);
   const subjects = useAppSelector((state) => state.subject.subjects);
@@ -416,13 +419,13 @@ export default function Timetable() {
       current.map((slot) =>
         slot.id === slotId
           ? {
-              ...slot,
-              [field]: value,
-              id:
-                field === "startTime"
-                  ? getSlotId(value, slot.endTime)
-                  : getSlotId(slot.startTime, value),
-            }
+            ...slot,
+            [field]: value,
+            id:
+              field === "startTime"
+                ? getSlotId(value, slot.endTime)
+                : getSlotId(slot.startTime, value),
+          }
           : slot,
       ),
     );
@@ -511,9 +514,9 @@ export default function Timetable() {
 
       const response = selectedCell.routine
         ? await api.post(
-            `/routine/update-routine/${selectedCell.routine.id}`,
-            payload,
-          )
+          `/routine/update-routine/${selectedCell.routine.id}`,
+          payload,
+        )
         : await api.post("/routine/add-routine", payload);
 
       const savedRoutine = response.data?.data as Routine | undefined;
@@ -527,8 +530,8 @@ export default function Timetable() {
 
       const nextRoutines = selectedCell.routine && currentRoutineId && savedRoutineId
         ? routines.map((routine) =>
-            toPositiveInteger(routine.id) === savedRoutineId ? savedRoutine : routine,
-          )
+          toPositiveInteger(routine.id) === savedRoutineId ? savedRoutine : routine,
+        )
         : [...routines, savedRoutine];
 
       updateRoutineState(nextRoutines);
@@ -580,6 +583,163 @@ export default function Timetable() {
 
   const canManage = Boolean(selectedClassId && selectedSectionId);
 
+  const escapeHtml = (value: string | null | undefined) =>
+    (value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+  const handleDownloadRoutinePdf = () => {
+    if (!canManage || !selectedClass || !selectedSection) {
+      setError("Select a class and section before downloading the routine.");
+      return;
+    }
+
+    const rowsHtml = slots
+      .map((slot, index) => {
+        const cells = days
+          .map((day) => {
+            const routine = getRoutine(day.value, slot);
+
+            if (!routine) {
+              return `<td style="border:1px solid #e5e7eb;padding:10px;text-align:center;color:#9ca3af;">—</td>`;
+            }
+
+            const subject = escapeHtml(routine.subject_name);
+            const teacher = escapeHtml(routine.teacher_name || "Teacher TBA");
+            const room = routine.room_number
+              ? `Room ${escapeHtml(routine.room_number)}`
+              : "Room not assigned";
+
+            return `
+              <td style="border:1px solid #e5e7eb;padding:10px;vertical-align:top;">
+                <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px;">
+                  <p style="margin:0;font-size:12px;font-weight:700;color:#1d4ed8;">${subject}</p>
+                  <p style="margin:6px 0 0;font-size:11px;color:#1f2937;">${teacher}</p>
+                  <p style="margin:4px 0 0;font-size:10px;color:#4b5563;">${room}</p>
+                </div>
+              </td>
+            `;
+          })
+          .join("");
+
+        return `
+          <tr>
+            <td style="border:1px solid #e5e7eb;padding:10px;width:140px;background:#f8fafc;vertical-align:top;">
+              <div style="font-size:11px;font-weight:700;color:#0f172a;">Period ${index + 1}</div>
+              <div style="margin-top:6px;font-size:10px;color:#475569;">${escapeHtml(slot.startTime || "—")} – ${escapeHtml(slot.endTime || "—")}</div>
+            </td>
+            ${cells}
+          </tr>
+        `;
+      })
+      .join("");
+
+    const documentHtml = `
+      <!doctype html>
+      <html lang="en">
+        <head>
+          <meta charset="UTF-8" />
+          <title>${escapeHtml(selectedClass.name)} - ${escapeHtml(selectedSection.name)} Routine</title>
+          <style>
+            @page { size: A4 landscape; margin: 12mm; }
+            html, body {
+              margin: 0;
+              padding: 0;
+              font-family: Arial, Helvetica, sans-serif;
+              background: #ffffff;
+              color: #111827;
+            }
+            body {
+              padding: 16px;
+            }
+            .header {
+              text-align: center;
+              border-bottom: 2px solid #dbeafe;
+              padding-bottom: 12px;
+              margin-bottom: 16px;
+            }
+            .subhead {
+              margin-top: 8px;
+              font-size: 12px;
+              color: #475569;
+              letter-spacing: 0.04em;
+              text-transform: uppercase;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              table-layout: fixed;
+              font-size: 11px;
+            }
+            th {
+              background: #1d4ed8;
+              color: #ffffff;
+              padding: 10px 8px;
+              text-align: center;
+              border: 1px solid #1e3a8a;
+              font-size: 11px;
+            }
+            td {
+              padding: 8px;
+              vertical-align: top;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1 style="margin:0;font-size:22px;">${escapeHtml(selectedClass.name)} · Section ${escapeHtml(selectedSection.name)}</h1>
+            <div class="subhead">${escapeHtml(selectedAcademicYear?.name || "Current Academic Session")}</div>
+            <div style="margin-top:8px;font-size:12px;color:#475569;">Weekly Class Routine</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:120px;">Time</th>
+                ${days
+        .map((day) => `<th>${escapeHtml(day.label)}</th>`)
+        .join("")}
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.setAttribute("aria-hidden", "true");
+    iframe.srcdoc = documentHtml;
+
+    document.body.appendChild(iframe);
+
+    iframe.onload = () => {
+      try {
+        const iframeWindow = iframe.contentWindow;
+        if (!iframeWindow) return;
+
+        iframeWindow.focus();
+        setTimeout(() => {
+          iframeWindow.print();
+        }, 300);
+      } finally {
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1000);
+      }
+    };
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
@@ -595,15 +755,27 @@ export default function Timetable() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsStudentViewOpen(true)}
-          disabled={!canManage}
-          className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-primary/20 bg-card px-4 text-sm font-semibold text-primary transition hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Eye className="size-4" />
-          Student View
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleDownloadRoutinePdf}
+            disabled={!canManage}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Download className="size-4" />
+            Download PDF
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsStudentViewOpen(true)}
+            disabled={!canManage}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-primary/20 bg-card px-4 text-sm font-semibold text-primary transition hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Eye className="size-4" />
+            Student View
+          </button>
+        </div>
       </div>
 
       <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -779,11 +951,10 @@ export default function Timetable() {
                               type="button"
                               onClick={() => openRoutineModal(day, slot)}
                               disabled={!slot.startTime || !slot.endTime}
-                              className={`min-h-28 w-full rounded-lg p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                                routine
-                                  ? "bg-primary/10 hover:bg-primary/15"
-                                  : "border border-dashed border-border bg-muted/30 hover:border-primary/50 hover:bg-primary/5"
-                              }`}
+                              className={`min-h-28 w-full rounded-lg p-3 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${routine
+                                ? "bg-primary/10 hover:bg-primary/15"
+                                : "border border-dashed border-border bg-muted/30 hover:border-primary/50 hover:bg-primary/5"
+                                }`}
                             >
                               {routine ? (
                                 <>
@@ -1028,14 +1199,25 @@ export default function Timetable() {
                   Weekly class routine
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsStudentViewOpen(false)}
-                className="grid size-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
-                aria-label="Close student routine view"
-              >
-                <X className="size-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadRoutinePdf}
+                  className="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary transition hover:bg-primary/10"
+                >
+                  <Download className="size-4" />
+                  Download PDF
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsStudentViewOpen(false)}
+                  className="grid size-9 place-items-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  aria-label="Close student routine view"
+                >
+                  <X className="size-5" />
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto p-4 sm:p-6">

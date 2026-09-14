@@ -109,8 +109,16 @@ export default function Subjects() {
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedClassId, setSelectedClassId] = useState("");
-  const [selectedSectionId, setSelectedSectionId] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState(() =>
+    typeof window !== "undefined"
+      ? sessionStorage.getItem("selectedSubjectClassId") ?? ""
+      : "",
+  );
+  const [selectedSectionId, setSelectedSectionId] = useState(() =>
+    typeof window !== "undefined"
+      ? sessionStorage.getItem("selectedSubjectSectionId") ?? ""
+      : "",
+  );
 
   const [statusFilter, setStatusFilter] =
     useState<SubjectStatusFilter>("all");
@@ -210,6 +218,33 @@ export default function Subjects() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!selectedClassId) {
+      setSelectedSectionId("");
+      sessionStorage.setItem("selectedSubjectSectionId", "");
+      return;
+    }
+
+    const savedSectionId =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("selectedSubjectSectionId") ?? ""
+        : "";
+
+    const matchesClass = classSectionRelations.some(
+      (relation) =>
+        Number(relation.class_id) === Number(selectedClassId) &&
+        Number(relation.section_id) === Number(savedSectionId),
+    );
+
+    if (matchesClass) {
+      setSelectedSectionId(savedSectionId);
+      return;
+    }
+
+    setSelectedSectionId("");
+    sessionStorage.setItem("selectedSubjectSectionId", "");
+  }, [selectedClassId, classSectionRelations]);
 
   useEffect(() => {
     void loadSubjects(
@@ -817,7 +852,9 @@ export default function Subjects() {
                   onChange={(e) => {
                     const nextClassId = e.target.value;
                     setSelectedClassId(nextClassId);
+                    sessionStorage.setItem("selectedSubjectClassId", nextClassId);
                     setSelectedSectionId("");
+                    sessionStorage.setItem("selectedSubjectSectionId", "");
                     setPage(1);
                   }}
                   className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
@@ -836,7 +873,9 @@ export default function Subjects() {
                 <select
                   value={selectedSectionId}
                   onChange={(e) => {
-                    setSelectedSectionId(e.target.value);
+                    const nextSectionId = e.target.value;
+                    setSelectedSectionId(nextSectionId);
+                    sessionStorage.setItem("selectedSubjectSectionId", nextSectionId);
                     setPage(1);
                   }}
                   disabled={!selectedClassId}

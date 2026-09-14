@@ -1,11 +1,13 @@
 import { query } from "../db/query.js";
 
 export type NoticeFor = "student" | "teacher" | "admin";
+export type NoticeForList = NoticeFor[];
+
 export type NoticeStatus = "all" | "active" | "trash";
 
 export interface Notice {
   id: number;
-  notice_for: NoticeFor;
+  notice_for: NoticeForList;
   posted_by: number;
   posted_by_name?: string | null;
 
@@ -26,20 +28,15 @@ export interface Notice {
 }
 
 export interface CreateNoticePayload {
-  notice_for: NoticeFor;
+  notice_for: NoticeForList;
   title: string;
   description: string;
   class_id: number;
-
-  /*
-    Optional from frontend.
-    If empty, controller finds all sections of the class.
-  */
   section_id?: number;
 }
 
 export interface UpdateNoticePayload {
-  notice_for?: NoticeFor;
+  notice_for?: NoticeForList;
   title?: string;
   description?: string;
   class_id?: number;
@@ -48,13 +45,41 @@ export interface UpdateNoticePayload {
 
 export interface NoticeFilters {
   status?: NoticeStatus;
+
+  /*
+    Fetch notices that contain this target.
+    Example: notice_for = "student"
+  */
   notice_for?: NoticeFor;
+
   class_id?: number;
   section_id?: number;
   date?: string;
 }
 
 const tableName = "notice";
+
+const validNoticeFor: NoticeFor[] = ["student", "teacher", "admin"];
+
+function prepareNoticeForJson(noticeFor: NoticeForList): string {
+  const uniqueValues = [...new Set(noticeFor)];
+
+  if (uniqueValues.length === 0) {
+    throw new Error("Select at least one notice recipient.");
+  }
+
+  const hasInvalidValue = uniqueValues.some(
+    (value) => !validNoticeFor.includes(value),
+  );
+
+  if (hasInvalidValue) {
+    throw new Error(
+      "Notice recipients can only be student, teacher, or admin.",
+    );
+  }
+
+  return JSON.stringify(uniqueValues);
+}
 
 export class NoticeModel {
   static async findAll(
@@ -70,15 +95,15 @@ export class NoticeModel {
     if (filters.status === "trash") {
       conditions.push("n.deleted_at IS NOT NULL");
     } else {
-      /*
-        "all" and "active" both show non-deleted notices.
-      */
       conditions.push("n.deleted_at IS NULL");
     }
 
+      
     if (filters.notice_for) {
-      values.push(filters.notice_for);
-      conditions.push(`n.notice_for = $${values.length}`);
+      values.push(JSON.stringify([filters.notice_for]));
+      conditions.push(
+        `n.notice_for @> $${values.length}::jsonb`,
+      );
     }
 
     if (filters.class_id) {
@@ -183,10 +208,6 @@ export class NoticeModel {
     return result.rows;
   }
 
-  /*
-    Checks whether the selected section belongs to
-    the selected class in the current academic year.
-  */
   static async isValidClassSection(
     classId: number,
     sectionId: number,
@@ -199,6 +220,7 @@ export class NoticeModel {
         WHERE class_id = $1
           AND section_id = $2
           AND academic_year_id = $3
+          AND deleted_at IS NULL
         LIMIT 1
       `,
       [classId, sectionId, academicYearId],
@@ -207,9 +229,6 @@ export class NoticeModel {
     return result.rows.length > 0;
   }
 
-  /*
-    Gets every section linked to the selected class.
-  */
   static async findSectionIdsByClass(
     classId: number,
     academicYearId: number,
@@ -220,6 +239,7 @@ export class NoticeModel {
         FROM public.class_section_relation
         WHERE class_id = $1
           AND academic_year_id = $2
+          AND deleted_at IS NULL
         ORDER BY section_id ASC
       `,
       [classId, academicYearId],
@@ -228,17 +248,6 @@ export class NoticeModel {
     return result.rows.map((row) => row.section_id);
   }
 
-  /*
-    Inserts one row for each section.
-
-    Example:
-    Class 1 has Section A, B and C.
-
-    sectionIds = [1, 2, 3]
-
-    Result:
-    Three notice rows are inserted in one SQL query.
-  */
   static async createMany(
     payload: CreateNoticePayload,
     postedBy: number,
@@ -246,12 +255,13 @@ export class NoticeModel {
     sectionIds: number[],
   ): Promise<Notice[]> {
     const values: unknown[] = [];
+    const noticeForJson = prepareNoticeForJson(payload.notice_for);
 
     const insertRows = sectionIds.map((sectionId) => {
       const startPosition = values.length + 1;
 
       values.push(
-        payload.notice_for,
+        noticeForJson,
         postedBy,
         payload.title,
         payload.description,
@@ -262,7 +272,7 @@ export class NoticeModel {
 
       return `
         (
-          $${startPosition},
+          $${startPosition}::jsonb,
           $${startPosition + 1},
           $${startPosition + 2},
           $${startPosition + 3},
@@ -290,11 +300,10 @@ export class NoticeModel {
       values,
     );
 
-    const insertedIds = insertedResult.rows.map(
-      (notice) => notice.id,
+    return this.findByIds(
+      insertedResult.rows.map((notice) => notice.id),
+      academicYearId,
     );
-
-    return this.findByIds(insertedIds, academicYearId);
   }
 
   static async update(
@@ -306,8 +315,8 @@ export class NoticeModel {
     const fields: string[] = [];
 
     if (payload.notice_for !== undefined) {
-      values.push(payload.notice_for);
-      fields.push(`notice_for = $${values.length}`);
+      values.push(prepareNoticeForJson(payload.notice_for));
+      fields.push(`notice_for = $${values.length}::jsonb`);
     }
 
     if (payload.title !== undefined) {

@@ -160,8 +160,16 @@ export default function Timetable() {
   const { teachers } = useAppSelector((state) => state.teacher);
   const subjects = useAppSelector((state) => state.subject.subjects);
 
-  const [selectedClassId, setSelectedClassId] = useState("");
-  const [selectedSectionId, setSelectedSectionId] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState(() =>
+    typeof window !== "undefined"
+      ? sessionStorage.getItem("selectedClassId") ?? ""
+      : "",
+  );
+  const [selectedSectionId, setSelectedSectionId] = useState(() =>
+    typeof window !== "undefined"
+      ? sessionStorage.getItem("selectedSectionId") ?? ""
+      : "",
+  );
   const [classes, setClasses] = useState<ClassOption[]>([]);
   const [routines, setRoutines] = useState<Routine[]>([]);
   const [slots, setSlots] = useState<TimeSlot[]>(defaultSlots);
@@ -380,8 +388,17 @@ export default function Timetable() {
   }, [selectedAcademicYearId]);
 
   useEffect(() => {
-    setSelectedClassId("");
-    setSelectedSectionId("");
+    const savedClassId =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("selectedClassId") ?? ""
+        : "";
+    const savedSectionId =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("selectedSectionId") ?? ""
+        : "";
+
+    setSelectedClassId(savedClassId);
+    setSelectedSectionId(savedSectionId);
     setRoutines([]);
     setSlots(defaultSlots);
     setMessage("");
@@ -389,10 +406,35 @@ export default function Timetable() {
   }, [selectedAcademicYearId]);
 
   useEffect(() => {
+    if (!selectedClassId) {
+      setSelectedSectionId("");
+      sessionStorage.setItem("selectedSectionId", "");
+      setRoutines([]);
+      setSlots(defaultSlots);
+      return;
+    }
+
+    const savedSectionId =
+      typeof window !== "undefined"
+        ? sessionStorage.getItem("selectedSectionId") ?? ""
+        : "";
+
+    const sectionExistsForClass = activeRelations.some(
+      (relation) =>
+        Number(relation.class_id) === Number(selectedClassId) &&
+        Number(relation.section_id) === Number(savedSectionId),
+    );
+
+    if (sectionExistsForClass) {
+      setSelectedSectionId(savedSectionId);
+      return;
+    }
+
     setSelectedSectionId("");
+    sessionStorage.setItem("selectedSectionId", "");
     setRoutines([]);
     setSlots(defaultSlots);
-  }, [selectedClassId]);
+  }, [selectedClassId, activeRelations]);
 
   useEffect(() => {
     if (!selectedSectionId) return;
@@ -403,6 +445,7 @@ export default function Timetable() {
 
     if (!selectedSectionExists) {
       setSelectedSectionId("");
+      sessionStorage.setItem("selectedSectionId", "");
     }
   }, [sectionOptions, selectedSectionId]);
 
@@ -816,7 +859,9 @@ export default function Timetable() {
               value={selectedClassId}
               onChange={(event) => {
                 setSelectedClassId(event.target.value);
+                sessionStorage.setItem("selectedClassId", event.target.value);
                 setSelectedSectionId("");
+                sessionStorage.setItem("selectedSectionId", "");
               }}
               disabled={isLoading}
               className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm font-normal outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
@@ -834,7 +879,10 @@ export default function Timetable() {
             Section
             <select
               value={selectedSectionId}
-              onChange={(event) => setSelectedSectionId(event.target.value)}
+              onChange={(event) => {
+                setSelectedSectionId(event.target.value);
+                sessionStorage.setItem("selectedSectionId", event.target.value);
+              }}
               disabled={!selectedClassId || isLoading}
               className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm font-normal outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-60"
             >

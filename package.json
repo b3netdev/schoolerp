@@ -12,5 +12,12 @@
     "build:client": "npm run build -w client",
     "start:server": "npm run start -w server",
     "typecheck:client": "npm run typecheck -w client"
+  },
+  "dependencies": {
+    "@tiptap/extension-placeholder": "^3.31.3",
+    "@tiptap/extension-underline": "^3.31.3",
+    "@tiptap/react": "^3.31.3",
+    "@tiptap/starter-kit": "^3.31.3",
+    "dompurify": "^3.4.15"
   }
 }

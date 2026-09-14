@@ -15,7 +15,7 @@ import useStudent, {
   StudentStatusFilter,
   AddStudentPayload,
 } from "@/hooks/useStudent";
-import useSettings from "@/hooks/useSettngs";
+import useSettings from "@/hooks/useSettngs"
 import useClassSection from "@/hooks/useClassSection";
 import type { Student } from "../../redux/slicers/studentSlicer";
 

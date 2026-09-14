@@ -52,6 +52,7 @@ type TimeSlot = {
   id: string;
   startTime: string;
   endTime: string;
+  isBreak?: boolean;
 };
 
 type RoutineForm = {
@@ -224,7 +225,7 @@ export default function Timetable() {
 
   const subjectOptions = useMemo(
     () =>
-      (subjects as Subject[]).filter(
+      (subjects as Subject[])?.filter(
         (subject) =>
           Number(subject.class_section_id) ===
           Number(selectedClassSectionRelation?.id),
@@ -285,7 +286,14 @@ export default function Timetable() {
         return;
       }
 
-      dispatch(setSubjects(result.data?.data ?? []));
+      const payload = result.data?.data;
+      const nextSubjects = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.subjects)
+          ? payload.subjects
+          : [];
+
+      dispatch(setSubjects(nextSubjects));
     } catch (requestError) {
       dispatch(setSubjects([]));
       setError(getErrorMessage(requestError));
@@ -439,6 +447,22 @@ export default function Timetable() {
         id: `new-slot-${nextNumber}`,
         startTime: "",
         endTime: "",
+      },
+    ]);
+  };
+
+  const addBreakSlot = () => {
+    const nextNumber = slots.length + 1;
+    const breakStart = "10:00";
+    const breakEnd = "10:15";
+
+    setSlots((current) => [
+      ...current,
+      {
+        id: `break-slot-${nextNumber}`,
+        startTime: breakStart,
+        endTime: breakEnd,
+        isBreak: true,
       },
     ]);
   };
@@ -601,6 +625,10 @@ export default function Timetable() {
       .map((slot, index) => {
         const cells = days
           .map((day) => {
+            if (slot.isBreak) {
+              return `<td style="border:1px solid #f4d68b;padding:10px;text-align:center;background:#fff7ed;color:#b45309;font-weight:700;">Break</td>`;
+            }
+
             const routine = getRoutine(day.value, slot);
 
             if (!routine) {
@@ -625,10 +653,12 @@ export default function Timetable() {
           })
           .join("");
 
+        const title = slot.isBreak ? "Break" : `Period ${index + 1}`;
+
         return `
           <tr>
             <td style="border:1px solid #e5e7eb;padding:10px;width:140px;background:#f8fafc;vertical-align:top;">
-              <div style="font-size:11px;font-weight:700;color:#0f172a;">Period ${index + 1}</div>
+              <div style="font-size:11px;font-weight:700;color:#0f172a;">${title}</div>
               <div style="margin-top:6px;font-size:10px;color:#475569;">${escapeHtml(slot.startTime || "—")} – ${escapeHtml(slot.endTime || "—")}</div>
             </td>
             ${cells}
@@ -859,14 +889,25 @@ export default function Timetable() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={addSlot}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:brightness-110"
-            >
-              <Plus className="size-4" />
-              Add Time Slot
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={addBreakSlot}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 text-sm font-semibold text-amber-700 transition hover:bg-amber-100"
+              >
+                <Clock3 className="size-4" />
+                Add Break
+              </button>
+
+              <button
+                type="button"
+                onClick={addSlot}
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground transition hover:brightness-110"
+              >
+                <Plus className="size-4" />
+                Add Time Slot
+              </button>
+            </div>
           </div>
 
           {isRoutineLoading ? (
@@ -900,7 +941,7 @@ export default function Timetable() {
                       <td className="border-b border-border p-3">
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-sm font-bold text-card-foreground">
-                            Period {index + 1}
+                            {slot.isBreak ? "Break" : `Period ${index + 1}`}
                           </span>
                           <button
                             type="button"
@@ -912,7 +953,7 @@ export default function Timetable() {
                         </div>
                         <div className="mt-3 grid grid-cols-2 gap-2">
                           <input
-                            aria-label={`Period ${index + 1} start time`}
+                            aria-label={`${slot.isBreak ? "Break" : `Period ${index + 1}`} start time`}
                             type="time"
                             value={slot.startTime}
                             onChange={(event) =>
@@ -925,7 +966,7 @@ export default function Timetable() {
                             className="h-9 rounded-md border border-input bg-background px-2 text-xs outline-none focus:border-primary"
                           />
                           <input
-                            aria-label={`Period ${index + 1} end time`}
+                            aria-label={`${slot.isBreak ? "Break" : `Period ${index + 1}`} end time`}
                             type="time"
                             value={slot.endTime}
                             onChange={(event) =>
@@ -941,6 +982,19 @@ export default function Timetable() {
 
                       {days.map((day) => {
                         const routine = getRoutine(day.value, slot);
+
+                        if (slot.isBreak) {
+                          return (
+                            <td
+                              key={day.value}
+                              className="border-b border-l border-border p-2"
+                            >
+                              <div className="flex min-h-28 w-full items-center justify-center rounded-lg border border-amber-300 bg-amber-50 px-3 text-center text-sm font-semibold text-amber-700">
+                                Break
+                              </div>
+                            </td>
+                          );
+                        }
 
                         return (
                           <td

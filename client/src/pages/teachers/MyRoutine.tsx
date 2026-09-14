@@ -146,31 +146,6 @@ export default function MyRoutine() {
   return (
     <main className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-700 via-indigo-600 to-violet-600 p-6 text-white shadow-lg sm:p-8">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="mb-3 flex items-center gap-2 text-indigo-100">
-                <CalendarDays className="h-5 w-5" />
-                <span className="text-sm font-medium">Teacher Portal</span>
-              </div>
-              <h1 className="text-2xl font-bold sm:text-3xl">My Class Routine</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-indigo-100 sm:text-base">
-                View your subject-wise class assignments and weekly teaching schedule.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => void loadRoutine()}
-              disabled={isLoading}
-              className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-              Refresh routine
-            </button>
-          </div>
-        </section>
-
         {errorMessage ? (
           <section className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             {errorMessage}

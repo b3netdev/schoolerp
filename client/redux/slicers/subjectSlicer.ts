@@ -16,12 +16,26 @@ export interface Subject {
   deleted_at?: string | null;
 }
 
+export interface SubjectPaginationState {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 interface SubjectState {
   subjects: Subject[];
+  pagination: SubjectPaginationState;
 }
 
 const initialState: SubjectState = {
   subjects: [],
+  pagination: {
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  },
 };
 
 const subjectSlice = createSlice({
@@ -82,10 +96,32 @@ const subjectSlice = createSlice({
      */
     setSubjects: (
       state,
-      action: PayloadAction<Subject[]>,
+      action: PayloadAction<Subject[] | { subjects?: Subject[] }>,
     ) => {
-      state.subjects =
-        action.payload;
+      const nextValue = Array.isArray(action.payload)
+        ? action.payload
+        : action.payload?.subjects ?? [];
+
+      state.subjects = nextValue;
+    },
+
+    setSubjectsPageData: (
+      state,
+      action: PayloadAction<{
+        subjects: Subject[];
+        page: number;
+        limit: number;
+        total: number;
+        totalPages: number;
+      }>,
+    ) => {
+      state.subjects = action.payload.subjects;
+      state.pagination = {
+        page: action.payload.page,
+        limit: action.payload.limit,
+        total: action.payload.total,
+        totalPages: action.payload.totalPages,
+      };
     },
   },
 });
@@ -95,6 +131,7 @@ export const {
   updateSubject,
   deleteSubject,
   setSubjects,
+  setSubjectsPageData,
 } = subjectSlice.actions;
 
 export default subjectSlice.reducer;

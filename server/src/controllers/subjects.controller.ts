@@ -4,6 +4,7 @@ import {
   SubjectModel,
   SubjectPayload,
   SubjectUpdatePayload,
+  normalizeSubjectListQuery,
 } from "../models/subjects.model.js";
 
 import { AppError } from "../utils/AppError.js";
@@ -14,14 +15,21 @@ import { catchAsync } from "../utils/catchAsync.js";
  */
 export const getAllSubjects = catchAsync(
   async (req: Request, res: Response) => {
-    const status = String(req.query.status ?? "all");
+    const query = normalizeSubjectListQuery(req.query as Record<string, unknown>);
 
-    const subjects = await SubjectModel.findAll(status);
+    const result = await SubjectModel.findAll(
+      query.status,
+      query.page,
+      query.limit,
+      query.classId,
+      query.sectionId,
+      query.classSectionId,
+    );
 
     res.status(200).json({
       success: true,
       message: "Subjects fetched successfully",
-      data: subjects,
+      data: result,
     });
   },
 );

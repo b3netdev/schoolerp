@@ -28,6 +28,7 @@ import {
   addSubject,
   updateSubject,
   deleteSubject,
+  setSubjectsPageData,
   setSubjects,
   type Subject,
 } from "../../redux/slicers/subjectSlicer";
@@ -94,6 +95,9 @@ export default function Subjects() {
   const subjects = useAppSelector(
     (state) => state.subject.subjects,
   );
+  const pagination = useAppSelector(
+    (state) => state.subject.pagination,
+  );
 
   const { classSectionRelations } = useAppSelector(
     (state) => state.classSection,
@@ -103,7 +107,10 @@ export default function Subjects() {
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedClassId, setSelectedClassId] = useState("");
+  const [selectedSectionId, setSelectedSectionId] = useState("");
 
   const [statusFilter, setStatusFilter] =
     useState<SubjectStatusFilter>("all");
@@ -124,7 +131,26 @@ export default function Subjects() {
     setPermanentDeleteItem,
   ] = useState<Subject | null>(null);
 
-  const itemsPerPage = 10;
+  const classOptions = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          classSectionRelations.map((item) => [String(item.class_id), item.class_name]),
+        ).entries(),
+      ).map(([id, name]) => ({ id, name })),
+    [classSectionRelations],
+  );
+
+  const sectionOptions = useMemo(
+    () =>
+      classSectionRelations
+        .filter((item) => String(item.class_id) === selectedClassId)
+        .map((item) => ({
+          id: String(item.section_id),
+          name: item.section_name,
+        })),
+    [classSectionRelations, selectedClassId],
+  );
 
   /**
    * Load class/section relations
@@ -138,6 +164,10 @@ export default function Subjects() {
    */
   const loadSubjects = async (
     status: SubjectStatusFilter,
+    currentPage = page,
+    currentLimit = itemsPerPage,
+    classId = selectedClassId ? Number(selectedClassId) : undefined,
+    sectionId = selectedSectionId ? Number(selectedSectionId) : undefined,
   ) => {
     try {
       setIsLoading(true);
@@ -147,15 +177,24 @@ export default function Subjects() {
         {
           params: {
             status,
+            page: currentPage,
+            limit: currentLimit,
+            ...(classId ? { class_id: classId } : {}),
+            ...(sectionId ? { section_id: sectionId } : {}),
           },
         },
       );
 
-      dispatch(
-        setSubjects(
-          response.data?.data ?? [],
-        ),
-      );
+      const payload = response.data?.data;
+      if (response.data?.success && payload) {
+        dispatch(setSubjectsPageData(payload));
+        if (currentPage > payload.totalPages) {
+          setPage(Math.max(1, payload.totalPages));
+        }
+        return;
+      }
+
+      dispatch(setSubjects([]));
     } catch (error) {
       console.error(
         "Failed to fetch subjects:",
@@ -173,8 +212,15 @@ export default function Subjects() {
   };
 
   useEffect(() => {
-    void loadSubjects(statusFilter);
-  }, [statusFilter]);
+    void loadSubjects(
+      statusFilter,
+      page,
+      itemsPerPage,
+      selectedClassId ? Number(selectedClassId) : undefined,
+      selectedSectionId ? Number(selectedSectionId) : undefined,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, page, itemsPerPage, selectedClassId, selectedSectionId]);
 
   /**
    * Class Section dropdown
@@ -249,7 +295,7 @@ export default function Subjects() {
   const tableData:
     SubjectTableRow[] = useMemo(
     () => {
-      return subjects.map(
+      return subjects?.map(
         (subject) => {
           const classSection =
             classSectionOptions.find(
@@ -276,7 +322,7 @@ export default function Subjects() {
               null,
           };
         },
-      );
+      ) ?? [];
     },
     [
       subjects,
@@ -319,17 +365,11 @@ export default function Subjects() {
    */
   const totalPages = Math.max(
     1,
-    Math.ceil(
-      filteredSubjects.length /
-        itemsPerPage,
-    ),
+    pagination.totalPages || 1,
   );
 
   const paginatedData =
-    filteredSubjects.slice(
-      (page - 1) * itemsPerPage,
-      page * itemsPerPage,
-    );
+    filteredSubjects;
 
   /**
    * ADD SUBJECT
@@ -726,7 +766,7 @@ export default function Subjects() {
 
       <PageHeader
         title="Subjects"
-        description={`${subjects.length} subject records`}
+        description={`${pagination.total} subject records`}
         action={
           <button
             type="button"
@@ -736,6 +776,9 @@ export default function Subjects() {
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
             <Plus className="h-4 w-4" />
+            {
+              isLoading ? "Loading..." : ""
+            }
 
             Add Subject
           </button>
@@ -766,27 +809,88 @@ export default function Subjects() {
               />
             </div>
 
-            <StatusTabs
-              options={
-                statusTabs
-              }
-              value={
-                statusFilter
-              }
-              disabled={
-                isLoading
-              }
-              className="lg:ml-auto"
-              onChange={(
-                value,
-              ) => {
-                setStatusFilter(
-                  value,
-                );
+            <div className="flex flex-wrap items-center gap-3 lg:ml-auto">
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Class</span>
+                <select
+                  value={selectedClassId}
+                  onChange={(e) => {
+                    const nextClassId = e.target.value;
+                    setSelectedClassId(nextClassId);
+                    setSelectedSectionId("");
+                    setPage(1);
+                  }}
+                  className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  <option value="">All Classes</option>
+                  {classOptions.map((classItem) => (
+                    <option key={classItem.id} value={classItem.id}>
+                      {classItem.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-                setPage(1);
-              }}
-            />
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Section</span>
+                <select
+                  value={selectedSectionId}
+                  onChange={(e) => {
+                    setSelectedSectionId(e.target.value);
+                    setPage(1);
+                  }}
+                  disabled={!selectedClassId}
+                  className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="">All Sections</option>
+                  {sectionOptions.map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>Rows</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    const nextLimit = Number(e.target.value);
+                    setItemsPerPage(nextLimit);
+                    setPage(1);
+                  }}
+                  className="h-9 rounded-lg border border-border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                >
+                  {[5, 10, 20].map((limit) => (
+                    <option key={limit} value={limit}>
+                      {limit}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <StatusTabs
+                options={
+                  statusTabs
+                }
+                value={
+                  statusFilter
+                }
+                disabled={
+                  isLoading
+                }
+                onChange={(
+                  value,
+                ) => {
+                  setStatusFilter(
+                    value,
+                  );
+
+                  setPage(1);
+                }}
+              />
+            </div>
           </div>
         </div>
 
@@ -893,15 +997,7 @@ export default function Subjects() {
 
         <div className="flex items-center justify-between border-t border-border px-6 py-4">
           <span className="text-sm text-muted-foreground">
-            Showing{" "}
-            {
-              paginatedData.length
-            }{" "}
-            of{" "}
-            {
-              filteredSubjects.length
-            }{" "}
-            subjects
+            Showing {paginatedData.length} of {pagination.total} subjects
           </span>
 
           <Pagination

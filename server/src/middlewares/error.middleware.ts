@@ -96,7 +96,7 @@ export const errorHandler = (
 
     field =
       getDuplicateField(postgresError);
-
+      console.log(field)
     message = field
       ? `${formatFieldName(field)} already exists`
       : "Duplicate value already exists";

@@ -439,7 +439,7 @@ CREATE TABLE exam (
 
          CONSTRAINT fk_exam_subject
         FOREIGN KEY (subject_id)
-        REFERENCES public.subject(id)
+        REFERENCES public.subject(id)   
         ON DELETE RESTRICT,
 
     CONSTRAINT chk_exam_dates
@@ -656,4 +656,57 @@ deleted_at TIMESTAMP NULL,
 		REFERENCES public.users(id)
 		ON UPDATE CASCADE
         ON DELETE RESTRICT
+);
+
+
+
+
+--Exam Assign
+CREATE TABLE public.exam_assign (
+    id SERIAL PRIMARY KEY,
+
+    teacher_id INTEGER NOT NULL,
+    exam_id INTEGER NOT NULL,
+    subject_id INTEGER NOT NULL,
+    academic_year_id INTEGER NOT NULL,
+
+    assign_till TIMESTAMP NULL,
+
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL,
+
+    -- Prevent the same exam subject from being assigned twice
+    -- to the same teacher in one academic year.
+    CONSTRAINT uq_exam_assign_teacher_exam_subject_year
+    UNIQUE (
+        teacher_id,
+        exam_id,
+        subject_id,
+        academic_year_id
+    ),
+
+    CONSTRAINT fk_exam_assign_teacher
+    FOREIGN KEY (teacher_id)
+    REFERENCES public.teachers(id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT,
+
+    CONSTRAINT fk_exam_assign_exam
+    FOREIGN KEY (exam_id)
+    REFERENCES public.exam(id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT,
+
+    CONSTRAINT fk_exam_assign_subject
+    FOREIGN KEY (subject_id)
+    REFERENCES public.subjects(id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT,
+
+    CONSTRAINT fk_exam_assign_academic_session
+    FOREIGN KEY (academic_year_id)
+    REFERENCES public.academic_session(id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT
 );

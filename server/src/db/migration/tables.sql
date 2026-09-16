@@ -416,6 +416,8 @@ CREATE TABLE exam (
 
     name VARCHAR(150) NOT NULL,
     exam_type VARCHAR(20) CHECK(exam_type in ('term1','term2','annual')),
+    subject_id INTEGER NOT NULL,
+   
 
     academic_year_id INTEGER NOT NULL,
 
@@ -433,6 +435,11 @@ CREATE TABLE exam (
         FOREIGN KEY (academic_year_id)
         REFERENCES public.academic_session(id)
         ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+
+         CONSTRAINT fk_exam_subject
+        FOREIGN KEY (subject_id)
+        REFERENCES public.subject(id)
         ON DELETE RESTRICT,
 
     CONSTRAINT chk_exam_dates

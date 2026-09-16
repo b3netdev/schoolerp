@@ -5,6 +5,7 @@ interface authuser {
   id?: string;
   role: UserRole;
   email?: string;
+  profile_image?: string | null;
 }
 interface authState{
   user: authuser | null,

@@ -7,6 +7,7 @@ export interface User {
   email: string;
   password: string;
   role: string;
+  profile_image?: string | null;
   is_active: boolean;
   created_at: Date;
   updated_at: Date;

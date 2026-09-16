@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 
 import { useAppSelector } from "../../../redux/hooks";
+import { Avatar } from "@/components/common/Avatar";
+import { getProfileImageUrl } from "@/lib/profileImage";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -160,6 +162,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { user } = useAppSelector((state) => state.auth);
 
   const role: UserRole = user?.role || "student";
+  const profileImageSrc = getProfileImageUrl(user?.profile_image);
 
 
   const basePath = `/${role}`;
@@ -189,7 +192,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
             : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
             }`}
         >
-          <item.icon className="w-4 h-4 flex-shrink-0" />
+          <item.icon className="w-4 h-4 shrink-0" />
           {item.label}
         </Link>
       </li>
@@ -265,9 +268,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* Footer */}
         <div className="px-5 py-4 border-t border-sidebar-border">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white text-xs font-bold">
-              {user?.name?.[0]?.toUpperCase() || "U"}
-            </div>
+            <Avatar
+              src={profileImageSrc}
+              initials={user?.name?.[0]?.toUpperCase() || "U"}
+              name={user?.name || "User"}
+              size="sm"
+            />
 
             <div className="min-w-0">
               <p className="text-sm font-medium text-sidebar-foreground truncate">

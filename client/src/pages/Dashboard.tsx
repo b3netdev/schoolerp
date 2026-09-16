@@ -7,6 +7,7 @@ import { CalendarCard } from "@/components/dashboard/CalendarCard";
 import { ProgressBar } from "@/components/common/ProgressBar";
 import { SectionTitle } from "@/components/common/SectionTitle";
 import { PageHeader } from "@/components/common/PageHeader";
+import { Avatar } from "@/components/common/Avatar";
 import {
   activities,
   notices,
@@ -14,6 +15,9 @@ import {
   attendanceSummary,
 } from "@/data/dummyData";
 import api from "@/lib/api";
+import { useNavigate } from "react-router-dom";
+import { useAppSelector } from "../../redux/hooks";
+import { getProfileImageUrl } from "@/lib/profileImage";
 
 type StudentListResponse = {
   total?: number;
@@ -29,7 +33,7 @@ type ClassItem = {
 
 function StatCardSkeleton() {
   return (
-    <div className="rounded-xl border border-border bg-card p-5">
+    <div className="rounded-xl border border-border bg-card p-5 h-36">
       <div className="flex items-start justify-between">
         <div className="space-y-3">
           <div className="h-4 w-24 animate-pulse rounded-md bg-muted" />
@@ -43,6 +47,16 @@ function StatCardSkeleton() {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const user = useAppSelector((state) => state.auth.user);
+
+  const portal = user?.role || "admin";
+  const profileImageSrc = getProfileImageUrl(user?.profile_image);
+  const displayName = user?.name || "User";
+  const navigateToPortalRoute = (route: string) => {
+    navigate(`/${portal}/${route}`);
+  };
+
   const [totals, setTotals] = useState({
     students: 0,
     teachers: 0,
@@ -104,12 +118,11 @@ export default function Dashboard() {
     <div>
       <PageHeader
         title="Dashboard"
-        description="Welcome back, John. Here's what's happening today."
+        description={`Welcome back, ${displayName}. Here's what's happening today.`}
         action={
-          <button className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90">
-            <Plus className="h-4 w-4" />
-            Quick Add
-          </button>
+          <div className="flex items-center gap-3">
+            
+          </div>
         }
       />
 
@@ -128,6 +141,7 @@ export default function Dashboard() {
               title="Total Students"
               value={totals.students.toLocaleString("en-IN")}
               color="blue"
+              onClick={() => navigateToPortalRoute("students")}
             />
 
             <StatCard
@@ -135,6 +149,7 @@ export default function Dashboard() {
               title="Total Teachers"
               value={totals.teachers.toLocaleString("en-IN")}
               color="purple"
+              onClick={() => navigateToPortalRoute("teachers")}
             />
 
             <StatCard
@@ -142,6 +157,7 @@ export default function Dashboard() {
               title="Total Classes"
               value={totals.classes.toLocaleString("en-IN")}
               color="amber"
+              onClick={() => navigateToPortalRoute("classes")}
             />
           </>
         )}
@@ -185,43 +201,6 @@ export default function Dashboard() {
             ))}
           </div>
         </div>
-
-        <div className="rounded-xl border border-border bg-card p-6">
-          <SectionTitle title="Fee Collection" subtitle="November 2024" />
-
-          <div className="space-y-5">
-            <div>
-              <div className="mb-1.5 flex justify-between text-sm">
-                <span className="text-muted-foreground">Collected</span>
-                <span className="font-semibold text-foreground">$18,500</span>
-              </div>
-              <ProgressBar value={74} color="emerald" size="md" />
-            </div>
-
-            <div>
-              <div className="mb-1.5 flex justify-between text-sm">
-                <span className="text-muted-foreground">Pending</span>
-                <span className="font-semibold text-foreground">$4,200</span>
-              </div>
-              <ProgressBar value={17} color="amber" size="md" />
-            </div>
-
-            <div>
-              <div className="mb-1.5 flex justify-between text-sm">
-                <span className="text-muted-foreground">Overdue</span>
-                <span className="font-semibold text-foreground">$2,300</span>
-              </div>
-              <ProgressBar value={9} color="red" size="md" />
-            </div>
-
-            <div className="border-t border-border pt-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Total Due</span>
-                <span className="font-bold text-foreground">$25,000</span>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Bottom Row */}
@@ -236,15 +215,6 @@ export default function Dashboard() {
           <div className="space-y-3">
             {notices.slice(0, 4).map((notice) => (
               <NoticeCard key={notice.id} {...notice} />
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-border bg-card p-6">
-          <SectionTitle title="Upcoming Events" />
-          <div className="space-y-2.5">
-            {events.map((event) => (
-              <CalendarCard key={event.id} {...event} />
             ))}
           </div>
         </div>

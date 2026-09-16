@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { Avatar } from "@/components/common/Avatar";
+import { getProfileImageUrl } from "@/lib/profileImage";
 
 
 import api from "@/lib/api";
@@ -30,6 +31,7 @@ interface NavbarUser {
   role?: string;
   academic_year_id?: number;
   default_academic_session?: string;
+  profile_image?: string | null;
 }
 
 interface NavbarProps {
@@ -78,6 +80,10 @@ export function Navbar({
     .slice(0, 2)
     .join("")
     .toUpperCase();
+
+  const profileImageSrc = getProfileImageUrl(
+    user?.profile_image,
+  );
 
   useEffect(() => {
     const fetchAcademicSessions = async () => {
@@ -193,7 +199,12 @@ export function Navbar({
             className="flex items-center gap-2 h-9 px-2 rounded-lg hover:bg-muted transition-colors"
             data-testid="navbar-profile"
           >
-            <Avatar initials={initials} name={displayName} size="sm" />
+            <Avatar
+              src={profileImageSrc}
+              initials={initials}
+              name={displayName}
+              size="sm"
+            />
 
             <span className="hidden sm:block text-sm font-medium text-foreground">
               {displayName}

@@ -84,6 +84,7 @@ export const adminLogin = catchAsync(
         id: user.id,
         name: user.name,
         email: user.email,
+        profile_image: user.profile_image,
         role: user.role,
         default_academic_session: DefaultAcademicSession,
         academic_year_id: DefaultAcademicSession.id,
@@ -140,6 +141,16 @@ export const switchAcademicSession = catchAsync(
       path: "/",
     });
 
+    let profileImage: string | null = null;
+
+    if (req.user.role === "admin") {
+      const currentUser = await UserModel.findById(req.user.id);
+      profileImage = currentUser?.profile_image ?? null;
+    } else if (req.user.role === "teacher") {
+      const teacher = await TeacherModel.findById(req.user.id);
+      profileImage = teacher?.profile_image ?? null;
+    }
+
     res.status(200).json({
       success: true,
       message: "Academic session switched successfully",
@@ -147,6 +158,7 @@ export const switchAcademicSession = catchAsync(
         id: req.user.id,
         name: req.user.name,
         email: req.user.email,
+        profile_image: profileImage,
         role: req.user.role,
         academic_year_id: session.id,
         default_academic_session: session,
@@ -262,6 +274,7 @@ export const checkAuth = catchAsync(
           id: user.id,
           name: user.name,
           email: user.email,
+          profile_image: user.profile_image,
           role: user.role,
           academic_year_id: req.user.academic_year_id,
           default_academic_session: req.user.default_academic_session,

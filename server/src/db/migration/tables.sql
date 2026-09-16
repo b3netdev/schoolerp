@@ -415,7 +415,7 @@ CREATE TABLE exam (
     id SERIAL PRIMARY KEY,
 
     name VARCHAR(150) NOT NULL,
-    exam_type VARCHAR(50) NOT NULL,
+    exam_type VARCHAR(20) CHECK(exam_type in ('term1','term2','annual')),
 
     academic_year_id INTEGER NOT NULL,
 

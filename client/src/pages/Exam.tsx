@@ -40,6 +40,12 @@ type ClassOption = {
   class_name: string;
 };
 
+const EXAM_TYPE_OPTIONS = [
+  { value: "term1", label: "Term 1" },
+  { value: "term2", label: "Term 2" },
+  { value: "annual", label: "Annual" },
+] as const;
+
 const emptyForm: ExamFormValues = {
   name: "",
   exam_type: "",
@@ -572,7 +578,20 @@ function ExamModal({
                 <input value={form.name} onChange={(event) => onChange("name", event.target.value)} placeholder="e.g. First Terminal Examination" className={inputClass} disabled={isSaving} required />
               </Field>
               <Field label="Exam type" required>
-                <input value={form.exam_type} onChange={(event) => onChange("exam_type", event.target.value)} placeholder="e.g. terminal, monthly" className={inputClass} disabled={isSaving} required />
+                <select
+                  value={form.exam_type}
+                  onChange={(event) => onChange("exam_type", event.target.value)}
+                  className={inputClass}
+                  disabled={isSaving}
+                  required
+                >
+                  <option value="">Select exam type</option>
+                  {EXAM_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <Field label="Class" required>
                 <select

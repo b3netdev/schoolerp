@@ -15,6 +15,7 @@ import {
   ClipboardList,
   FileDown,
   LibraryBig,
+  BookOpenCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -105,7 +106,7 @@ const mainNav: NavItem[] = [
   },
   {
     path: "exam",
-    icon: ClipboardCheck,
+    icon: BookOpenCheck,
     label: "Exam",
     roles: ["admin"],
   },

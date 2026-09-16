@@ -7,6 +7,7 @@ interface StatCardProps {
   change?: string;
   trend?: "up" | "down" | "neutral";
   color?: "blue" | "emerald" | "amber" | "purple" | "rose";
+  onClick?: () => void;
 }
 
 const colorStyles: Record<string, { bg: string; icon: string; iconBg: string }> = {
@@ -17,10 +18,10 @@ const colorStyles: Record<string, { bg: string; icon: string; iconBg: string }> 
   rose: { bg: "bg-rose-50", icon: "text-rose-600", iconBg: "bg-rose-100" },
 };
 
-export function StatCard({ icon, title, value, change, trend = "neutral", color = "blue" }: StatCardProps) {
+export function StatCard({ icon, title, value, change, trend = "neutral", color = "blue", onClick }: StatCardProps) {
   const c = colorStyles[color];
   return (
-    <div className="bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow" data-testid="stat-card">
+    <div onClick={onClick} className="bg-card border border-border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow cursor-pointer" data-testid="stat-card">
       <div className="flex items-start justify-between">
         <div className={`w-10 h-10 ${c.iconBg} rounded-xl flex items-center justify-center ${c.icon}`}>
           {icon}

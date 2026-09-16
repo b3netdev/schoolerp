@@ -1,4 +1,5 @@
-import { GraduationCap, Users, UsersRound, BookOpen, TrendingUp, Plus } from "lucide-react";
+import { useEffect, useState } from "react";
+import { GraduationCap, Users, BookOpen, Plus } from "lucide-react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { ActivityList } from "@/components/dashboard/ActivityList";
 import { NoticeCard } from "@/components/dashboard/NoticeCard";
@@ -6,9 +7,173 @@ import { CalendarCard } from "@/components/dashboard/CalendarCard";
 import { ProgressBar } from "@/components/common/ProgressBar";
 import { SectionTitle } from "@/components/common/SectionTitle";
 import { PageHeader } from "@/components/common/PageHeader";
-import { activities, notices, events, attendanceSummary } from "@/data/dummyData";
+import { activities, events, attendanceSummary } from "@/data/dummyData";
+import api from "@/lib/api";
+import DOMPurify from "dompurify";
+import { noticeApi, type NoticeFor } from "@/lib/noticeApi";
+import { useNavigate } from "react-router-dom";
+import { useAppSelector } from "../../redux/hooks";
+
+type StudentListResponse = {
+  total?: number;
+};
+
+type TeacherListResponse = {
+  total?: number;
+};
+
+type ClassItem = {
+  id: number;
+};
+
+type DashboardNotice = {
+  id: number;
+  title: string;
+  description: string;
+  date: string;
+  audience: string;
+};
+
+type ApiNotice = {
+  id: number;
+  title: string;
+  description: string;
+  notice_for: NoticeFor[];
+  created_at: string;
+};
+
+const formatNoticeDate = (value: string) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
+const mapAudience = (noticeFor: NoticeFor[]) => {
+  if (!Array.isArray(noticeFor) || noticeFor.length === 0) {
+    return "All";
+  }
+
+  const normalized = [...new Set(noticeFor.map((item) => item.toLowerCase()))];
+
+  if (
+    normalized.includes("student") &&
+    normalized.includes("teacher") &&
+    normalized.includes("admin")
+  ) {
+    return "All";
+  }
+
+  return normalized
+    .map((item) => item.charAt(0).toUpperCase() + item.slice(1))
+    .join(", ");
+};
+
+const toPlainDescription = (html: string) => {
+  const sanitized = DOMPurify.sanitize(html || "");
+  const plainText = sanitized.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return plainText || "No description available.";
+};
 
 export default function Dashboard() {
+  const navigate = useNavigate();
+  const { user } = useAppSelector((state) => state).auth;
+
+  const portal = user?.role || "admin";
+  const navigateToPortalRoute = (route: string) => {
+    navigate(`/${portal}/${route}`);
+  };
+
+  const [totals, setTotals] = useState({
+    students: 0,
+    teachers: 0,
+    classes: 0,
+  });
+  const [dashboardNotices, setDashboardNotices] = useState<DashboardNotice[]>([]);
+
+  const [isTotalsLoading, setIsTotalsLoading] = useState(true);
+  const [isNoticesLoading, setIsNoticesLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTotals = async () => {
+      try {
+        setIsTotalsLoading(true);
+
+        const [studentsResult, teachersResult, classesResult] = await Promise.all([
+          api.get("/student/get-students", {
+            params: { status: "active", page: 1, limit: 10 },
+            skipErrorToast: true,
+          }),
+          api.get("/teacher/get-teachers", {
+            params: { status: "active", page: 1, limit: 10 },
+            skipErrorToast: true,
+          }),
+          api.get("/class/get-classes", {
+            params: { status: "active" },
+            skipErrorToast: true,
+          }),
+        ]);
+
+        const studentsData = studentsResult.data?.data as StudentListResponse | undefined;
+        const teachersData = teachersResult.data?.data as TeacherListResponse | undefined;
+        const classesData = classesResult.data?.data as ClassItem[] | undefined;
+
+        setTotals({
+          students: Number(studentsData?.total ?? 0),
+          teachers: Number(teachersData?.total ?? 0),
+          classes: Array.isArray(classesData) ? classesData.length : 0,
+        });
+      } catch {
+        setTotals({ students: 0, teachers: 0, classes: 0 });
+      } finally {
+        setIsTotalsLoading(false);
+      }
+    };
+
+    void fetchTotals();
+  }, []);
+
+  useEffect(() => {
+    const fetchNotices = async () => {
+      try {
+        setIsNoticesLoading(true);
+
+        const result = await noticeApi.getAll({ status: "active" });
+
+        if (result.data?.status !== "success" || !Array.isArray(result.data?.data)) {
+          setDashboardNotices([]);
+          return;
+        }
+
+        const mappedNotices = (result.data.data as ApiNotice[])
+          .slice(0, 4)
+          .map((notice) => ({
+            id: notice.id,
+            title: notice.title,
+            date: formatNoticeDate(notice.created_at),
+            audience: mapAudience(notice.notice_for),
+            description: toPlainDescription(notice.description),
+          }));
+
+        setDashboardNotices(mappedNotices);
+      } catch {
+        setDashboardNotices([]);
+      } finally {
+        setIsNoticesLoading(false);
+      }
+    };
+
+    void fetchNotices();
+  }, []);
+
+  const studentsCount = isTotalsLoading ? "..." : totals.students.toLocaleString("en-IN");
+  const teachersCount = isTotalsLoading ? "..." : totals.teachers.toLocaleString("en-IN");
+  const classesCount = isTotalsLoading ? "..." : totals.classes.toLocaleString("en-IN");
+
   return (
     <div>
       <PageHeader
@@ -24,10 +189,10 @@ export default function Dashboard() {
 
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={<GraduationCap className="w-5 h-5" />} title="Total Students" value="1,240" change="+48 this month" trend="up" color="blue" />
-        <StatCard icon={<Users className="w-5 h-5" />} title="Total Teachers" value="86" change="+3 this month" trend="up" color="purple" />
-        <StatCard icon={<UsersRound className="w-5 h-5" />} title="Total Parents" value="1,034" change="+12 this month" trend="up" color="emerald" />
-        <StatCard icon={<BookOpen className="w-5 h-5" />} title="Total Classes" value="42" change="Same as last term" trend="neutral" color="amber" />
+        <StatCard icon={<GraduationCap className="w-5 h-5" />} title="Total Students" value={studentsCount} color="blue" onClick={() => navigateToPortalRoute("students")} />
+        <StatCard icon={<Users className="w-5 h-5" />} title="Total Teachers" value={teachersCount} color="purple" onClick={() => navigateToPortalRoute("teachers")} />
+        
+        <StatCard icon={<BookOpen className="w-5 h-5" />} title="Total Classes" value={classesCount} color="amber" onClick={() => navigateToPortalRoute("classes")} />
       </div>
 
       {/* Middle Row */}
@@ -105,9 +270,15 @@ export default function Dashboard() {
         <div className="bg-card border border-border rounded-xl p-6">
           <SectionTitle title="Notice Board" subtitle="Latest announcements" />
           <div className="space-y-3">
-            {notices.slice(0, 4).map(notice => (
-              <NoticeCard key={notice.id} {...notice} />
-            ))}
+            {isNoticesLoading ? (
+              <p className="text-sm text-muted-foreground">Loading notices...</p>
+            ) : dashboardNotices.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No notices available.</p>
+            ) : (
+              dashboardNotices.map((notice) => (
+                <NoticeCard key={notice.id} {...notice} />
+              ))
+            )}
           </div>
         </div>
 

@@ -3,6 +3,7 @@ import type {
   Request,
   Response,
 } from "express";
+import sanitizeHtml from "sanitize-html";
 
 import {
   type CreateNoticePayload,
@@ -52,14 +53,31 @@ const getOptionalId = (
   return getValidId(value, fieldName);
 };
 
+const parseIdArray = (
+  value: unknown,
+  fieldName: string,
+): number[] => {
+  if (!Array.isArray(value)) {
+    throw new AppError(
+      `${fieldName} must be an array.`,
+      400,
+    );
+  }
+
+  const parsed = value.map((item, index) =>
+    getValidId(item, `${fieldName}[${index}]`),
+  );
+
+  return [...new Set(parsed)];
+};
+
 const getSessionData = (req: Request) => {
-  const userId = req.userId;
+  const userId = Number(req.user?.id);
   const academicYearId = Number(
     req.user?.academic_year_id,
   );
-  console.log(!Number.isInteger(userId))
 
-  if (!userId ||  userId <= 0) {
+  if (!Number.isInteger(userId) || userId <= 0) {
     throw new AppError(
       "Logged-in user information is missing.",
       401,
@@ -82,15 +100,41 @@ const getSessionData = (req: Request) => {
   };
 };
 
-const validateNoticeFor = (value: unknown): NoticeFor => {
-  if (!allowedNoticeFor.includes(value as NoticeFor)) {
+const validateNoticeForList = (
+  value: unknown,
+): NoticeFor[] => {
+  if (!Array.isArray(value)) {
+    throw new AppError(
+      "Notice audience must be an array.",
+      400,
+    );
+  }
+
+  const normalized = value.map((item) =>
+    String(item).toLowerCase().trim(),
+  );
+
+  if (normalized.length === 0) {
+    throw new AppError(
+      "Select at least one notice audience.",
+      400,
+    );
+  }
+
+  const uniqueValues = [...new Set(normalized)];
+
+  const invalidValue = uniqueValues.find(
+    (item) => !allowedNoticeFor.includes(item as NoticeFor),
+  );
+
+  if (invalidValue) {
     throw new AppError(
       "Notice audience must be student, teacher, or admin.",
       400,
     );
   }
 
-  return value as NoticeFor;
+  return uniqueValues as NoticeFor[];
 };
 
 const validateDate = (
@@ -126,36 +170,75 @@ const validateDate = (
   return value;
 };
 
-const validateClassSectionRelation = async (
-  classId: number,
-  sectionId: number,
+const sanitizeNoticeDescription = (rawHtml: unknown): string => {
+  const html = String(rawHtml || "").trim();
+
+  const sanitized = sanitizeHtml(html, {
+    allowedTags: [
+      "p",
+      "br",
+      "strong",
+      "b",
+      "em",
+      "i",
+      "u",
+      "ul",
+      "ol",
+      "li",
+      "blockquote",
+      "a",
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "span",
+    ],
+    allowedAttributes: {
+      a: ["href", "target", "rel"],
+      span: ["style"],
+      p: ["style"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    transformTags: {
+      a: sanitizeHtml.simpleTransform("a", {
+        rel: "noopener noreferrer",
+      }),
+    },
+  }).trim();
+
+  const plainText = sanitized.replace(/<[^>]*>/g, "").trim();
+
+  if (!plainText) {
+    throw new AppError(
+      "Notice description is required.",
+      400,
+    );
+  }
+
+  return sanitized;
+};
+
+const validateClassIdsForAcademicYear = async (
+  classIds: number[],
   academicYearId: number,
 ) => {
-  const isValid = await NoticeModel.isValidClassSection(
-    classId,
-    sectionId,
-    academicYearId,
-  );
+  const validClassIds =
+    await NoticeModel.getValidClassIdsForAcademicYear(
+      classIds,
+      academicYearId,
+    );
 
-  if (!isValid) {
+  if (validClassIds.length !== classIds.length) {
     throw new AppError(
-      "The selected section does not belong to the selected class in the current academic session.",
+      "One or more selected classes are not assigned in the selected academic year.",
       400,
     );
   }
 };
 
 export class NoticeController {
-  /*
-    GET /notice/get-notices
-
-    Optional query parameters:
-    ?status=all
-    ?date=2026-09-04
-    ?class_id=1
-    ?section_id=2
-    ?notice_for=student
-  */
   static getAll = catchAsync(
     async (req: Request, res: Response) => {
       const { academicYearId } = getSessionData(req);
@@ -174,19 +257,23 @@ export class NoticeController {
         "Class ID",
       );
 
-      const sectionId = getOptionalId(
-        req.query.section_id,
-        "Section ID",
-      );
-
       const date = validateDate(req.query.date);
 
       let noticeFor: NoticeFor | undefined;
 
       if (req.query.notice_for) {
-        noticeFor = validateNoticeFor(
-          req.query.notice_for,
-        );
+        const value = String(req.query.notice_for)
+          .toLowerCase()
+          .trim() as NoticeFor;
+
+        if (!allowedNoticeFor.includes(value)) {
+          throw new AppError(
+            "Notice audience must be student, teacher, or admin.",
+            400,
+          );
+        }
+
+        noticeFor = value;
       }
 
       const notices = await NoticeModel.findAll(
@@ -194,7 +281,6 @@ export class NoticeController {
         {
           status,
           class_id: classId,
-          section_id: sectionId,
           date,
           notice_for: noticeFor,
         },
@@ -208,9 +294,6 @@ export class NoticeController {
     },
   );
 
-  /*
-    GET /notice/get-notice/:id
-  */
   static getOne = catchAsync(
     async (
       req: Request,
@@ -239,36 +322,20 @@ export class NoticeController {
     },
   );
 
-  /*
-    POST /notice/add-notice
-
-    Frontend sends:
-    {
-      notice_for: "student",
-      class_id: 1,
-      section_id: 2, // optional
-      title: "Holiday Notice",
-      description: "School will remain closed tomorrow."
-    }
-
-    If section_id is empty:
-    one notice row is inserted for every section
-    belonging to the selected class.
-  */
   static create = catchAsync(
     async (req: Request, res: Response) => {
       const { userId, academicYearId } = getSessionData(req);
 
-      const classId = getValidId(
-        req.body.class_id,
-        "Class ID",
-      );
-
       const payload: CreateNoticePayload = {
-        notice_for: validateNoticeFor(req.body.notice_for),
+        notice_for: validateNoticeForList(req.body.notice_for),
         title: String(req.body.title || "").trim(),
-        description: String(req.body.description || "").trim(),
-        class_id: classId,
+        description: sanitizeNoticeDescription(
+          req.body.description,
+        ),
+        class_ids: parseIdArray(
+          req.body.class_ids,
+          "Class IDs",
+        ),
       };
 
       if (!payload.title) {
@@ -285,80 +352,32 @@ export class NoticeController {
         );
       }
 
-      if (!payload.description) {
-        throw new AppError(
-          "Notice description is required.",
-          400,
-        );
-      }
-
-      const selectedSectionId = getOptionalId(
-        req.body.section_id,
-        "Section ID",
+      await validateClassIdsForAcademicYear(
+        payload.class_ids,
+        academicYearId,
       );
 
-      let sectionIds: number[] = [];
-
-      if (selectedSectionId) {
-        /*
-          Admin selected one section:
-          only one notice row will be inserted.
-        */
-        await validateClassSectionRelation(
-          classId,
-          selectedSectionId,
-          academicYearId,
-        );
-
-        sectionIds = [selectedSectionId];
-      } else {
-        /*
-          Admin did not select section:
-          get all related sections and insert one row per section.
-        */
-        sectionIds = await NoticeModel.findSectionIdsByClass(
-          classId,
-          academicYearId,
-        );
-
-        if (sectionIds.length === 0) {
-          throw new AppError(
-            "No sections are assigned to the selected class.",
-            400,
-          );
-        }
-      }
-
-      /*
-        posted_by = req.userId
-        academic_year_id = req.user.academic_year_id
-
-        Frontend cannot control either value.
-      */
-      const notices = await NoticeModel.createMany(
+      const notice = await NoticeModel.create(
         payload,
         userId,
         academicYearId,
-        sectionIds,
       );
+
+      if (!notice) {
+        throw new AppError(
+          "Notice could not be created.",
+          500,
+        );
+      }
 
       res.status(201).json({
         status: "success",
-        message:
-          notices.length > 1
-            ? `Notice posted successfully for ${notices.length} sections.`
-            : "Notice posted successfully.",
-        data: notices,
+        message: "Notice posted successfully.",
+        data: notice,
       });
     },
   );
 
-  /*
-    POST /notice/update-notice/:id
-
-    Update changes only this one notice row.
-    It does not update every section automatically.
-  */
   static update = catchAsync(
     async (
       req: Request,
@@ -383,7 +402,7 @@ export class NoticeController {
       const payload: UpdateNoticePayload = {};
 
       if (req.body.notice_for !== undefined) {
-        payload.notice_for = validateNoticeFor(
+        payload.notice_for = validateNoticeForList(
           req.body.notice_for,
         );
       }
@@ -407,29 +426,20 @@ export class NoticeController {
       }
 
       if (req.body.description !== undefined) {
-        payload.description = String(
+        payload.description = sanitizeNoticeDescription(
           req.body.description,
-        ).trim();
-
-        if (!payload.description) {
-          throw new AppError(
-            "Notice description cannot be empty.",
-            400,
-          );
-        }
-      }
-
-      if (req.body.class_id !== undefined) {
-        payload.class_id = getValidId(
-          req.body.class_id,
-          "Class ID",
         );
       }
 
-      if (req.body.section_id !== undefined) {
-        payload.section_id = getValidId(
-          req.body.section_id,
-          "Section ID",
+      if (req.body.class_ids !== undefined) {
+        payload.class_ids = parseIdArray(
+          req.body.class_ids,
+          "Class IDs",
+        );
+
+        await validateClassIdsForAcademicYear(
+          payload.class_ids,
+          academicYearId,
         );
       }
 
@@ -439,18 +449,6 @@ export class NoticeController {
           400,
         );
       }
-
-      const finalClassId =
-        payload.class_id ?? existingNotice.class_id;
-
-      const finalSectionId =
-        payload.section_id ?? existingNotice.section_id;
-
-      await validateClassSectionRelation(
-        finalClassId,
-        finalSectionId,
-        academicYearId,
-      );
 
       const notice = await NoticeModel.update(
         id,
@@ -472,9 +470,6 @@ export class NoticeController {
     },
   );
 
-  /*
-    DELETE /notice/delete-notice/:id
-  */
   static delete = catchAsync(
     async (
       req: Request,
@@ -504,9 +499,6 @@ export class NoticeController {
     },
   );
 
-  /*
-    PATCH /notice/restore-notice/:id
-  */
   static restore = catchAsync(
     async (
       req: Request,
@@ -536,9 +528,6 @@ export class NoticeController {
     },
   );
 
-  /*
-    DELETE /notice/hard-delete-notice/:id
-  */
   static hardDelete = catchAsync(
     async (
       req: Request,

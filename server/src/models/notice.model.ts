@@ -10,18 +10,11 @@ export interface Notice {
   notice_for: NoticeForList;
   posted_by: number;
   posted_by_name?: string | null;
-
   title: string;
   description: string;
-
   academic_year_id: number;
-
-  class_id: number;
-  class_name?: string;
-
-  section_id: number;
-  section_name?: string;
-
+  class_ids: number[];
+  class_names?: string[];
   created_at: Date;
   updated_at: Date;
   deleted_at?: Date | null;
@@ -31,34 +24,24 @@ export interface CreateNoticePayload {
   notice_for: NoticeForList;
   title: string;
   description: string;
-  class_id: number;
-  section_id?: number;
+  class_ids: number[];
 }
 
 export interface UpdateNoticePayload {
   notice_for?: NoticeForList;
   title?: string;
   description?: string;
-  class_id?: number;
-  section_id?: number;
+  class_ids?: number[];
 }
 
 export interface NoticeFilters {
   status?: NoticeStatus;
-
-  /*
-    Fetch notices that contain this target.
-    Example: notice_for = "student"
-  */
   notice_for?: NoticeFor;
-
   class_id?: number;
-  section_id?: number;
   date?: string;
 }
 
 const tableName = "notice";
-
 const validNoticeFor: NoticeFor[] = ["student", "teacher", "admin"];
 
 function prepareNoticeForJson(noticeFor: NoticeForList): string {
@@ -81,16 +64,31 @@ function prepareNoticeForJson(noticeFor: NoticeForList): string {
   return JSON.stringify(uniqueValues);
 }
 
+function prepareClassIdsJson(classIds: number[]): string {
+  const uniqueClassIds = [...new Set(classIds)];
+
+  if (uniqueClassIds.length === 0) {
+    throw new Error("Select at least one class.");
+  }
+
+  const hasInvalidId = uniqueClassIds.some(
+    (id) => !Number.isInteger(id) || id <= 0,
+  );
+
+  if (hasInvalidId) {
+    throw new Error("Class IDs must be valid positive numbers.");
+  }
+
+  return JSON.stringify(uniqueClassIds);
+}
+
 export class NoticeModel {
   static async findAll(
     academicYearId: number,
     filters: NoticeFilters = {},
   ): Promise<Notice[]> {
     const values: unknown[] = [academicYearId];
-
-    const conditions: string[] = [
-      "n.academic_year_id = $1",
-    ];
+    const conditions: string[] = ["n.academic_year_id = $1"];
 
     if (filters.status === "trash") {
       conditions.push("n.deleted_at IS NOT NULL");
@@ -98,45 +96,66 @@ export class NoticeModel {
       conditions.push("n.deleted_at IS NULL");
     }
 
-      
     if (filters.notice_for) {
       values.push(JSON.stringify([filters.notice_for]));
-      conditions.push(
-        `n.notice_for @> $${values.length}::jsonb`,
-      );
+      conditions.push(`n.notice_for @> $${values.length}::jsonb`);
     }
 
     if (filters.class_id) {
-      values.push(filters.class_id);
-      conditions.push(`n.class_id = $${values.length}`);
-    }
+      values.push(JSON.stringify([filters.class_id]));
+      const classIdsArrayPosition = values.length;
 
-    if (filters.section_id) {
-      values.push(filters.section_id);
-      conditions.push(`n.section_id = $${values.length}`);
+      values.push(filters.class_id);
+      const classIdScalarPosition = values.length;
+
+      conditions.push(`(
+        (jsonb_typeof(n.class_id) = 'array' AND n.class_id @> $${classIdsArrayPosition}::jsonb)
+        OR
+        (jsonb_typeof(n.class_id) = 'number' AND n.class_id = to_jsonb($${classIdScalarPosition}::INTEGER))
+      )`);
     }
 
     if (filters.date) {
       values.push(filters.date);
-      conditions.push(
-        `n.created_at::date = $${values.length}::date`,
-      );
+      conditions.push(`n.created_at::date = $${values.length}::date`);
     }
 
     const result = await query<Notice>(
       `
         SELECT
-          n.*,
-          c.class_name,
-          s.name AS section_name,
-          u.name AS posted_by_name
+          n.id,
+          n.notice_for,
+          n.posted_by,
+          u.name AS posted_by_name,
+          n.title,
+          n.description,
+          n.academic_year_id,
+          CASE
+            WHEN jsonb_typeof(n.class_id) = 'array'
+              THEN n.class_id
+            ELSE jsonb_build_array(n.class_id)
+          END AS class_ids,
+          COALESCE(class_meta.class_names, ARRAY[]::TEXT[]) AS class_names,
+          n.created_at,
+          n.updated_at,
+          n.deleted_at
         FROM public.${tableName} n
-        INNER JOIN public.classes c
-          ON c.id = n.class_id
-        INNER JOIN public.section s
-          ON s.id = n.section_id
         LEFT JOIN public.users u
           ON u.id = n.posted_by
+        LEFT JOIN LATERAL (
+          SELECT ARRAY_AGG(c.class_name ORDER BY c.class_name) AS class_names
+          FROM public.classes c
+          WHERE c.id IN (
+            SELECT value::INTEGER
+            FROM jsonb_array_elements_text(
+              CASE
+                WHEN jsonb_typeof(n.class_id) = 'array'
+                  THEN n.class_id
+                ELSE jsonb_build_array(n.class_id)
+              END
+            )
+          )
+        ) class_meta ON TRUE
         WHERE ${conditions.join(" AND ")}
         ORDER BY n.created_at DESC, n.id DESC
       `,
@@ -154,17 +173,39 @@ export class NoticeModel {
     const result = await query<Notice>(
       `
         SELECT
-          n.*,
-          c.class_name,
-          s.name AS section_name,
-          u.name AS posted_by_name
+          n.id,
+          n.notice_for,
+          n.posted_by,
+          u.name AS posted_by_name,
+          n.title,
+          n.description,
+          n.academic_year_id,
+          CASE
+            WHEN jsonb_typeof(n.class_id) = 'array'
+              THEN n.class_id
+            ELSE jsonb_build_array(n.class_id)
+          END AS class_ids,
+          COALESCE(class_meta.class_names, ARRAY[]::TEXT[]) AS class_names,
+          n.created_at,
+          n.updated_at,
+          n.deleted_at
         FROM public.${tableName} n
-        INNER JOIN public.classes c
-          ON c.id = n.class_id
-        INNER JOIN public.section s
-          ON s.id = n.section_id
         LEFT JOIN public.users u
           ON u.id = n.posted_by
+        LEFT JOIN LATERAL (
+          SELECT ARRAY_AGG(c.class_name ORDER BY c.class_name) AS class_names
+          FROM public.classes c
+          WHERE c.id IN (
+            SELECT value::INTEGER
+            FROM jsonb_array_elements_text(
+              CASE
+                WHEN jsonb_typeof(n.class_id) = 'array'
+                  THEN n.class_id
+                ELSE jsonb_build_array(n.class_id)
+              END
+            )
+          )
+        ) class_meta ON TRUE
         WHERE n.id = $1
           AND n.academic_year_id = $2
           AND ($3 = TRUE OR n.deleted_at IS NULL)
@@ -176,114 +217,15 @@ export class NoticeModel {
     return result.rows[0] || null;
   }
 
-  static async findByIds(
-    ids: number[],
-    academicYearId: number,
-  ): Promise<Notice[]> {
-    if (ids.length === 0) {
-      return [];
-    }
-
-    const result = await query<Notice>(
-      `
-        SELECT
-          n.*,
-          c.class_name,
-          s.name AS section_name,
-          u.name AS posted_by_name
-        FROM public.${tableName} n
-        INNER JOIN public.classes c
-          ON c.id = n.class_id
-        INNER JOIN public.section s
-          ON s.id = n.section_id
-        LEFT JOIN public.users u
-          ON u.id = n.posted_by
-        WHERE n.id = ANY($1::INTEGER[])
-          AND n.academic_year_id = $2
-        ORDER BY n.id DESC
-      `,
-      [ids, academicYearId],
-    );
-
-    return result.rows;
-  }
-
-  static async isValidClassSection(
-    classId: number,
-    sectionId: number,
-    academicYearId: number,
-  ): Promise<boolean> {
-    const result = await query<{ id: number }>(
-      `
-        SELECT id
-        FROM public.class_section_relation
-        WHERE class_id = $1
-          AND section_id = $2
-          AND academic_year_id = $3
-          AND deleted_at IS NULL
-        LIMIT 1
-      `,
-      [classId, sectionId, academicYearId],
-    );
-
-    return result.rows.length > 0;
-  }
-
-  static async findSectionIdsByClass(
-    classId: number,
-    academicYearId: number,
-  ): Promise<number[]> {
-    const result = await query<{ section_id: number }>(
-      `
-        SELECT section_id
-        FROM public.class_section_relation
-        WHERE class_id = $1
-          AND academic_year_id = $2
-          AND deleted_at IS NULL
-        ORDER BY section_id ASC
-      `,
-      [classId, academicYearId],
-    );
-
-    return result.rows.map((row) => row.section_id);
-  }
-
-  static async createMany(
+  static async create(
     payload: CreateNoticePayload,
     postedBy: number,
     academicYearId: number,
-    sectionIds: number[],
-  ): Promise<Notice[]> {
-    const values: unknown[] = [];
+  ): Promise<Notice | null> {
     const noticeForJson = prepareNoticeForJson(payload.notice_for);
+    const classIdsJson = prepareClassIdsJson(payload.class_ids);
 
-    const insertRows = sectionIds.map((sectionId) => {
-      const startPosition = values.length + 1;
-
-      values.push(
-        noticeForJson,
-        postedBy,
-        payload.title,
-        payload.description,
-        academicYearId,
-        payload.class_id,
-        sectionId,
-      );
-
-      return `
-        (
-          $${startPosition}::jsonb,
-          $${startPosition + 1},
-          $${startPosition + 2},
-          $${startPosition + 3},
-          $${startPosition + 4},
-          $${startPosition + 5},
-          $${startPosition + 6}
-        )
-      `;
-    });
-
-    const insertedResult = await query<{ id: number }>(
+    const result = await query<{ id: number }>(
       `
         INSERT INTO public.${tableName} (
           notice_for,
@@ -291,19 +233,27 @@ export class NoticeModel {
           title,
           description,
           academic_year_id,
-          class_id,
-          section_id
+          class_id
         )
-        VALUES ${insertRows.join(", ")}
+        VALUES ($1::jsonb, $2, $3, $4, $5, $6::jsonb)
         RETURNING id
       `,
-      values,
+      [
+        noticeForJson,
+        postedBy,
+        payload.title,
+        payload.description,
+        academicYearId,
+        classIdsJson,
+      ],
     );
 
-    return this.findByIds(
-      insertedResult.rows.map((notice) => notice.id),
-      academicYearId,
-    );
+    const insertedId = result.rows[0]?.id;
+    if (!insertedId) {
+      return null;
+    }
+
+    return this.findById(insertedId, academicYearId);
   }
 
   static async update(
@@ -329,14 +279,9 @@ export class NoticeModel {
       fields.push(`description = $${values.length}`);
     }
 
-    if (payload.class_id !== undefined) {
-      values.push(payload.class_id);
-      fields.push(`class_id = $${values.length}`);
-    }
-
-    if (payload.section_id !== undefined) {
-      values.push(payload.section_id);
-      fields.push(`section_id = $${values.length}`);
+    if (payload.class_ids !== undefined) {
+      values.push(prepareClassIdsJson(payload.class_ids));
+      fields.push(`class_id = $${values.length}::jsonb`);
     }
 
     if (fields.length === 0) {
@@ -435,5 +380,32 @@ export class NoticeModel {
     );
 
     return result.rows.length > 0;
+  }
+
+  static async getValidClassIdsForAcademicYear(
+    classIds: number[],
+    academicYearId: number,
+  ): Promise<number[]> {
+    if (classIds.length === 0) {
+      return [];
+    }
+
+    const uniqueClassIds = [...new Set(classIds)];
+
+    const result = await query<{ class_id: number }>(
+      `
+        SELECT DISTINCT csr.class_id
+        FROM public.class_section_relation csr
+        INNER JOIN public.classes c
+          ON c.id = csr.class_id
+        WHERE csr.academic_year_id = $1
+          AND csr.deleted_at IS NULL
+          AND c.deleted_at IS NULL
+          AND csr.class_id = ANY($2::INTEGER[])
+      `,
+      [academicYearId, uniqueClassIds],
+    );
+
+    return result.rows.map((row) => row.class_id);
   }
 }

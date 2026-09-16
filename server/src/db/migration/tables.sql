@@ -616,13 +616,12 @@ EXECUTE FUNCTION public.check_teacher_routine_conflict();
 
 CREATE TABLE  public.notice(
 id serial primary key,
-notice_for VARCHAR(20) check (notice_for in ('student', 'teacher', 'admin')),
+ notice_for JSONB NOT NULL,
 posted_by INTEGER NOT NULL,
 title VARCHAR(100) NOT NULL,
 description TEXT NOT NULL,
 academic_year_id INTEGER NOT NULL,
-class_id INTEGER NOT NULL,
-section_id INTEGER NOT NULL,
+class_id JSONB NOT NULL,
 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 deleted_at TIMESTAMP NULL,

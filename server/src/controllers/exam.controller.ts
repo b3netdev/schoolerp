@@ -93,7 +93,7 @@ export class ExamController {
 
       res.status(200).json({
         success: true,
-        message: "Exams fetched successfully.",
+        // message: "Exams fetched successfully.",
         data: exams,
       });
     },

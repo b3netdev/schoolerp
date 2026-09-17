@@ -1,7 +1,10 @@
 import { query } from "../db/query.js";
 
+export type ExamAssignStatus = "all" | "trash";
+
 export interface ExamAssign {
   id: number;
+
   teacher_id: number;
   teacher_name?: string | null;
   employee_code?: string | null;
@@ -15,11 +18,11 @@ export interface ExamAssign {
   academic_year_id: number;
   academic_year_name?: string | null;
 
-  assign_till?: string | null;
+  assign_till: Date | null;
 
-  created_at: string;
-  updated_at: string;
-  deleted_at?: string | null;
+  created_at: Date;
+  updated_at: Date;
+  deleted_at: Date | null;
 }
 
 export interface CreateExamAssignPayload {
@@ -34,19 +37,18 @@ export interface UpdateExamAssignPayload {
   teacher_id?: number;
   exam_id?: number;
   subject_id?: number;
-  academic_year_id?: number;
   assign_till?: string | null;
 }
 
 export class ExamAssignModel {
   static async findAll(
     academicYearId: number,
-    status: "all" | "trash" = "all"
+    status: ExamAssignStatus = "all",
+    teacherId?: number,
   ): Promise<ExamAssign[]> {
-    const deletedCondition =
-      status === "trash" ? "ea.deleted_at IS NOT NULL" : "ea.deleted_at IS NULL";
+    const values: number[] = [academicYearId];
 
-    const sql = `
+    let sql = `
       SELECT
         ea.*,
         CONCAT(t.first_name, ' ', COALESCE(t.last_name, '')) AS teacher_name,
@@ -54,21 +56,36 @@ export class ExamAssignModel {
         e.name AS exam_name,
         s.name AS subject_name,
         ac.name AS academic_year_name
-      FROM exam_assign ea
-      INNER JOIN teachers t ON t.id = ea.teacher_id
-      INNER JOIN exam e ON e.id = ea.exam_id
-      INNER JOIN subjects s ON s.id = ea.subject_id
-      INNER JOIN academic_session ac ON ac.id = ea.academic_year_id
+      FROM public.exam_assign ea
+      INNER JOIN public.teachers t ON t.id = ea.teacher_id
+      INNER JOIN public.exam e ON e.id = ea.exam_id
+      INNER JOIN public.subjects s ON s.id = ea.subject_id
+      INNER JOIN public.academic_session ac ON ac.id = ea.academic_year_id
       WHERE ea.academic_year_id = $1
-        AND ${deletedCondition}
-      ORDER BY ea.id DESC
     `;
 
-    const result = await query<ExamAssign>(sql, [academicYearId]);
+    if (status === "trash") {
+      sql += ` AND ea.deleted_at IS NOT NULL`;
+    } else {
+      sql += ` AND ea.deleted_at IS NULL`;
+    }
+
+    // Teacher can view only their own assignments.
+    if (teacherId) {
+      values.push(teacherId);
+      sql += ` AND ea.teacher_id = $${values.length}`;
+    }
+
+    sql += ` ORDER BY ea.id DESC`;
+
+    const result = await query<ExamAssign>(sql, values);
     return result.rows;
   }
 
-  static async findById(id: number): Promise<ExamAssign | null> {
+  static async findById(
+    id: number,
+    academicYearId: number,
+  ): Promise<ExamAssign | null> {
     const sql = `
       SELECT
         ea.*,
@@ -77,22 +94,25 @@ export class ExamAssignModel {
         e.name AS exam_name,
         s.name AS subject_name,
         ac.name AS academic_year_name
-      FROM exam_assign ea
-      INNER JOIN teachers t ON t.id = ea.teacher_id
-      INNER JOIN exam e ON e.id = ea.exam_id
-      INNER JOIN subjects s ON s.id = ea.subject_id
-      INNER JOIN academic_session ac ON ac.id = ea.academic_year_id
+      FROM public.exam_assign ea
+      INNER JOIN public.teachers t ON t.id = ea.teacher_id
+      INNER JOIN public.exam e ON e.id = ea.exam_id
+      INNER JOIN public.subjects s ON s.id = ea.subject_id
+      INNER JOIN public.academic_session ac ON ac.id = ea.academic_year_id
       WHERE ea.id = $1
+        AND ea.academic_year_id = $2
       LIMIT 1
     `;
 
-    const result = await query<ExamAssign>(sql, [id]);
+    const result = await query<ExamAssign>(sql, [id, academicYearId]);
     return result.rows[0] || null;
   }
 
-  static async create(payload: CreateExamAssignPayload): Promise<ExamAssign> {
+  static async create(
+    payload: CreateExamAssignPayload,
+  ): Promise<ExamAssign> {
     const sql = `
-      INSERT INTO exam_assign (
+      INSERT INTO public.exam_assign (
         teacher_id,
         exam_id,
         subject_id,
@@ -111,76 +131,118 @@ export class ExamAssignModel {
       payload.assign_till || null,
     ]);
 
-    return result.rows[0];
+    const assignment = await this.findById(
+      result.rows[0].id,
+      payload.academic_year_id,
+    );
+
+    if (!assignment) {
+      throw new Error("Created exam assignment could not be reloaded.");
+    }
+
+    return assignment;
   }
 
   static async update(
     id: number,
-    payload: UpdateExamAssignPayload
+    academicYearId: number,
+    payload: UpdateExamAssignPayload,
   ): Promise<ExamAssign | null> {
     const fields: string[] = [];
     const values: unknown[] = [];
 
-    const allowedFields = [
-      "teacher_id",
-      "exam_id",
-      "subject_id",
-      "academic_year_id",
-      "assign_till",
-    ] as const;
+    if (payload.teacher_id !== undefined) {
+      values.push(payload.teacher_id);
+      fields.push(`teacher_id = $${values.length}`);
+    }
 
-    allowedFields.forEach((field) => {
-      if (payload[field] !== undefined) {
-        values.push(payload[field]);
-        fields.push(`${field} = $${values.length}`);
-      }
-    });
+    if (payload.exam_id !== undefined) {
+      values.push(payload.exam_id);
+      fields.push(`exam_id = $${values.length}`);
+    }
+
+    if (payload.subject_id !== undefined) {
+      values.push(payload.subject_id);
+      fields.push(`subject_id = $${values.length}`);
+    }
+
+    if (payload.assign_till !== undefined) {
+      values.push(payload.assign_till || null);
+      fields.push(`assign_till = $${values.length}`);
+    }
 
     if (!fields.length) {
-      return this.findById(id);
+      return this.findById(id, academicYearId);
     }
 
     values.push(id);
+    values.push(academicYearId);
 
     const sql = `
-      UPDATE exam_assign
+      UPDATE public.exam_assign
       SET
         ${fields.join(", ")},
         updated_at = CURRENT_TIMESTAMP
-      WHERE id = $${values.length}
+      WHERE id = $${values.length - 1}
+        AND academic_year_id = $${values.length}
         AND deleted_at IS NULL
       RETURNING *
     `;
 
     const result = await query<ExamAssign>(sql, values);
-    return result.rows[0] || null;
+
+    if (!result.rows[0]) {
+      return null;
+    }
+
+    return this.findById(result.rows[0].id, academicYearId);
   }
 
-  static async softDelete(id: number): Promise<ExamAssign | null> {
+  static async softDelete(
+    id: number,
+    academicYearId: number,
+  ): Promise<ExamAssign | null> {
     const sql = `
-      UPDATE exam_assign
-      SET deleted_at = CURRENT_TIMESTAMP,
-          updated_at = CURRENT_TIMESTAMP
+      UPDATE public.exam_assign
+      SET
+        deleted_at = CURRENT_TIMESTAMP,
+        updated_at = CURRENT_TIMESTAMP
       WHERE id = $1
+        AND academic_year_id = $2
         AND deleted_at IS NULL
       RETURNING *
     `;
 
-    const result = await query<ExamAssign>(sql, [id]);
-    return result.rows[0] || null;
+    const result = await query<ExamAssign>(sql, [id, academicYearId]);
+
+    if (!result.rows[0]) {
+      return null;
+    }
+
+    return this.findById(result.rows[0].id, academicYearId);
   }
 
-  static async restore(id: number): Promise<ExamAssign | null> {
+  static async restore(
+    id: number,
+    academicYearId: number,
+  ): Promise<ExamAssign | null> {
     const sql = `
-      UPDATE exam_assign
-      SET deleted_at = NULL,
-          updated_at = CURRENT_TIMESTAMP
+      UPDATE public.exam_assign
+      SET
+        deleted_at = NULL,
+        updated_at = CURRENT_TIMESTAMP
       WHERE id = $1
+        AND academic_year_id = $2
         AND deleted_at IS NOT NULL
       RETURNING *
     `;
 
-    const result = await query<ExamAssign>(sql, [id]);
-    return result.rows[0] || null;
+    const result = await query<ExamAssign>(sql, [id, academicYearId]);
+
+    if (!result.rows[0]) {
+      return null;
+    }
+
+    return this.findById(result.rows[0].id, academicYearId);
   }
 }

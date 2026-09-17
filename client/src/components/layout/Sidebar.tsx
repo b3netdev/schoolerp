@@ -110,6 +110,12 @@ const mainNav: NavItem[] = [
     label: "Exam",
     roles: ["admin"],
   },
+  {
+    path: "exam-assign",
+    icon: BookOpenCheck,
+    label: "Exam Assign",
+    roles: ["admin"],
+  },
   // {
   //   path: "fees",
   //   icon: CreditCard,

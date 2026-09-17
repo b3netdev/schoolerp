@@ -35,11 +35,11 @@ export interface SubjectListResult {
 
 export interface SubjectListQuery {
   status?: string;
-  page?: number | string;
-  limit?: number | string;
-  classId?: number | string;
-  sectionId?: number | string;
-  classSectionId?: number | string;
+  page?: number;
+  limit?: number;
+  classId?: number;
+  sectionId?: number;
+  classSectionId?: number;
 }
 
 export const normalizeSubjectListQuery = (

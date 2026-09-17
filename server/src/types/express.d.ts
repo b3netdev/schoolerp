@@ -1,5 +1,5 @@
 import "express";
-
+import { MarksEntryContext } from "../middlewares/auth.middleware.ts";
 declare global {
   namespace Express {
     interface AuthenticatedUser {
@@ -29,8 +29,9 @@ declare global {
       userId?: number;
       user?: AuthenticatedUser;
       student?: AuthenticatedStudent;
+      marksEntryContext?: MarksEntryContext;
     }
   }
 }
 
-export { };
+export {};

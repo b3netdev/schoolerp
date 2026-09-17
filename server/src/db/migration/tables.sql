@@ -681,53 +681,105 @@ deleted_at TIMESTAMP NULL,
 
 
 
-
---Exam Assign
-CREATE TABLE public.exam_assign (
+CREATE TABLE public.marks_entry (
     id SERIAL PRIMARY KEY,
 
-    teacher_id INTEGER NOT NULL,
+    -- Assignment confirms the teacher, exam, subject, and academic year.
+    exam_assign_id INTEGER NOT NULL,
+
+    -- Kept for fast filtering and reports.
     exam_id INTEGER NOT NULL,
+    student_id INTEGER NOT NULL,
     subject_id INTEGER NOT NULL,
     academic_year_id INTEGER NOT NULL,
 
-    assign_till TIMESTAMP NULL,
+    -- Only one of these fields will contain a value.
+    entered_by_user_id INTEGER NULL,
+    entered_by_teacher_id INTEGER NULL,
+    entered_role VARCHAR(20) NOT NULL,
+
+    mark_obtained NUMERIC(6,2) NULL,
+    attendance_status VARCHAR(20) NOT NULL DEFAULT 'present',
+    remarks VARCHAR(500) NULL,
 
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP NULL,
 
-    -- Prevent the same exam subject from being assigned twice
-    -- to the same teacher in one academic year.
-    CONSTRAINT uq_exam_assign_teacher_exam_subject_year
-    UNIQUE (
-        teacher_id,
-        exam_id,
-        subject_id,
-        academic_year_id
+    CONSTRAINT chk_marks_entry_role
+    CHECK (entered_role IN ('admin', 'teacher')),
+
+    CONSTRAINT chk_marks_entry_attendance_status
+    CHECK (attendance_status IN ('present', 'absent')),
+
+    CONSTRAINT chk_marks_entry_mark
+    CHECK (mark_obtained IS NULL OR mark_obtained >= 0),
+
+    -- Present student must have a mark.
+    -- Absent student must not have a mark.
+    CONSTRAINT chk_marks_entry_present_absent
+    CHECK (
+        (attendance_status = 'present' AND mark_obtained IS NOT NULL)
+        OR
+        (attendance_status = 'absent' AND mark_obtained IS NULL)
     ),
 
-    CONSTRAINT fk_exam_assign_teacher
-    FOREIGN KEY (teacher_id)
-    REFERENCES public.teachers(id)
+    -- Admin saves marks using users table.
+    -- Teacher saves marks using teachers table.
+    CONSTRAINT chk_marks_entry_entered_by
+    CHECK (
+        (
+            entered_role = 'admin'
+            AND entered_by_user_id IS NOT NULL
+            AND entered_by_teacher_id IS NULL
+        )
+        OR
+        (
+            entered_role = 'teacher'
+            AND entered_by_teacher_id IS NOT NULL
+            AND entered_by_user_id IS NULL
+        )
+    ),
+
+    CONSTRAINT fk_marks_entry_exam_assign
+    FOREIGN KEY (exam_assign_id)
+    REFERENCES public.exam_assign(id)
     ON UPDATE CASCADE
     ON DELETE RESTRICT,
 
-    CONSTRAINT fk_exam_assign_exam
+    CONSTRAINT fk_marks_entry_exam
     FOREIGN KEY (exam_id)
     REFERENCES public.exam(id)
     ON UPDATE CASCADE
     ON DELETE RESTRICT,
 
-    CONSTRAINT fk_exam_assign_subject
+    CONSTRAINT fk_marks_entry_student
+    FOREIGN KEY (student_id)
+    REFERENCES public.students(id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT,
+
+    CONSTRAINT fk_marks_entry_subject
     FOREIGN KEY (subject_id)
     REFERENCES public.subjects(id)
     ON UPDATE CASCADE
     ON DELETE RESTRICT,
 
-    CONSTRAINT fk_exam_assign_academic_session
+    CONSTRAINT fk_marks_entry_academic_year
     FOREIGN KEY (academic_year_id)
     REFERENCES public.academic_session(id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT,
+
+    CONSTRAINT fk_marks_entry_entered_by_user
+    FOREIGN KEY (entered_by_user_id)
+    REFERENCES public.users(id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT,
+
+    CONSTRAINT fk_marks_entry_entered_by_teacher
+    FOREIGN KEY (entered_by_teacher_id)
+    REFERENCES public.teachers(id)
     ON UPDATE CASCADE
     ON DELETE RESTRICT
 );

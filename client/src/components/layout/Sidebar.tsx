@@ -16,6 +16,7 @@ import {
   FileDown,
   LibraryBig,
   BookOpenCheck,
+  PenOff,
   type LucideIcon,
 } from "lucide-react";
 
@@ -91,6 +92,12 @@ const mainNav: NavItem[] = [
     icon: LibraryBig,
     label: "Subjects",
     roles: ["admin", "teacher", "student"],
+  },
+  {
+    path: "marks-entry",
+    icon: PenOff,
+    label: "Marks Entry",
+    roles: ["teacher",],
   },
   {
     path: "streams",

@@ -150,3 +150,66 @@ export const authorizeRoles = (...roles: Role[]) =>
 
     next();
   });
+
+  export type MarksEntryRole = "admin" | "teacher";
+  export interface MarksEntryContext {
+  academic_year_id: number;
+  role: MarksEntryRole;
+
+  entered_by_user_id: number | null;
+  entered_by_teacher_id: number | null;
+}
+
+  export const setMarksEntryContext = catchAsync(
+  async (req: Request, _res: Response, next: NextFunction) => {
+    if (!req.user || !req.userId) {
+      return next(new AppError("Please login first.", 401));
+    }
+
+    const role = req.user.role;
+    const academicYearId = Number(req.user.academic_year_id);
+    const loggedInId = Number(req.userId);
+
+    if (!Number.isInteger(academicYearId) || academicYearId <= 0) {
+      return next(
+        new AppError(
+          "Academic year is missing from your login session.",
+          401,
+        ),
+      );
+    }
+
+    if (!Number.isInteger(loggedInId) || loggedInId <= 0) {
+      return next(new AppError("Invalid authenticated user.", 401));
+    }
+
+    if (role === "admin") {
+      req.marksEntryContext = {
+        academic_year_id: academicYearId,
+        role: "admin",
+        entered_by_user_id: loggedInId,
+        entered_by_teacher_id: null,
+      };
+
+      return next();
+    }
+
+    if (role === "teacher") {
+      req.marksEntryContext = {
+        academic_year_id: academicYearId,
+        role: "teacher",
+        entered_by_user_id: null,
+        entered_by_teacher_id: loggedInId,
+      };
+
+      return next();
+    }
+
+    return next(
+      new AppError(
+        "Only admin and teacher can access marks entry.",
+        403,
+      ),
+    );
+  },
+);

@@ -18,7 +18,7 @@ import { ListingSkeleton } from "@/components/tables/ListingSkeleton";
 import api from "@/lib/api";
 
 
-import type { Exam as ExamItem, ExamStatus } from "../../redux/slicers/examSlicer";
+import type { Exam as ExamItem, ExamMarkType, ExamStatus } from "../../redux/slicers/examSlicer";
 import { useAppDispatch, useAppSelector } from "../../redux/hooks";
 import { addExam, deleteExam, setExams, updateExam } from "../../redux/slicers/examSlicer";
 
@@ -28,6 +28,10 @@ type ModalMode = "create" | "edit" | "view" | null;
 type ExamFormValues = {
   name: string;
   exam_type: string;
+  mark_type: "" | ExamMarkType;
+  full_mark: string;
+  pass_mark: string;
+  grades: string;
   class_id: string;
   start_date: string;
   end_date: string;
@@ -49,12 +53,21 @@ const EXAM_TYPE_OPTIONS = [
 const emptyForm: ExamFormValues = {
   name: "",
   exam_type: "",
+  mark_type: "",
+  full_mark: "",
+  pass_mark: "",
+  grades: "",
   class_id: "",
   start_date: "",
   end_date: "",
   status: "draft",
   description: "",
 };
+
+const MARK_TYPE_OPTIONS = [
+  { value: "number", label: "Number" },
+  { value: "letter", label: "Letter" },
+] as const;
 
 const filters: { label: string; value: ExamFilter }[] = [
   { label: "All", value: "all" },
@@ -245,6 +258,10 @@ export default function Exam() {
     setForm({
       name: exam.name,
       exam_type: exam.exam_type,
+      mark_type: exam.mark_type,
+      full_mark: exam.full_mark ?? "",
+      pass_mark: exam.pass_mark ?? "",
+      grades: exam.grades ?? "",
       class_id: String(exam.class_id),
       start_date: toInputDate(exam.start_date),
       end_date: toInputDate(exam.end_date),
@@ -272,8 +289,43 @@ export default function Exam() {
     event.preventDefault();
     setError("");
 
-    if (!form.name.trim() || !form.exam_type.trim() || !form.class_id) {
-      setError("Exam name, exam type, and class are required.");
+    if (!form.name.trim() || !form.exam_type.trim() || !form.class_id || !form.mark_type) {
+      setError("Exam name, exam type, mark type, and class are required.");
+      return;
+    }
+
+    if (form.mark_type === "number" && !form.full_mark.trim()) {
+      setError("Full mark is required for number mark type.");
+      return;
+    }
+
+    if (form.mark_type === "number" && !form.pass_mark.trim()) {
+      setError("Pass mark is required for number mark type.");
+      return;
+    }
+
+    if (form.mark_type === "number") {
+      const fullMarkValue = Number(form.full_mark.trim());
+      const passMarkValue = Number(form.pass_mark.trim());
+
+      if (!Number.isFinite(fullMarkValue) || fullMarkValue <= 0) {
+        setError("Full mark must be a positive number.");
+        return;
+      }
+
+      if (!Number.isFinite(passMarkValue) || passMarkValue <= 0) {
+        setError("Pass mark must be a positive number.");
+        return;
+      }
+
+      if (passMarkValue > fullMarkValue) {
+        setError("Pass mark cannot be greater than full mark.");
+        return;
+      }
+    }
+
+    if (form.mark_type === "letter" && !form.grades.trim()) {
+      setError("Grades are required for letter mark type.");
       return;
     }
 
@@ -290,6 +342,10 @@ export default function Exam() {
     const payload = {
       name: form.name.trim(),
       exam_type: form.exam_type.trim(),
+      mark_type: form.mark_type,
+      full_mark: form.mark_type === "number" ? form.full_mark.trim() : null,
+      pass_mark: form.mark_type === "number" ? form.pass_mark.trim() : null,
+      grades: form.mark_type === "letter" ? form.grades.trim() : null,
       class_id: Number(form.class_id),
       start_date: form.start_date,
       end_date: form.end_date,
@@ -558,6 +614,19 @@ function ExamModal({
             <div className="grid gap-4 sm:grid-cols-2">
               <Info label="Exam name" value={exam.name} />
               <Info label="Exam type" value={exam.exam_type} />
+              <Info label="Mark type" value={exam.mark_type} />
+              <Info
+                label="Full mark"
+                value={exam.full_mark || "—"}
+              />
+              <Info
+                label="Pass mark"
+                value={exam.pass_mark || "—"}
+              />
+              <Info
+                label="Grades"
+                value={exam.grades || "—"}
+              />
               <Info label="Class" value={exam.class_name} />
               <Info label="Start date" value={formatDate(exam.start_date)} />
               <Info label="End date" value={formatDate(exam.end_date)} />
@@ -593,6 +662,68 @@ function ExamModal({
                   ))}
                 </select>
               </Field>
+              <Field label="Mark type" required>
+                <select
+                  value={form.mark_type}
+                  onChange={(event) => {
+                    const nextMarkType = event.target.value as "" | ExamMarkType;
+                    onChange("mark_type", nextMarkType);
+                    if (nextMarkType === "number") {
+                      onChange("grades", "");
+                    }
+                    if (nextMarkType === "letter") {
+                      onChange("full_mark", "");
+                      onChange("pass_mark", "");
+                    }
+                  }}
+                  className={inputClass}
+                  disabled={isSaving}
+                  required
+                >
+                  <option value="">Select mark type</option>
+                  {MARK_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              {form.mark_type === "number" && (
+                <>
+                  <Field label="Full mark" required>
+                    <input
+                      value={form.full_mark}
+                      onChange={(event) => onChange("full_mark", event.target.value)}
+                      placeholder="e.g. 100"
+                      className={inputClass}
+                      disabled={isSaving}
+                      required
+                    />
+                  </Field>
+                  <Field label="Pass mark" required>
+                    <input
+                      value={form.pass_mark}
+                      onChange={(event) => onChange("pass_mark", event.target.value)}
+                      placeholder="e.g. 33"
+                      className={inputClass}
+                      disabled={isSaving}
+                      required
+                    />
+                  </Field>
+                </>
+              )}
+              {form.mark_type === "letter" && (
+                <Field label="Grades" required>
+                  <input
+                    value={form.grades}
+                    onChange={(event) => onChange("grades", event.target.value)}
+                    placeholder="e.g. A,B,C,D"
+                    className={inputClass}
+                    disabled={isSaving}
+                    required
+                  />
+                </Field>
+              )}
               <Field label="Class" required>
                 <select
                   value={form.class_id}

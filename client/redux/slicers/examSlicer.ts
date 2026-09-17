@@ -1,11 +1,16 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
 export type ExamStatus = "draft" | "published" | "completed" | "cancelled";
+export type ExamMarkType = "number" | "letter";
 
 export interface Exam {
   id: number;
   name: string;
   exam_type: string;
+  mark_type: ExamMarkType;
+  full_mark: string | null;
+  pass_mark: string | null;
+  grades: string | null;
   class_id: number;
   class_name: string;
   academic_year_id: number;

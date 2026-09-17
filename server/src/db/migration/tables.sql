@@ -417,6 +417,10 @@ CREATE TABLE exam (
     name VARCHAR(150) NOT NULL,
     exam_type VARCHAR(20) CHECK(exam_type in ('term1','term2','annual')),
     subject_id INTEGER NOT NULL,
+    mark_type VARCHAR(20),
+    full_mark VARCHAR(10),
+    grades VARCHAR(70),
+    pass_mark VARCHAR(20),
    
 
     academic_year_id INTEGER NOT NULL,
@@ -453,6 +457,23 @@ CREATE TABLE exam (
                 'completed',
                 'cancelled'
             )
+        ),
+
+    CONSTRAINT chk_exam_mark_type
+        CHECK (mark_type IN ('number', 'letter')),
+
+    CONSTRAINT chk_exam_mark_fields
+        CHECK (
+            (mark_type = 'number' AND full_mark IS NOT NULL AND pass_mark IS NOT NULL AND grades IS NULL)
+            OR
+            (mark_type = 'letter' AND grades IS NOT NULL AND full_mark IS NULL AND pass_mark IS NULL)
+        ),
+
+    CONSTRAINT chk_exam_pass_mark_le_full_mark
+        CHECK (
+            mark_type = 'letter'
+            OR
+            pass_mark::numeric <= full_mark::numeric
         )
 );
 

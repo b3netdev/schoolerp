@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from "express";
 import {
   ExamModel,
   type CreateExamPayload,
+  type ExamMarkType,
   type ExamStatus,
   type ExamStatusFilter,
   type UpdateExamPayload,
@@ -72,6 +73,104 @@ const getValidStatus = (value: unknown): ExamStatus => {
   return status;
 };
 
+const getValidMarkType = (value: unknown): ExamMarkType => {
+  const markType = String(value ?? "").trim().toLowerCase() as ExamMarkType;
+
+  if (markType !== "number" && markType !== "letter") {
+    throw new AppError("Mark type must be either number or letter.", 400);
+  }
+
+  return markType;
+};
+
+const getNormalizedFullMark = (value: unknown): string => {
+  const fullMark = String(value ?? "").trim();
+
+  if (!fullMark) {
+    throw new AppError("Full mark is required when mark type is number.", 400);
+  }
+
+  const markValue = Number(fullMark);
+  if (!Number.isFinite(markValue) || markValue <= 0) {
+    throw new AppError("Full mark must be a positive number.", 400);
+  }
+
+  return fullMark;
+};
+
+const getNormalizedPassMark = (
+  value: unknown,
+  fullMarkValue: string,
+): string => {
+  const passMark = String(value ?? "").trim();
+
+  if (!passMark) {
+    throw new AppError("Pass mark is required when mark type is number.", 400);
+  }
+
+  const parsedPassMark = Number(passMark);
+  const parsedFullMark = Number(fullMarkValue);
+
+  if (!Number.isFinite(parsedPassMark) || parsedPassMark <= 0) {
+    throw new AppError("Pass mark must be a positive number.", 400);
+  }
+
+  if (parsedPassMark > parsedFullMark) {
+    throw new AppError("Pass mark cannot be greater than full mark.", 400);
+  }
+
+  return passMark;
+};
+
+const getNormalizedGrades = (value: unknown): string => {
+  const grades = String(value ?? "").trim();
+
+  if (!grades) {
+    throw new AppError("Grades are required when mark type is letter.", 400);
+  }
+
+  const tokens = grades
+    .split(",")
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  if (tokens.length === 0) {
+    throw new AppError(
+      "Provide grades as comma-separated values, for example A,B,C,D.",
+      400,
+    );
+  }
+
+  return tokens.join(",");
+};
+
+const normalizeMarksByType = (
+  markType: ExamMarkType,
+  fullMarkValue: unknown,
+  passMarkValue: unknown,
+  gradesValue: unknown,
+): {
+  full_mark: string | null;
+  pass_mark: string | null;
+  grades: string | null;
+} => {
+  if (markType === "number") {
+    const fullMark = getNormalizedFullMark(fullMarkValue);
+
+    return {
+      full_mark: fullMark,
+      pass_mark: getNormalizedPassMark(passMarkValue, fullMark),
+      grades: null,
+    };
+  }
+
+  return {
+    full_mark: null,
+    pass_mark: null,
+    grades: getNormalizedGrades(gradesValue),
+  };
+};
+
 export class ExamController {
   static getAll = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
@@ -113,17 +212,29 @@ export class ExamController {
     async (req: Request, res: Response, next: NextFunction) => {
       const name = String(req.body.name ?? "").trim();
       const examType = String(req.body.exam_type ?? "").trim();
+      const markType = getValidMarkType(req.body.mark_type);
       const startDate = getValidDate(req.body.start_date, "Start date");
       const endDate = getValidDate(req.body.end_date, "End date");
 
       if (!name) return next(new AppError("Exam name is required.", 400));
       if (!examType) return next(new AppError("Exam type is required.", 400));
 
+      const marksData = normalizeMarksByType(
+        markType,
+        req.body.full_mark,
+        req.body.pass_mark,
+        req.body.grades,
+      );
+
       ensureDateRange(startDate, endDate);
 
       const payload: CreateExamPayload = {
         name,
         exam_type: examType,
+        mark_type: markType,
+        full_mark: marksData.full_mark,
+        pass_mark: marksData.pass_mark,
+        grades: marksData.grades,
         class_id: getValidId(req.body.class_id, "Class"),
         academic_year_id: getAcademicYearId(req),
         start_date: startDate,
@@ -170,6 +281,10 @@ export class ExamController {
         payload.exam_type = examType;
       }
 
+      if (req.body.mark_type !== undefined) {
+        payload.mark_type = getValidMarkType(req.body.mark_type);
+      }
+
       if (req.body.class_id !== undefined) {
         payload.class_id = getValidId(req.body.class_id, "Class");
       }
@@ -191,6 +306,31 @@ export class ExamController {
           req.body.description === null
             ? null
             : String(req.body.description).trim();
+      }
+
+      const resolvedMarkType = payload.mark_type ?? existingExam.mark_type;
+
+      if (
+        req.body.mark_type !== undefined ||
+        req.body.full_mark !== undefined ||
+        req.body.grades !== undefined
+      ) {
+        const marksData = normalizeMarksByType(
+          resolvedMarkType,
+          req.body.full_mark !== undefined
+            ? req.body.full_mark
+            : existingExam.full_mark,
+          req.body.pass_mark !== undefined
+            ? req.body.pass_mark
+            : existingExam.pass_mark,
+          req.body.grades !== undefined
+            ? req.body.grades
+            : existingExam.grades,
+        );
+
+        payload.full_mark = marksData.full_mark;
+        payload.pass_mark = marksData.pass_mark;
+        payload.grades = marksData.grades;
       }
 
       if (Object.keys(payload).length === 0) {

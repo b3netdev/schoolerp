@@ -2,11 +2,16 @@ import { query } from "../db/query.js";
 
 export type ExamStatus = "draft" | "published" | "completed" | "cancelled";
 export type ExamStatusFilter = "all" | "trash" | ExamStatus;
+export type ExamMarkType = "number" | "letter";
 
 export interface Exam {
   id: number;
   name: string;
   exam_type: string;
+  mark_type: ExamMarkType;
+  full_mark: string | null;
+  pass_mark: string | null;
+  grades: string | null;
   class_id: number;
   class_name: string;
   academic_year_id: number;
@@ -22,6 +27,10 @@ export interface Exam {
 export interface CreateExamPayload {
   name: string;
   exam_type: string;
+  mark_type: ExamMarkType;
+  full_mark?: string | null;
+  pass_mark?: string | null;
+  grades?: string | null;
   class_id: number;
   academic_year_id: number;
   start_date: string;
@@ -33,6 +42,10 @@ export interface CreateExamPayload {
 export interface UpdateExamPayload {
   name?: string;
   exam_type?: string;
+  mark_type?: ExamMarkType;
+  full_mark?: string | null;
+  pass_mark?: string | null;
+  grades?: string | null;
   class_id?: number;
   start_date?: string;
   end_date?: string;
@@ -42,7 +55,7 @@ export interface UpdateExamPayload {
 
 const tableName = "exam";
 const selectFields = `
-  e.id, e.name, e.exam_type, e.class_id, c.class_name,
+  e.id, e.name, e.exam_type, e.mark_type, e.full_mark, e.pass_mark, e.grades, e.class_id, c.class_name,
   e.academic_year_id, e.start_date, e.end_date, e.status,
   e.description, e.created_at, e.updated_at, e.deleted_at
 `;
@@ -100,15 +113,20 @@ export class ExamModel {
     const result = await query<{ id: number }>(
       `
         INSERT INTO ${tableName} (
-          name, exam_type, class_id, academic_year_id,
-          start_date, end_date, status, description
+          name, exam_type, mark_type, full_mark, pass_mark, grades,
+          class_id, academic_year_id, start_date, end_date,
+          status, description
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         RETURNING id
       `,
       [
         data.name,
         data.exam_type,
+        data.mark_type,
+        data.full_mark ?? null,
+        data.pass_mark ?? null,
+        data.grades ?? null,
         data.class_id,
         data.academic_year_id,
         data.start_date,
@@ -141,6 +159,10 @@ export class ExamModel {
 
     if (data.name !== undefined) addUpdate("name", data.name);
     if (data.exam_type !== undefined) addUpdate("exam_type", data.exam_type);
+    if (data.mark_type !== undefined) addUpdate("mark_type", data.mark_type);
+    if (data.full_mark !== undefined) addUpdate("full_mark", data.full_mark);
+    if (data.pass_mark !== undefined) addUpdate("pass_mark", data.pass_mark);
+    if (data.grades !== undefined) addUpdate("grades", data.grades);
     if (data.class_id !== undefined) addUpdate("class_id", data.class_id);
     if (data.start_date !== undefined) addUpdate("start_date", data.start_date);
     if (data.end_date !== undefined) addUpdate("end_date", data.end_date);

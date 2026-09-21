@@ -106,9 +106,7 @@ export class ProfileModel {
         return result.rows[0] || null;
     }
 
-    /**
-     * UPDATE BASIC PROFILE INFORMATION
-     */
+   
     static async updateProfile(
         userId: number,
         role: ProfileRole,

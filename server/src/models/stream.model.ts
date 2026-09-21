@@ -37,7 +37,7 @@ export class StreamModel {
         } else if (statusFilter === "inactive") {
             query = query.whereNull("deleted_at").where("status", "=", "inactive");
         } else {
-            // 'all' shows all non-deleted items
+           
             query = query.whereNull("deleted_at");
         }
 

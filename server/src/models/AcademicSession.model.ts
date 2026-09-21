@@ -137,7 +137,7 @@ export class AcademicSessionModel {
     }
 
     static async restore(id: number): Promise<AcademicSession | null> {
-        // console.log(`Restoring academic session with ID: ${id}`);
+        
         const result = await db.query<AcademicSession>(
             `UPDATE ${tableName} SET deleted_at = NULL WHERE id = $1 RETURNING *`,
             [id]

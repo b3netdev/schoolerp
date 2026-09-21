@@ -476,7 +476,7 @@ export default function MarksEntry() {
           };
 
           if (row.entry_id) {
-            // academic year, role, and entered-by fields come from middleware.
+            
             await api.patch(`/marks-entry/${row.entry_id}`, payload);
           } else {
             await api.post("/marks-entry", {

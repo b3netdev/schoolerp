@@ -809,20 +809,12 @@ const Classes = () => {
     }
   };
 
-  /**
-   * Load when filter changes
-   */
+ 
   useEffect(() => {
     void loadClasses(statusFilter);
   }, [statusFilter]);
 
-  /**
-   * Format Redux/API data
-   *
-   * IMPORTANT:
-   * Keep NULL as null.
-   * Never do Number(null), because it becomes 0.
-   */
+
   useEffect(() => {
     if (!Array.isArray(classes)) {
       return;
@@ -876,9 +868,6 @@ const Classes = () => {
     setData(formattedClasses);
   }, [classes]);
 
-  /**
-   * Search
-   */
   const filtered = data.filter(
     (classItem) => {
       const keyword =
@@ -898,9 +887,6 @@ const Classes = () => {
     },
   );
 
-  /**
-   * Pagination
-   */
   const paginatedData = filtered.slice(
     (page - 1) * 10,
     page * 10,
@@ -922,17 +908,11 @@ const Classes = () => {
       }
 
       setAddOpen(false);
-
-      /** Reload because backend sorts using display_order. */
       await loadClasses(statusFilter);
     } finally {
       setIsCreating(false);
     }
   };
-
-  /**
-   * UPDATE CLASS
-   */
   const handleEdit = async (
     values: CreateClassPayload,
   ) => {

@@ -294,8 +294,7 @@ export default function Attendance() {
     return () => {
       mounted = false;
     };
-    // Hook methods are intentionally called once on mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, []);
 
   const activeClassSections = useMemo(() => {

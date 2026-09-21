@@ -180,9 +180,7 @@ export class ProfileModel {
         return result.rows[0] || null;
     }
 
-    /**
-     * UPDATE PROFILE PICTURE
-     */
+   
     static async updateProfileImage(
         userId: number,
         role: ProfileRole,

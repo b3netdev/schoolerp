@@ -18,7 +18,9 @@ import { Breadcrumb } from "@/components/common/Breadcrumb";
 import { PageHeader } from "@/components/common/PageHeader";
 import { ProgressBar } from "@/components/common/ProgressBar";
 import { SectionTitle } from "@/components/common/SectionTitle";
+import useClassSection from "@/hooks/useClassSection";
 import api from "@/lib/api";
+import { useAppSelector } from "../../redux/hooks";
 
 type AttendanceStatus = "present" | "absent";
 
@@ -34,10 +36,24 @@ type ExamAssignment = {
   subject_id: number;
   subject_name: string;
 
-  class_id: number;
-  class_name: string;
+  class_id?: number;
+  class_name?: string;
 
   assign_till?: string | null;
+};
+
+type ClassSectionRelation = {
+  id: number;
+  class_id: number;
+  class_name: string;
+  section_id: number;
+  section_name: string;
+  section_stream?: string | null;
+  deleted_at?: string | null;
+};
+
+type SubjectDetails = {
+  class_section_id: number;
 };
 
 type Student = {
@@ -159,6 +175,10 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 };
 
 export default function MarksEntry() {
+  const classSectionRelations = useAppSelector(
+    (state) => state.classSection.classSectionRelations,
+  ) as ClassSectionRelation[];
+  const { getClassSections } = useClassSection();
   const [assignments, setAssignments] = useState<ExamAssignment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [markValues, setMarkValues] = useState<
@@ -166,6 +186,9 @@ export default function MarksEntry() {
   >({});
 
   const [selectedExamAssignId, setSelectedExamAssignId] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState("");
+  const [selectedClassSectionId, setSelectedClassSectionId] = useState("");
+  const [selectedStudentId, setSelectedStudentId] = useState("");
   const [isLoadingAssignments, setIsLoadingAssignments] = useState(true);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -179,6 +202,41 @@ export default function MarksEntry() {
         (assignment) => assignment.id === Number(selectedExamAssignId),
       ) || null,
     [assignments, selectedExamAssignId],
+  );
+
+  const availableClasses = useMemo(() => {
+    const classMap = new Map<number, string>();
+
+    classSectionRelations
+      .filter((relation) => !relation.deleted_at)
+      .forEach((relation) => classMap.set(relation.class_id, relation.class_name));
+
+    const classes = Array.from(classMap, ([id, name]) => ({ id, name }));
+    const assignedClass = classes.filter(
+      (item) => String(item.id) === selectedClassId,
+    );
+
+    return (assignedClass.length ? assignedClass : classes).sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { numeric: true }),
+    );
+  }, [classSectionRelations, selectedClassId]);
+
+  const availableSections = useMemo(
+    () =>
+      classSectionRelations.filter(
+        (relation) =>
+          !relation.deleted_at &&
+          String(relation.class_id) === selectedClassId,
+      ),
+    [classSectionRelations, selectedClassId],
+  );
+
+  const visibleStudents = useMemo(
+    () =>
+      students.filter((student) =>
+        selectedStudentId ? String(student.id) === selectedStudentId : true,
+      ),
+    [students, selectedStudentId],
   );
 
   const loadAssignments = async () => {
@@ -203,6 +261,8 @@ export default function MarksEntry() {
   };
 
   const loadStudentsAndMarks = async (assignment: ExamAssignment) => {
+    if (!selectedClassSectionId) return;
+
     try {
       setIsLoadingStudents(true);
       setError("");
@@ -213,8 +273,9 @@ export default function MarksEntry() {
       const [studentResponse, marksResponse] = await Promise.all([
         api.get("/student/get-students", {
           params: {
-            class_id: assignment.class_id,
+            class_section_id: Number(selectedClassSectionId),
             status: "active",
+            limit: 20,
           },
         }),
         api.get("/marks-entry", {
@@ -224,7 +285,10 @@ export default function MarksEntry() {
         }),
       ]);
 
-      const loadedStudents: Student[] = studentResponse.data?.data || [];
+      const studentPayload = studentResponse.data?.data;
+      const loadedStudents: Student[] =
+        studentPayload?.students ||
+        (Array.isArray(studentPayload) ? studentPayload : []);
       const savedMarks: MarksEntry[] = marksResponse.data?.data || [];
 
       const savedMarksMap = savedMarks.reduce<
@@ -256,18 +320,53 @@ export default function MarksEntry() {
   };
 
   useEffect(() => {
-    void loadAssignments();
+    void Promise.all([loadAssignments(), getClassSections("all")]);
+    // These dependencies are intentionally loaded once for the page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (!selectedAssignment) {
+      setSelectedClassId("");
+      setSelectedClassSectionId("");
+      setSelectedStudentId("");
+      setStudents([]);
+      setMarkValues({});
+      return;
+    }
+
+    const loadSubjectClass = async () => {
+      try {
+        const response = await api.get(
+          `/subjects/get-subject/${selectedAssignment.subject_id}`,
+        );
+        const subject = response.data?.data as SubjectDetails;
+        const relation = classSectionRelations.find(
+          (item) => item.id === subject.class_section_id,
+        );
+
+        setSelectedClassId(relation ? String(relation.class_id) : "");
+        setSelectedClassSectionId("");
+        setSelectedStudentId("");
+        setStudents([]);
+        setMarkValues({});
+      } catch (requestError) {
+        setError(getErrorMessage(requestError, "Unable to load subject class."));
+      }
+    };
+
+    void loadSubjectClass();
+  }, [selectedAssignment, classSectionRelations]);
+
+  useEffect(() => {
+    if (!selectedAssignment || !selectedClassSectionId) {
       setStudents([]);
       setMarkValues({});
       return;
     }
 
     void loadStudentsAndMarks(selectedAssignment);
-  }, [selectedAssignment]);
+  }, [selectedAssignment, selectedClassSectionId]);
 
   const getStudentMark = (studentId: number): StudentMarkState => {
     return (
@@ -351,7 +450,7 @@ export default function MarksEntry() {
     setError("");
     setSaved(false);
 
-    const rowsToSave = students.filter((student) => {
+    const rowsToSave = visibleStudents.filter((student) => {
       const row = getStudentMark(student.id);
 
       return (
@@ -409,13 +508,13 @@ export default function MarksEntry() {
     }
   };
 
-  const enteredRows = students.filter((student) => {
+  const enteredRows = visibleStudents.filter((student) => {
     const row = getStudentMark(student.id);
 
     return row.attendance_status === "absent" || row.mark_obtained !== "";
   });
 
-  const allMarks = students
+  const allMarks = visibleStudents
     .map((student) => getStudentMark(student.id))
     .filter(
       (row) =>
@@ -426,16 +525,16 @@ export default function MarksEntry() {
 
   const average = allMarks.length
     ? Math.round(
-        allMarks.reduce((total, mark) => total + mark, 0) /
-          allMarks.length,
-      )
+      allMarks.reduce((total, mark) => total + mark, 0) /
+      allMarks.length,
+    )
     : null;
 
   const highest = allMarks.length ? Math.max(...allMarks) : null;
   const lowest = allMarks.length ? Math.min(...allMarks) : null;
 
   const passCount = allMarks.filter((mark) => mark >= PASS_MARKS).length;
-  const absentCount = students.filter(
+  const absentCount = visibleStudents.filter(
     (student) =>
       getStudentMark(student.id).attendance_status === "absent",
   ).length;
@@ -515,47 +614,116 @@ export default function MarksEntry() {
       )}
 
       <div className="mb-6 rounded-xl border border-border bg-card p-5">
-        <div className="max-w-xl">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Exam Assignment
+            <select
+              value={selectedExamAssignId}
+              onChange={(event) => {
+                setSelectedExamAssignId(event.target.value);
+                setSaved(false);
+                setError("");
+              }}
+              disabled={isLoadingAssignments}
+              className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">
+                {isLoadingAssignments
+                  ? "Loading assignments..."
+                  : "Select assigned exam"}
+              </option>
+
+              {assignments.map((assignment) => (
+                <option key={assignment.id} value={assignment.id}>
+                  {assignment.exam_name} — {assignment.subject_name}
+                </option>
+              ))}
+            </select>
           </label>
 
-          <select
-            value={selectedExamAssignId}
-            onChange={(event) => {
-              setSelectedExamAssignId(event.target.value);
-              setSaved(false);
-              setError("");
-            }}
-            disabled={isLoadingAssignments}
-            className="h-10 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <option value="">
-              {isLoadingAssignments
-                ? "Loading assignments..."
-                : "Select exam assignment"}
-            </option>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Class
+            <select
+              value={selectedClassId}
+              onChange={(event) => {
+                setSelectedClassId(event.target.value);
+                setSelectedClassSectionId("");
+                setSelectedStudentId("");
+                setStudents([]);
+                setMarkValues({});
+              }}
+              disabled={!selectedAssignment || availableClasses.length === 0}
+              className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">Select class</option>
+              {availableClasses.map((classOption) => (
+                <option key={classOption.id} value={classOption.id}>
+                  {classOption.name}
+                </option>
+              ))}
+            </select>
+          </label>
 
-            {assignments.map((assignment) => (
-              <option key={assignment.id} value={assignment.id}>
-                {assignment.exam_name} — {assignment.subject_name} (
-                {assignment.class_name})
-              </option>
-            ))}
-          </select>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Section
+            <select
+              value={selectedClassSectionId}
+              onChange={(event) => {
+                setSelectedClassSectionId(event.target.value);
+                setSelectedStudentId("");
+                setSaved(false);
+              }}
+              disabled={!selectedClassId || availableSections.length === 0}
+              className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">Select section</option>
+              {availableSections.map((section) => (
+                <option key={section.id} value={section.id}>
+                  {section.section_name}
+                  {section.section_stream ? ` (${section.section_stream})` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
 
-          <p className="mt-2 text-xs text-muted-foreground">
-            Exam, subject, class, teacher, and academic year come from the
-            selected assignment and JWT middleware.
-          </p>
+          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Student
+            <select
+              value={selectedStudentId}
+              onChange={(event) => setSelectedStudentId(event.target.value)}
+              disabled={!selectedClassSectionId || isLoadingStudents}
+              className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <option value="">All students</option>
+              {students.map((student) => (
+                <option key={student.id} value={student.id}>
+                  {getStudentName(student)} — {getRollNumber(student)}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
+
+        <p className="mt-3 text-xs text-muted-foreground">
+          Select an assigned exam, then choose its class, section, and student
+          before entering marks.
+        </p>
       </div>
 
       {selectedAssignment && (
         <div className="mb-6 grid gap-4 rounded-xl border border-border bg-card p-5 sm:grid-cols-2 xl:grid-cols-4">
           <InfoCard label="Exam" value={selectedAssignment.exam_name} />
           <InfoCard label="Subject" value={selectedAssignment.subject_name} />
-          <InfoCard label="Class" value={selectedAssignment.class_name} />
+          <InfoCard
+            label="Class"
+            value={
+              classSectionRelations.find(
+                (relation) => String(relation.class_id) === selectedClassId,
+              )?.class_name ||
+              selectedAssignment.class_name ||
+              "Selected class"
+            }
+          />
           <InfoCard
             label="Assigned Teacher"
             value={selectedAssignment.teacher_name}
@@ -575,7 +743,7 @@ export default function MarksEntry() {
 
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {selectedAssignment
-                  ? `${selectedAssignment.class_name} · Maximum marks: ${MAX_MARKS} · `
+                  ? `${selectedAssignment.class_name}${selectedClassSectionId ? ` · ${availableSections.find((section) => String(section.id) === selectedClassSectionId)?.section_name || ""}` : ""} · Maximum marks: ${MAX_MARKS} · `
                   : ""}
                 <span className="font-medium text-primary">
                   {enteredRows.length}/{students.length} entered
@@ -601,6 +769,11 @@ export default function MarksEntry() {
               <LoaderCircle className="mb-3 size-9 animate-spin text-primary" />
               <p className="text-sm font-medium">Loading students...</p>
             </div>
+          ) : !selectedClassSectionId ? (
+            <EmptyState
+              title="Select a section"
+              description="Choose a class and section to load students for marks entry."
+            />
           ) : students.length === 0 ? (
             <EmptyState
               title="No students found"
@@ -639,7 +812,7 @@ export default function MarksEntry() {
                 </thead>
 
                 <tbody className="divide-y divide-border">
-                  {students.map((student, index) => {
+                  {visibleStudents.map((student, index) => {
                     const row = getStudentMark(student.id);
                     const marks =
                       row.mark_obtained === ""
@@ -718,11 +891,10 @@ export default function MarksEntry() {
                                 handleMarkChange(student.id, event)
                               }
                               placeholder="—"
-                              className={`h-9 w-20 rounded-lg border text-center text-sm font-semibold outline-none transition-colors focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50 ${
-                                row.mark_obtained !== ""
+                              className={`h-9 w-20 rounded-lg border text-center text-sm font-semibold outline-none transition-colors focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50 ${row.mark_obtained !== ""
                                   ? getMarksBackground(marks)
                                   : "border-border bg-muted text-foreground"
-                              }`}
+                                }`}
                             />
                           </div>
                         </td>
@@ -870,10 +1042,10 @@ export default function MarksEntry() {
                             grade.letter === "A+" || grade.letter === "A"
                               ? "emerald"
                               : grade.letter === "B+" ||
-                                  grade.letter === "B"
+                                grade.letter === "B"
                                 ? "blue"
                                 : grade.letter === "C+" ||
-                                    grade.letter === "C"
+                                  grade.letter === "C"
                                   ? "amber"
                                   : "red"
                           }

@@ -89,7 +89,6 @@ type Grade = {
   min: number;
 };
 
-// Change this when you add full marks configuration in your exam module.
 const MAX_MARKS = 100;
 const PASS_MARKS = 33;
 
@@ -244,7 +243,6 @@ export default function MarksEntry() {
       setIsLoadingAssignments(true);
       setError("");
 
-      // academic_year_id is taken automatically from JWT middleware.
       const response = await api.get("/exam-assign");
 
       setAssignments(response.data?.data || []);
@@ -269,7 +267,6 @@ export default function MarksEntry() {
       setStudents([]);
       setMarkValues({});
 
-      // academic_year_id is NOT sent from frontend.
       const [studentResponse, marksResponse] = await Promise.all([
         api.get("/student/get-students", {
           params: {
@@ -321,8 +318,6 @@ export default function MarksEntry() {
 
   useEffect(() => {
     void Promise.all([loadAssignments(), getClassSections("all")]);
-    // These dependencies are intentionally loaded once for the page.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

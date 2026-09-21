@@ -84,10 +84,6 @@ const start = async () => {
     console.error("Refusing to start: database connection failed");
     process.exit(1);
   }
-
-  // Populated once, cached in-process, never queried per-request.
-  // Use refreshAcademicYearTableRegistry() after a migration adds/removes
-  // an academic_year_id column on a live process, instead of restarting.
   await initAcademicYearTableRegistry();
 
   app.listen(PORT, () => {

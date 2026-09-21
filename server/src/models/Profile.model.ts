@@ -291,12 +291,7 @@ export class ProfileModel {
         return result.rows[0] || null;
     }
 
-    /**
-     * GET CURRENT PROFILE IMAGE
-     *
-     * Useful when replacing an image,
-     * so the old file can be deleted.
-     */
+   
     static async getProfileImage(
         userId: number,
         role: ProfileRole,

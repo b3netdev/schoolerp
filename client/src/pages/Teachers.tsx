@@ -3995,7 +3995,7 @@ export default function Teachers() {
             />
           </div>
 
-          <div className="w-full lg:w-55">
+          {/* <div className="w-full lg:w-55">
             <Select
               value={
                 selectedClassId
@@ -4032,7 +4032,7 @@ export default function Teachers() {
                 )}
               </SelectContent>
             </Select>
-          </div>
+          </div> */}
 
           <div className="flex items-center gap-3 lg:ml-auto">
             <label className="flex items-center gap-2 text-sm text-muted-foreground">

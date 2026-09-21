@@ -32,10 +32,8 @@ export class AcademicSessionModel {
         const queryParams: string[] = [];
         
         if (status === "trash") {
-            // Show soft-deleted records
             queryText += ` WHERE deleted_at IS NOT NULL`;
         } else {
-            // Show non-deleted records
             queryText += ` WHERE deleted_at IS NULL`;
             
             if (status !== "all") {

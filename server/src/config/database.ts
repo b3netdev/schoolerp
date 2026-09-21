@@ -5,7 +5,6 @@ import pg from "pg";
 const { Pool } = pg;
 
 
-// PostgreSQL database configuration
 const dbConfig = {
   host: process.env.DB_HOST,
   port: Number(process.env.DB_PORT),
@@ -13,16 +12,15 @@ const dbConfig = {
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
 
-  // pool options
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
 };
 
-// Create connection pool
+
 const pool = new Pool(dbConfig);
 
-// Test database connection
+
 export const dbConnection = async () => {
   try {
     const client = await pool.connect();
@@ -37,7 +35,7 @@ export const dbConnection = async () => {
   }
 };
 
-// Execute query helper
+
 export const query = async (sql: any, params = []) => {
   try {
     const result = await pool.query(sql, params);

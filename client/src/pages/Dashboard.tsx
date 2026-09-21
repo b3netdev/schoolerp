@@ -203,7 +203,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Bottom Row */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-6">
           <SectionTitle title="Recent Activity" />

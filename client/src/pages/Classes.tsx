@@ -1066,9 +1066,6 @@ const Classes = () => {
       );
 
     if (!selectedClass || statusFilter === "trash") return;
-
-    // Open immediately. The class details request below only enriches this
-    // modal with its existing sections.
     setEditItem({
       ...selectedClass,
       sections: [],
@@ -1098,8 +1095,6 @@ const Classes = () => {
           };
         });
       } catch (error) {
-        // The modal stays usable for updating class fields or adding sections
-        // even if existing section details could not be loaded.
         console.error("Unable to load class sections:", error);
       }
     })();
@@ -1418,7 +1413,6 @@ const Classes = () => {
         onClose={() => setAllClassesOpen(false)}
       />
 
-      {/* EDIT */}
 
       <ClassFormModal
         isOpen={
@@ -1437,7 +1431,6 @@ const Classes = () => {
         isSubmitting={isEditing}
       />
 
-      {/* DELETE */}
 
       <ConfirmModal
         isOpen={
@@ -1455,9 +1448,6 @@ const Classes = () => {
           }" to trash? You can restore it later.`}
         confirmLabel="Move to Trash"
       />
-
-      {/* RESTORE */}
-
       <ConfirmModal
         isOpen={
           !!restoreItem
@@ -1474,9 +1464,6 @@ const Classes = () => {
           }"? It will be moved back to the active list.`}
         confirmLabel="Restore Class"
       />
-
-      {/* PERMANENT DELETE */}
-
       <ConfirmModal
         isOpen={
           !!permanentDeleteItem

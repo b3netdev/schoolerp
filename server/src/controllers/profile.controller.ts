@@ -7,7 +7,10 @@ import {
 import fs from "fs/promises";
 import path from "path";
 
-import { ProfileModel } from "../models/Profile.model.js";
+import {
+    ProfileModel,
+    type ProfileRole,
+} from "../models/Profile.model.js";
 import { AppError } from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
 
@@ -27,6 +30,18 @@ const getUserId = (
     }
 
     return userId;
+};
+
+const getProfileRole = (
+    req: Request,
+): ProfileRole | null => {
+    return req.user?.role ===
+        "teacher"
+        ? "teacher"
+        : req.user?.role ===
+            "admin"
+          ? "admin"
+          : null;
 };
 
 const deleteProfileFile = async (
@@ -74,6 +89,8 @@ export class ProfileController {
         ) => {
             const userId =
                 getUserId(req);
+            const role =
+                getProfileRole(req);
 
             if (!userId) {
                 return next(
@@ -84,9 +101,19 @@ export class ProfileController {
                 );
             }
 
+            if (!role) {
+                return next(
+                    new AppError(
+                        "Unsupported profile role",
+                        403,
+                    ),
+                );
+            }
+
             const profile =
                 await ProfileModel.findByUserId(
                     userId,
+                    role,
                 );
 
             if (!profile) {
@@ -117,12 +144,23 @@ export class ProfileController {
             ) => {
                 const userId =
                     getUserId(req);
+                const role =
+                    getProfileRole(req);
 
                 if (!userId) {
                     return next(
                         new AppError(
                             "Unauthorized. Please login first.",
                             401,
+                        ),
+                    );
+                }
+
+                if (!role) {
+                    return next(
+                        new AppError(
+                            "Unsupported profile role",
+                            403,
                         ),
                     );
                 }
@@ -211,6 +249,7 @@ export class ProfileController {
                 const profile =
                     await ProfileModel.updateProfile(
                         userId,
+                        role,
                         payload,
                     );
 
@@ -248,6 +287,8 @@ export class ProfileController {
             ) => {
                 const userId =
                     getUserId(req);
+                const role =
+                    getProfileRole(req);
 
                 /**
                  * If somehow unauthorized after
@@ -269,6 +310,21 @@ export class ProfileController {
                     );
                 }
 
+                if (!role) {
+                    if (req.file) {
+                        await deleteProfileFile(
+                            `/uploads/profiles/${req.file.filename}`,
+                        );
+                    }
+
+                    return next(
+                        new AppError(
+                            "Unsupported profile role",
+                            403,
+                        ),
+                    );
+                }
+
                 /**
                  * No uploaded file.
                  */
@@ -285,6 +341,7 @@ export class ProfileController {
                 const oldProfileImage =
                     await ProfileModel.getProfileImage(
                         userId,
+                        role,
                     );
 
 
@@ -294,6 +351,7 @@ export class ProfileController {
                 const profile =
                     await ProfileModel.updateProfileImage(
                         userId,
+                        role,
                         profileImage,
                     );
 
@@ -341,6 +399,8 @@ export class ProfileController {
             ) => {
                 const userId =
                     getUserId(req);
+                const role =
+                    getProfileRole(req);
 
                 if (!userId) {
                     return next(
@@ -351,15 +411,26 @@ export class ProfileController {
                     );
                 }
 
+                if (!role) {
+                    return next(
+                        new AppError(
+                            "Unsupported profile role",
+                            403,
+                        ),
+                    );
+                }
+
 
                 const currentProfileImage =
                     await ProfileModel.getProfileImage(
                         userId,
+                        role,
                     );
 
                 const profile =
                     await ProfileModel.removeProfileImage(
                         userId,
+                        role,
                     );
 
                 if (!profile) {

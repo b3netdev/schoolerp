@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 
 import { Breadcrumb } from "@/components/common/Breadcrumb";
-import { useAppSelector } from "../../redux/hooks";
+import { useAppDispatch, useAppSelector } from "../../redux/hooks";
+import { setAuth } from "../../redux/slicers/authslicer";
 import useAuth from "@/hooks/useAuth";
 import api from "@/lib/api";
 
@@ -117,9 +118,11 @@ const getInitials = (
 };
 
 const Profile = () => {
+  const dispatch = useAppDispatch();
   const { user } = useAppSelector(
     (state) => state.auth,
   );
+  const userRef = useRef(user);
 
  
   const {
@@ -217,6 +220,39 @@ const Profile = () => {
 
   const loadProfile =
     useCallback(async () => {
+      const syncAuthProfile = (
+        profileData: ProfileData,
+      ) => {
+        const currentUser =
+          userRef.current;
+
+        if (!currentUser) {
+          return;
+        }
+
+        dispatch(
+          setAuth({
+            ...currentUser,
+            name:
+              profileData.name ??
+              currentUser.name,
+            email:
+              profileData.email ??
+              currentUser.email,
+            role:
+              (profileData.role as
+                | "admin"
+                | "teacher"
+                | "student"
+                | undefined) ??
+              currentUser.role,
+            profile_image:
+              profileData.profile_image ??
+              null,
+          }),
+        );
+      };
+
       try {
         setProfileLoading(true);
 
@@ -231,6 +267,9 @@ const Profile = () => {
 
         if (profileData) {
           setProfile(
+            profileData,
+          );
+          syncAuthProfile(
             profileData,
           );
 
@@ -261,11 +300,15 @@ const Profile = () => {
           false,
         );
       }
-    }, []);
+    }, [dispatch]);
 
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
 
   useEffect(() => {
@@ -429,6 +472,29 @@ const Profile = () => {
           setProfile(
             updatedProfile,
           );
+          if (user) {
+            dispatch(
+              setAuth({
+                ...user,
+                name:
+                  updatedProfile.name ??
+                  user.name,
+                email:
+                  updatedProfile.email ??
+                  user.email,
+                role:
+                  (updatedProfile.role as
+                    | "admin"
+                    | "teacher"
+                    | "student"
+                    | undefined) ??
+                  user.role,
+                profile_image:
+                  updatedProfile.profile_image ??
+                  null,
+              }),
+            );
+          }
         }
 
         setImageMessage({
@@ -506,6 +572,29 @@ const Profile = () => {
           setProfile(
             updatedProfile,
           );
+          if (user) {
+            dispatch(
+              setAuth({
+                ...user,
+                name:
+                  updatedProfile.name ??
+                  user.name,
+                email:
+                  updatedProfile.email ??
+                  user.email,
+                role:
+                  (updatedProfile.role as
+                    | "admin"
+                    | "teacher"
+                    | "student"
+                    | undefined) ??
+                  user.role,
+                profile_image:
+                  updatedProfile.profile_image ??
+                  null,
+              }),
+            );
+          }
         } else {
           setProfile(
             (current) =>
@@ -517,6 +606,15 @@ const Profile = () => {
                 }
                 : current,
           );
+          if (user) {
+            dispatch(
+              setAuth({
+                ...user,
+                profile_image:
+                  null,
+              }),
+            );
+          }
         }
 
         setProfileImagePreview(
@@ -621,6 +719,30 @@ const Profile = () => {
           setProfile(
             updatedProfile,
           );
+          if (user) {
+            dispatch(
+              setAuth({
+                ...user,
+                name:
+                  updatedProfile.name ??
+                  user.name,
+                email:
+                  updatedProfile.email ??
+                  user.email,
+                role:
+                  (updatedProfile.role as
+                    | "admin"
+                    | "teacher"
+                    | "student"
+                    | undefined) ??
+                  user.role,
+                profile_image:
+                  updatedProfile.profile_image ??
+                  user.profile_image ??
+                  null,
+              }),
+            );
+          }
 
           setProfileForm({
             name:
@@ -629,7 +751,6 @@ const Profile = () => {
               updatedProfile.email,
           });
         }
-
         setProfileMessage({
           type: "success",
           text:

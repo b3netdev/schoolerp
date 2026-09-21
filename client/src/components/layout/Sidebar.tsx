@@ -97,7 +97,7 @@ const mainNav: NavItem[] = [
     path: "marks-entry",
     icon: PenOff,
     label: "Marks Entry",
-    roles: ["teacher",],
+    roles: ["teacher","admin"],
   },
   {
     path: "streams",

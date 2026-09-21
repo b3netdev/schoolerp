@@ -104,7 +104,7 @@ const GRADE_SCALE: Grade[] = [
   { letter: "F", color: "text-red-700", bg: "bg-red-100", min: 0 },
 ];
 
-const getInitials = (student: Student) => {
+const getInitials = (student: Student) => { 
   const fullName =
     student.name ||
     [student.first_name, student.last_name].filter(Boolean).join(" ");

@@ -117,7 +117,7 @@ export class MarksEntryModel {
         e.name AS exam_name,
         sub.name AS subject_name,
         CONCAT_WS(' ', st.first_name, st.last_name) AS student_name,
-        st.student_unique_id,
+        st.student_code AS student_unique_id,
         COALESCE(
           u.name,
           CONCAT_WS(' ', t.first_name, t.last_name)
@@ -183,7 +183,7 @@ export class MarksEntryModel {
         e.name AS exam_name,
         sub.name AS subject_name,
         CONCAT_WS(' ', st.first_name, st.last_name) AS student_name,
-        st.student_unique_id,
+        st.student_code AS student_unique_id,
         COALESCE(
           u.name,
           CONCAT_WS(' ', t.first_name, t.last_name)

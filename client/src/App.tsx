@@ -38,6 +38,8 @@ import StudentClassRelation from "./pages/StudentClassRelation";
 import TeacherSignin from "./pages/teachers/TeacherSignin";
 import Exam from "./pages/Exam";
 import MyRoutine from "./pages/teachers/MyRoutine";
+import Grades from "./pages/Grade";
+
 import ExamAssign from "./pages/ExamAssign";
 const queryClient = new QueryClient();
 
@@ -123,6 +125,8 @@ function App() {
                   <Route path="notices" element={<NoticeBoard />} />
                   <Route path="exam" element={<Exam />} />
                   <Route path="exam-assign" element={<ExamAssign  />} />
+                  <Route path="grades" element={<Grades />} />
+
                 </Route>
               </Route>
 

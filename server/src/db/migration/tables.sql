@@ -783,3 +783,57 @@ CREATE TABLE public.marks_entry (
     ON UPDATE CASCADE
     ON DELETE RESTRICT
 );
+
+
+
+CREATE TABLE public.student_marksheets (
+  id SERIAL PRIMARY KEY,
+
+  student_id INTEGER NOT NULL
+    REFERENCES public.students(id),
+
+  exam_id INTEGER NOT NULL
+    REFERENCES public.exam(id),
+
+  academic_year_id INTEGER NOT NULL
+    REFERENCES public.academic_session(id),
+
+  class_section_id INTEGER NOT NULL
+    REFERENCES public.class_section_relation(id),
+
+  total_marks NUMERIC(10,2) NOT NULL DEFAULT 0,
+  obtained_marks NUMERIC(10,2) NOT NULL DEFAULT 0,
+  percentage NUMERIC(5,2) NOT NULL DEFAULT 0,
+
+  grade VARCHAR(10),
+  result_status VARCHAR(20) NOT NULL
+    CHECK (result_status IN ('pass', 'fail', 'pending')),
+
+  remarks TEXT,
+
+  generated_by INTEGER
+    REFERENCES public.users(id),
+
+  generated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+  UNIQUE (
+    student_id,
+    exam_id,
+    academic_year_id,
+    class_section_id
+  )
+);
+
+
+create table grade(
+id SERIAL PRIMARY KEY,
+grade VARCHAR(10) NOT NULL,
+range_from INTEGER ,
+range_to INTEGER,
+remarks TEXT,
+description TEXT,
+created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+deleted_at TIMESTAMP NULL
+);

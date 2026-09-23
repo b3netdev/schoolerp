@@ -6,9 +6,12 @@ import {
 export interface Subject {
   id: number;
   class_section_id: number;
+
+  subject_type_id: number | null;
+  subject_type_title?: string | null;
+
   name: string;
   description: string | null;
-
   display_order: number | null;
 
   created_at?: string;
@@ -40,69 +43,49 @@ const initialState: SubjectState = {
 
 const subjectSlice = createSlice({
   name: "subject",
-
   initialState,
 
   reducers: {
-    /**
-     * Add Subject
-     */
     addSubject: (
       state,
       action: PayloadAction<Subject>,
     ) => {
-      state.subjects.unshift(
-        action.payload,
-      );
+      state.subjects.unshift(action.payload);
     },
 
-    /**
-     * Update Subject
-     */
     updateSubject: (
       state,
       action: PayloadAction<Subject>,
     ) => {
-      const index =
-        state.subjects.findIndex(
-          (subject) =>
-            subject.id ===
-            action.payload.id,
-        );
+      const index = state.subjects.findIndex(
+        (subject) =>
+          subject.id === action.payload.id,
+      );
 
       if (index !== -1) {
-        state.subjects[index] =
-          action.payload;
+        state.subjects[index] = action.payload;
       }
     },
 
-    /**
-     * Remove Subject
-     */
     deleteSubject: (
       state,
       action: PayloadAction<number>,
     ) => {
-      state.subjects =
-        state.subjects.filter(
-          (subject) =>
-            subject.id !==
-            action.payload,
-        );
+      state.subjects = state.subjects.filter(
+        (subject) =>
+          subject.id !== action.payload,
+      );
     },
 
-    /**
-     * Set Subject List
-     */
     setSubjects: (
       state,
-      action: PayloadAction<Subject[] | { subjects?: Subject[] }>,
+      action: PayloadAction<
+        Subject[] | { subjects?: Subject[] }
+      >,
     ) => {
-      const nextValue = Array.isArray(action.payload)
+      state.subjects = Array.isArray(action.payload)
         ? action.payload
         : action.payload?.subjects ?? [];
-
-      state.subjects = nextValue;
     },
 
     setSubjectsPageData: (
@@ -116,6 +99,7 @@ const subjectSlice = createSlice({
       }>,
     ) => {
       state.subjects = action.payload.subjects;
+
       state.pagination = {
         page: action.payload.page,
         limit: action.payload.limit,

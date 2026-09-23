@@ -288,6 +288,7 @@ CREATE TABLE subjects (
 
     class_section_id INT NOT NULL,
     display_order INT UNIQUE,
+    subject_type_id INTEGER REFERENCES subject_type(id),
 
     name VARCHAR(100) NOT NULL,
     description TEXT DEFAULT NULL,

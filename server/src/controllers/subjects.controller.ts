@@ -1,4 +1,8 @@
-import { Request, Response, NextFunction } from "express";
+import {
+  Request,
+  Response,
+  NextFunction,
+} from "express";
 
 import {
   SubjectModel,
@@ -10,12 +14,114 @@ import {
 import { AppError } from "../utils/AppError.js";
 import { catchAsync } from "../utils/catchAsync.js";
 
+const getPositiveInteger = (
+  value: unknown,
+): number | null => {
+  const parsed = Number(value);
+
+  return Number.isInteger(parsed) && parsed > 0
+    ? parsed
+    : null;
+};
+
+/**
+ * undefined = field was not sent
+ * null = clear subject type
+ * number = set selected subject type
+ */
+const parseSubjectTypeId = (
+  value: unknown,
+): number | null | undefined => {
+  if (value === undefined) {
+    return undefined;
+  }
+
+  if (
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return null;
+  }
+
+  const subjectTypeId = getPositiveInteger(value);
+
+  if (!subjectTypeId) {
+    throw new AppError(
+      "Valid subject type is required",
+      400,
+    );
+  }
+
+  return subjectTypeId;
+};
+
+const validateSubjectType = async (
+  subjectTypeId: number | null | undefined,
+): Promise<void> => {
+  if (
+    subjectTypeId === undefined ||
+    subjectTypeId === null
+  ) {
+    return;
+  }
+
+  const exists =
+    await SubjectModel.isSubjectTypeValid(
+      subjectTypeId,
+    );
+
+  if (!exists) {
+    throw new AppError(
+      "Selected subject type does not exist or is deleted",
+      400,
+    );
+  }
+};
+
+const parseDisplayOrder = (
+  value: unknown,
+): number | null => {
+  if (
+    value === undefined ||
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    return null;
+  }
+
+  const displayOrder = Number(value);
+
+  if (
+    !Number.isInteger(displayOrder) ||
+    displayOrder < 0
+  ) {
+    throw new AppError(
+      "Display order must be a valid non-negative integer",
+      400,
+    );
+  }
+
+  return displayOrder;
+};
+
 /**
  * GET ALL SUBJECTS
+ *
+ * Query examples:
+ * /get-subjects?page=1&limit=10
+ * /get-subjects?class_id=1
+ * /get-subjects?section_id=2
+ * /get-subjects?class_section_id=5
+ * /get-subjects?status=trash
  */
 export const getAllSubjects = catchAsync(
-  async (req: Request, res: Response) => {
-    const query = normalizeSubjectListQuery(req.query as Record<string, unknown>);
+  async (
+    req: Request,
+    res: Response,
+  ) => {
+    const query = normalizeSubjectListQuery(
+      req.query as Record<string, unknown>,
+    );
 
     const result = await SubjectModel.findAll(
       query.status,
@@ -43,12 +149,11 @@ export const getSubjectById = catchAsync(
     res: Response,
     next: NextFunction,
   ) => {
-    const subjectId = Number(req.params.id);
+    const subjectId = getPositiveInteger(
+      req.params.id,
+    );
 
-    if (
-      !Number.isInteger(subjectId) ||
-      subjectId <= 0
-    ) {
+    if (!subjectId) {
       return next(
         new AppError(
           "Invalid subject ID",
@@ -71,15 +176,14 @@ export const getSubjectById = catchAsync(
 
     res.status(200).json({
       success: true,
-      message:
-        "Subject fetched successfully",
+      message: "Subject fetched successfully",
       data: subject,
     });
   },
 );
 
 /**
- * GET SUBJECTS BY CLASS SECTION
+ * GET SUBJECTS BY CLASS-SECTION RELATION ID
  */
 export const getSubjectsByClassSectionId =
   catchAsync(
@@ -88,16 +192,11 @@ export const getSubjectsByClassSectionId =
       res: Response,
       next: NextFunction,
     ) => {
-      const classSectionId = Number(
+      const classSectionId = getPositiveInteger(
         req.params.classSectionId,
       );
 
-      if (
-        !Number.isInteger(
-          classSectionId,
-        ) ||
-        classSectionId <= 0
-      ) {
+      if (!classSectionId) {
         return next(
           new AppError(
             "Invalid class section ID",
@@ -113,8 +212,7 @@ export const getSubjectsByClassSectionId =
 
       res.status(200).json({
         success: true,
-        message:
-          "Subjects fetched successfully",
+        message: "Subjects fetched successfully",
         data: subjects,
       });
     },
@@ -122,6 +220,8 @@ export const getSubjectsByClassSectionId =
 
 /**
  * CREATE SUBJECT
+ *
+ * subject_type_id is optional.
  */
 export const createSubject = catchAsync(
   async (
@@ -129,70 +229,11 @@ export const createSubject = catchAsync(
     res: Response,
     next: NextFunction,
   ) => {
-    const class_section_id = Number(
+    const classSectionId = getPositiveInteger(
       req.body.class_section_id,
     );
 
-    const name = String(
-      req.body.name ?? "",
-    ).trim();
-
-    const description =
-      req.body.description === undefined ||
-      req.body.description === null
-        ? null
-        : String(
-            req.body.description,
-          ).trim();
-
-    /**
-     * DISPLAY ORDER
-     *
-     * Keep null if input is empty.
-     *
-     * Do NOT do Number(null)
-     * because Number(null) = 0.
-     */
-    let display_order:
-      | number
-      | null = null;
-
-    if (
-      req.body.display_order !==
-        undefined &&
-      req.body.display_order !== null &&
-      String(
-        req.body.display_order,
-      ).trim() !== ""
-    ) {
-      display_order = Number(
-        req.body.display_order,
-      );
-
-      if (
-        !Number.isInteger(
-          display_order,
-        ) ||
-        display_order < 0
-      ) {
-        return next(
-          new AppError(
-            "Display order must be a valid non-negative integer",
-            400,
-          ),
-        );
-      }
-    }
-
-    /**
-     * Validate class section
-     */
-    if (
-      !Number.isInteger(
-        class_section_id,
-      ) ||
-      class_section_id <= 0
-    ) {
+    if (!classSectionId) {
       return next(
         new AppError(
           "Valid class section is required",
@@ -201,9 +242,10 @@ export const createSubject = catchAsync(
       );
     }
 
-    /**
-     * Validate subject name
-     */
+    const name = String(
+      req.body.name ?? "",
+    ).trim();
+
     if (!name) {
       return next(
         new AppError(
@@ -213,11 +255,28 @@ export const createSubject = catchAsync(
       );
     }
 
+    const subjectTypeId = parseSubjectTypeId(
+      req.body.subject_type_id,
+    );
+
+    await validateSubjectType(subjectTypeId);
+
+    const description =
+      req.body.description === undefined ||
+      req.body.description === null
+        ? null
+        : String(req.body.description).trim() || null;
+
+    const displayOrder = parseDisplayOrder(
+      req.body.display_order,
+    );
+
     const payload: SubjectPayload = {
-      class_section_id,
+      class_section_id: classSectionId,
+      subject_type_id: subjectTypeId ?? null,
       name,
       description,
-      display_order,
+      display_order: displayOrder,
     };
 
     const subject =
@@ -225,8 +284,7 @@ export const createSubject = catchAsync(
 
     res.status(201).json({
       success: true,
-      message:
-        "Subject created successfully",
+      message: "Subject created successfully",
       data: subject,
     });
   },
@@ -234,6 +292,9 @@ export const createSubject = catchAsync(
 
 /**
  * UPDATE SUBJECT
+ *
+ * Send subject_type_id: null to remove
+ * the selected subject type.
  */
 export const updateSubject = catchAsync(
   async (
@@ -241,14 +302,11 @@ export const updateSubject = catchAsync(
     res: Response,
     next: NextFunction,
   ) => {
-    const subjectId = Number(
+    const subjectId = getPositiveInteger(
       req.params.id,
     );
 
-    if (
-      !Number.isInteger(subjectId) ||
-      subjectId <= 0
-    ) {
+    if (!subjectId) {
       return next(
         new AppError(
           "Invalid subject ID",
@@ -257,26 +315,16 @@ export const updateSubject = catchAsync(
       );
     }
 
-    const payload: SubjectUpdatePayload =
-      {};
+    const payload: SubjectUpdatePayload = {};
 
-    /**
-     * CLASS SECTION
-     */
     if (
-      req.body.class_section_id !==
-      undefined
+      req.body.class_section_id !== undefined
     ) {
-      const classSectionId = Number(
+      const classSectionId = getPositiveInteger(
         req.body.class_section_id,
       );
 
-      if (
-        !Number.isInteger(
-          classSectionId,
-        ) ||
-        classSectionId <= 0
-      ) {
+      if (!classSectionId) {
         return next(
           new AppError(
             "Valid class section is required",
@@ -285,19 +333,21 @@ export const updateSubject = catchAsync(
         );
       }
 
-      payload.class_section_id =
-        classSectionId;
+      payload.class_section_id = classSectionId;
     }
 
-    /**
-     * SUBJECT NAME
-     */
-    if (
-      req.body.name !== undefined
-    ) {
-      const name = String(
-        req.body.name,
-      ).trim();
+    if (req.body.subject_type_id !== undefined) {
+      const subjectTypeId = parseSubjectTypeId(
+        req.body.subject_type_id,
+      );
+
+      await validateSubjectType(subjectTypeId);
+
+      payload.subject_type_id = subjectTypeId;
+    }
+
+    if (req.body.name !== undefined) {
+      const name = String(req.body.name).trim();
 
       if (!name) {
         return next(
@@ -311,71 +361,20 @@ export const updateSubject = catchAsync(
       payload.name = name;
     }
 
-    /**
-     * DESCRIPTION
-     */
-    if (
-      req.body.description !==
-      undefined
-    ) {
+    if (req.body.description !== undefined) {
       payload.description =
         req.body.description === null
           ? null
-          : String(
-              req.body.description,
-            ).trim();
+          : String(req.body.description).trim() || null;
     }
 
-    /**
-     * DISPLAY ORDER
-     */
-    if (
-      req.body.display_order !==
-      undefined
-    ) {
-      /**
-       * Allow clearing display order:
-       *
-       * ""   -> null
-       * null -> null
-       * "5"  -> 5
-       */
-      if (
-        req.body.display_order ===
-          null ||
-        String(
-          req.body.display_order,
-        ).trim() === ""
-      ) {
-        payload.display_order = null;
-      } else {
-        const displayOrder = Number(
-          req.body.display_order,
-        );
-
-        if (
-          !Number.isInteger(
-            displayOrder,
-          ) ||
-          displayOrder < 0
-        ) {
-          return next(
-            new AppError(
-              "Display order must be a valid non-negative integer",
-              400,
-            ),
-          );
-        }
-
-        payload.display_order =
-          displayOrder;
-      }
+    if (req.body.display_order !== undefined) {
+      payload.display_order = parseDisplayOrder(
+        req.body.display_order,
+      );
     }
 
-    if (
-      Object.keys(payload).length ===
-      0
-    ) {
+    if (Object.keys(payload).length === 0) {
       return next(
         new AppError(
           "No subject data provided to update",
@@ -384,11 +383,10 @@ export const updateSubject = catchAsync(
       );
     }
 
-    const subject =
-      await SubjectModel.update(
-        subjectId,
-        payload,
-      );
+    const subject = await SubjectModel.update(
+      subjectId,
+      payload,
+    );
 
     if (!subject) {
       return next(
@@ -401,8 +399,7 @@ export const updateSubject = catchAsync(
 
     res.status(200).json({
       success: true,
-      message:
-        "Subject updated successfully",
+      message: "Subject updated successfully",
       data: subject,
     });
   },
@@ -417,14 +414,11 @@ export const deleteSubject = catchAsync(
     res: Response,
     next: NextFunction,
   ) => {
-    const subjectId = Number(
+    const subjectId = getPositiveInteger(
       req.params.id,
     );
 
-    if (
-      !Number.isInteger(subjectId) ||
-      subjectId <= 0
-    ) {
+    if (!subjectId) {
       return next(
         new AppError(
           "Invalid subject ID",
@@ -434,9 +428,7 @@ export const deleteSubject = catchAsync(
     }
 
     const subject =
-      await SubjectModel.delete(
-        subjectId,
-      );
+      await SubjectModel.delete(subjectId);
 
     if (!subject) {
       return next(
@@ -449,8 +441,7 @@ export const deleteSubject = catchAsync(
 
     res.status(200).json({
       success: true,
-      message:
-        "Subject moved to trash successfully",
+      message: "Subject moved to trash successfully",
       data: subject,
     });
   },
@@ -459,100 +450,83 @@ export const deleteSubject = catchAsync(
 /**
  * RESTORE SUBJECT
  */
-export const restoreSubject =
-  catchAsync(
-    async (
-      req: Request,
-      res: Response,
-      next: NextFunction,
-    ) => {
-      const subjectId = Number(
-        req.params.id,
+export const restoreSubject = catchAsync(
+  async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    const subjectId = getPositiveInteger(
+      req.params.id,
+    );
+
+    if (!subjectId) {
+      return next(
+        new AppError(
+          "Invalid subject ID",
+          400,
+        ),
       );
+    }
 
-      if (
-        !Number.isInteger(
-          subjectId,
-        ) ||
-        subjectId <= 0
-      ) {
-        return next(
-          new AppError(
-            "Invalid subject ID",
-            400,
-          ),
-        );
-      }
+    const subject =
+      await SubjectModel.restore(subjectId);
 
-      const subject =
-        await SubjectModel.restore(
-          subjectId,
-        );
+    if (!subject) {
+      return next(
+        new AppError(
+          "Deleted subject not found",
+          404,
+        ),
+      );
+    }
 
-      if (!subject) {
-        return next(
-          new AppError(
-            "Deleted subject not found",
-            404,
-          ),
-        );
-      }
-
-      res.status(200).json({
-        success: true,
-        message:
-          "Subject restored successfully",
-        data: subject,
-      });
-    },
-  );
+    res.status(200).json({
+      success: true,
+      message: "Subject restored successfully",
+      data: subject,
+    });
+  },
+);
 
 /**
  * PERMANENT DELETE SUBJECT
  */
-export const hardDeleteSubject =
-  catchAsync(
-    async (
-      req: Request,
-      res: Response,
-      next: NextFunction,
-    ) => {
-      const subjectId = Number(
-        req.params.id,
+export const hardDeleteSubject = catchAsync(
+  async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    const subjectId = getPositiveInteger(
+      req.params.id,
+    );
+
+    if (!subjectId) {
+      return next(
+        new AppError(
+          "Invalid subject ID",
+          400,
+        ),
       );
+    }
 
-      if (
-        !Number.isInteger(
-          subjectId,
-        ) ||
-        subjectId <= 0
-      ) {
-        return next(
-          new AppError(
-            "Invalid subject ID",
-            400,
-          ),
-        );
-      }
+    const deleted =
+      await SubjectModel.hardDelete(subjectId);
 
-      const deleted =
-        await SubjectModel.hardDelete(
-          subjectId,
-        );
+    if (!deleted) {
+      return next(
+        new AppError(
+          "Subject not found",
+          404,
+        ),
+      );
+    }
 
-      if (!deleted) {
-        return next(
-          new AppError(
-            "Subject not found",
-            404,
-          ),
-        );
-      }
-
-      res.status(200).json({
-        success: true,
-        message:
-          "Subject permanently deleted successfully",
-      });
-    },
-  );
+    res.status(200).json({
+      success: true,
+      message:
+        "Subject permanently deleted successfully",
+    });
+  },
+);

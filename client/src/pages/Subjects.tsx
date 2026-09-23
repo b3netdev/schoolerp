@@ -53,11 +53,19 @@ interface ClassSectionRelation {
   deleted_at: string | null;
 }
 
+interface SubjectType {
+  id: number;
+  title: string;
+  deleted_at?: string | null;
+}
+
 type SubjectTableRow = Subject & {
   class_section_name: string;
+  subject_type_name: string;
 };
 
 const SUBJECTS_API = "/subjects";
+const SUBJECT_TYPES_API = "/subject-type";
 
 const statusTabs: StatusTabOption<SubjectStatusFilter>[] = [
   {
@@ -74,6 +82,10 @@ const columns: Column[] = [
   {
     key: "name",
     label: "Subject Name",
+  },
+  {
+    key: "subject_type_name",
+    label: "Subject Type",
   },
   {
     key: "class_section_name",
@@ -109,6 +121,9 @@ export default function Subjects() {
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
+  const [subjectTypes, setSubjectTypes] = useState<
+    SubjectType[]
+  >([]);
   const [selectedClassId, setSelectedClassId] = useState(() =>
     typeof window !== "undefined"
       ? sessionStorage.getItem("selectedSubjectClassId") ?? ""
@@ -160,11 +175,46 @@ export default function Subjects() {
     [classSectionRelations, selectedClassId],
   );
 
+  /** Load active subject types for the form dropdown. */
+  const loadSubjectTypes = async () => {
+    try {
+      const response = await api.get(
+        `${SUBJECT_TYPES_API}/get-subject-types`,
+        {
+          params: {
+            status: "active",
+          },
+        },
+      );
+
+      const data = response.data?.data;
+
+      /** Supports array and paginated API response formats. */
+      const list = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.subjectTypes)
+          ? data.subjectTypes
+          : [];
+
+      setSubjectTypes(list);
+    } catch (error) {
+      console.error(
+        "Failed to fetch subject types:",
+        error,
+      );
+
+      setSubjectTypes([]);
+      toast.error("Unable to load subject types.");
+    }
+  };
+
   /**
    * Load class/section relations
    */
   useEffect(() => {
     void getClassSections("all");
+    void loadSubjectTypes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**
@@ -283,6 +333,22 @@ export default function Subjects() {
       }));
   }, [classSectionRelations]);
 
+  const subjectTypeOptions = useMemo(
+    () => [
+      {
+        value: "",
+        label: "Select subject type",
+      },
+      ...subjectTypes
+        .filter((subjectType) => !subjectType.deleted_at)
+        .map((subjectType) => ({
+          value: String(subjectType.id),
+          label: subjectType.title,
+        })),
+    ],
+    [subjectTypes],
+  );
+
   /**
    * Subject form fields
    */
@@ -296,6 +362,13 @@ export default function Subjects() {
           required: true,
           options:
             classSectionOptions,
+        },
+        {
+          key: "subject_type_id",
+          label: "Subject Type",
+          type: "select",
+          required: false,
+          options: subjectTypeOptions,
         },
         {
           key: "name",
@@ -321,7 +394,7 @@ export default function Subjects() {
             "Enter subject description",
         },
       ],
-      [classSectionOptions],
+      [classSectionOptions, subjectTypeOptions],
     );
 
   /**
@@ -346,6 +419,10 @@ export default function Subjects() {
 
             class_section_name:
               classSection?.label ??
+              "Not assigned",
+
+            subject_type_name:
+              subject.subject_type_title ??
               "Not assigned",
 
             /**
@@ -382,6 +459,9 @@ export default function Subjects() {
         (subject) => {
           return (
             subject.name
+              .toLowerCase()
+              .includes(keyword) ||
+            subject.subject_type_name
               .toLowerCase()
               .includes(keyword) ||
             subject.description
@@ -435,6 +515,7 @@ export default function Subjects() {
        */
       const payload: {
         class_section_id: number;
+        subject_type_id: number | null;
         name: string;
         description: string | null;
         display_order?: number;
@@ -442,6 +523,12 @@ export default function Subjects() {
         class_section_id: Number(
           values.class_section_id,
         ),
+
+        subject_type_id:
+          values.subject_type_id &&
+          String(values.subject_type_id).trim() !== ""
+            ? Number(values.subject_type_id)
+            : null,
 
         name: String(
           values.name ?? "",
@@ -539,6 +626,7 @@ export default function Subjects() {
 
       const payload: {
         class_section_id: number;
+        subject_type_id: number | null;
         name: string;
         description: string | null;
         display_order?: number;
@@ -546,6 +634,12 @@ export default function Subjects() {
         class_section_id: Number(
           values.class_section_id,
         ),
+
+        subject_type_id:
+          values.subject_type_id &&
+          String(values.subject_type_id).trim() !== ""
+            ? Number(values.subject_type_id)
+            : null,
 
         name: String(
           values.name ?? "",
@@ -748,15 +842,7 @@ export default function Subjects() {
     );
   };
 
-  /**
-   * EDIT MODAL INITIAL VALUES
-   *
-   * display_order null
-   * becomes ""
-   *
-   * so the number input
-   * remains EMPTY.
-   */
+
   const editInitialValues =
     useMemo<
       FormValues | undefined
@@ -770,6 +856,11 @@ export default function Subjects() {
           String(
             editItem.class_section_id,
           ),
+
+        subject_type_id:
+          editItem.subject_type_id
+            ? String(editItem.subject_type_id)
+            : "",
 
         name: editItem.name,
 
@@ -811,10 +902,6 @@ export default function Subjects() {
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
           >
             <Plus className="h-4 w-4" />
-            {
-              isLoading ? "Loading..." : ""
-            }
-
             Add Subject
           </button>
         }

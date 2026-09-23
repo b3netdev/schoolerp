@@ -3,9 +3,14 @@ import { db } from "../db/query-builder.js";
 export interface Subject {
   id: number;
   class_section_id: number;
+
+  subject_type_id: number | null;
+  subject_type_title?: string | null;
+
   name: string;
   description: string | null;
   display_order: number | null;
+
   created_at: Date;
   updated_at: Date;
   deleted_at?: Date | null;
@@ -13,6 +18,8 @@ export interface Subject {
 
 export interface SubjectPayload {
   class_section_id: number;
+  subject_type_id?: number | null;
+
   name: string;
   description?: string | null;
   display_order?: number | null;
@@ -20,6 +27,8 @@ export interface SubjectPayload {
 
 export interface SubjectUpdatePayload {
   class_section_id?: number;
+  subject_type_id?: number | null;
+
   name?: string;
   description?: string | null;
   display_order?: number | null;
@@ -37,6 +46,7 @@ export interface SubjectListQuery {
   status?: string;
   page?: number;
   limit?: number;
+
   classId?: number;
   sectionId?: number;
   classSectionId?: number;
@@ -45,45 +55,85 @@ export interface SubjectListQuery {
 export const normalizeSubjectListQuery = (
   query: Record<string, unknown> = {},
 ): Required<Pick<SubjectListQuery, "status" | "page" | "limit">> &
-  Partial<Pick<SubjectListQuery, "classId" | "sectionId" | "classSectionId">> => {
+  Partial<
+    Pick<
+      SubjectListQuery,
+      "classId" | "sectionId" | "classSectionId"
+    >
+  > => {
   const statusParam =
-    typeof query.status === "string" ? query.status.trim().toLowerCase() : "all";
+    typeof query.status === "string"
+      ? query.status.trim().toLowerCase()
+      : "all";
 
-  const status = statusParam === "trash" ? "trash" : "all";
+  const status =
+    statusParam === "trash" ? "trash" : "all";
 
   const pageValue = Number(
-    Array.isArray(query.page) ? query.page[0] : query.page ?? "1",
+    Array.isArray(query.page)
+      ? query.page[0]
+      : query.page ?? "1",
   );
+
   const limitValue = Number(
-    Array.isArray(query.limit) ? query.limit[0] : query.limit ?? "10",
+    Array.isArray(query.limit)
+      ? query.limit[0]
+      : query.limit ?? "10",
   );
 
-  const page = Number.isInteger(pageValue) && pageValue > 0 ? pageValue : 1;
-  const limit = [5, 10, 20].includes(limitValue) ? limitValue : 10;
+  const page =
+    Number.isInteger(pageValue) && pageValue > 0
+      ? pageValue
+      : 1;
 
-  const toPositiveInteger = (raw: unknown) => {
-    const value = Number(Array.isArray(raw) ? raw[0] : raw);
-    return Number.isInteger(value) && value > 0 ? value : undefined;
+  const limit = [5, 10, 20].includes(limitValue)
+    ? limitValue
+    : 10;
+
+  const getPositiveInteger = (
+    value: unknown,
+  ): number | undefined => {
+    const parsed = Number(
+      Array.isArray(value) ? value[0] : value,
+    );
+
+    return Number.isInteger(parsed) && parsed > 0
+      ? parsed
+      : undefined;
   };
 
-  const result: Required<Pick<SubjectListQuery, "status" | "page" | "limit">> &
-    Partial<Pick<SubjectListQuery, "classId" | "sectionId" | "classSectionId">> = {
+  const result: Required<
+    Pick<SubjectListQuery, "status" | "page" | "limit">
+  > &
+    Partial<
+      Pick<
+        SubjectListQuery,
+        "classId" | "sectionId" | "classSectionId"
+      >
+    > = {
     status,
     page,
     limit,
   };
 
-  const classSectionId = toPositiveInteger(query.class_section_id);
+  const classSectionId = getPositiveInteger(
+    query.class_section_id,
+  );
+
   if (classSectionId !== undefined) {
     result.classSectionId = classSectionId;
   }
 
-  const classId = toPositiveInteger(query.class_id);
+  const classId = getPositiveInteger(query.class_id);
+
   if (classId !== undefined) {
     result.classId = classId;
   }
 
-  const sectionId = toPositiveInteger(query.section_id);
+  const sectionId = getPositiveInteger(
+    query.section_id,
+  );
+
   if (sectionId !== undefined) {
     result.sectionId = sectionId;
   }
@@ -93,10 +143,40 @@ export const normalizeSubjectListQuery = (
 
 const tableName = "subjects";
 
+const subjectColumns = `
+  s.id,
+  s.class_section_id,
+  s.subject_type_id,
+  st.title AS subject_type_title,
+  s.name,
+  s.description,
+  s.display_order,
+  s.created_at,
+  s.updated_at,
+  s.deleted_at
+`;
+
 export class SubjectModel {
   /**
-   * GET ALL SUBJECTS
+   * Checks that the selected type exists and was not soft deleted.
    */
+  static async isSubjectTypeValid(
+    subjectTypeId: number,
+  ): Promise<boolean> {
+    const result = await db.query(
+      `
+        SELECT id
+        FROM subject_type
+        WHERE id = $1
+          AND deleted_at IS NULL
+        LIMIT 1
+      `,
+      [subjectTypeId],
+    );
+
+    return (result.rowCount ?? 0) > 0;
+  }
+
   static async findAll(
     statusFilter: string = "all",
     page: number = 1,
@@ -105,81 +185,102 @@ export class SubjectModel {
     sectionId?: number,
     classSectionId?: number,
   ): Promise<SubjectListResult> {
-    const safePage = Number.isInteger(page) && page > 0 ? page : 1;
-    const validLimits = [5, 10, 20];
-    const safeLimit = validLimits.includes(Number(limit)) ? Number(limit) : 10;
+    const safePage =
+      Number.isInteger(page) && page > 0 ? page : 1;
 
-    const values: string[] = [];
-    const whereParts: string[] = ["s.deleted_at IS NULL"];
+    const safeLimit = [5, 10, 20].includes(Number(limit))
+      ? Number(limit)
+      : 10;
 
-    if (statusFilter === "trash") {
-      whereParts[0] = "s.deleted_at IS NOT NULL";
-    } else if (statusFilter !== "all") {
-      values.push(statusFilter);
-      whereParts.push(`s.status = $${values.length}`);
-    }
+    const values: unknown[] = [];
 
-    if (classSectionId && Number.isInteger(classSectionId) && classSectionId > 0) {
-      values.push(String(classSectionId));
-      whereParts.push(`s.class_section_id = $${values.length}`);
+    const whereParts: string[] = [
+      statusFilter === "trash"
+        ? "s.deleted_at IS NOT NULL"
+        : "s.deleted_at IS NULL",
+    ];
+
+    if (classSectionId) {
+      values.push(classSectionId);
+
+      whereParts.push(
+        `s.class_section_id = $${values.length}`,
+      );
     } else {
-      if (classId && Number.isInteger(classId) && classId > 0) {
-        values.push(String(classId));
-        whereParts.push(`csr.class_id = $${values.length}`);
+      if (classId) {
+        values.push(classId);
+
+        whereParts.push(
+          `csr.class_id = $${values.length}`,
+        );
       }
 
-      if (sectionId && Number.isInteger(sectionId) && sectionId > 0) {
-        values.push(String(sectionId));
-        whereParts.push(`csr.section_id = $${values.length}`);
+      if (sectionId) {
+        values.push(sectionId);
+
+        whereParts.push(
+          `csr.section_id = $${values.length}`,
+        );
       }
     }
 
     const whereClause = whereParts.join(" AND ");
 
-    const totalResult = await db.query<{ total: number }>(
+    const totalResult = await db.query<{
+      total: number;
+    }>(
       `
         SELECT COUNT(*)::int AS total
         FROM ${tableName} AS s
         LEFT JOIN class_section_relation AS csr
           ON csr.id = s.class_section_id
-          AND csr.deleted_at IS NULL
         WHERE ${whereClause}
       `,
       values,
     );
 
-    const total = Number(totalResult.rows[0]?.total ?? 0);
-    const totalPages = Math.max(1, Math.ceil(total / safeLimit));
-    const normalizedPage = Math.min(safePage, totalPages);
-    const offset = (normalizedPage - 1) * safeLimit;
+    const total = Number(
+      totalResult.rows[0]?.total ?? 0,
+    );
 
-    const queryValues = [...values, String(safeLimit), String(offset)];
-    const limitParamIndex = values.length + 1;
-    const offsetParamIndex = values.length + 2;
+    const totalPages = Math.max(
+      1,
+      Math.ceil(total / safeLimit),
+    );
+
+    const normalizedPage = Math.min(
+      safePage,
+      totalPages,
+    );
+
+    const offset =
+      (normalizedPage - 1) * safeLimit;
+
+    const listValues = [
+      ...values,
+      safeLimit,
+      offset,
+    ];
+
+    const limitIndex = values.length + 1;
+    const offsetIndex = values.length + 2;
 
     const result = await db.query<Subject>(
       `
-        SELECT
-          s.id,
-          s.class_section_id,
-          s.name,
-          s.description,
-          s.display_order,
-          s.created_at,
-          s.updated_at,
-          s.deleted_at
+        SELECT ${subjectColumns}
         FROM ${tableName} AS s
         LEFT JOIN class_section_relation AS csr
           ON csr.id = s.class_section_id
-          AND csr.deleted_at IS NULL
+        LEFT JOIN subject_type AS st
+          ON st.id = s.subject_type_id
         WHERE ${whereClause}
         ORDER BY
           s.display_order ASC NULLS LAST,
           s.id ASC
-        LIMIT $${limitParamIndex}
-        OFFSET $${offsetParamIndex}
+        LIMIT $${limitIndex}
+        OFFSET $${offsetIndex}
       `,
-      queryValues,
+      listValues,
     );
 
     return {
@@ -191,57 +292,39 @@ export class SubjectModel {
     };
   }
 
-  /**
-   * GET SUBJECT BY ID
-   */
   static async findById(
     id: number,
   ): Promise<Subject | null> {
     const result = await db.query<Subject>(
       `
-        SELECT
-          id,
-          class_section_id,
-          name,
-          description,
-          display_order,
-          created_at,
-          updated_at,
-          deleted_at
-        FROM ${tableName}
-        WHERE id = $1
-          AND deleted_at IS NULL
+        SELECT ${subjectColumns}
+        FROM ${tableName} AS s
+        LEFT JOIN subject_type AS st
+          ON st.id = s.subject_type_id
+        WHERE s.id = $1
+          AND s.deleted_at IS NULL
         LIMIT 1
       `,
       [id],
     );
 
-    return result.rows[0] || null;
+    return result.rows[0] ?? null;
   }
 
-  /**
-   * GET SUBJECTS BY CLASS SECTION
-   */
   static async findByClassSectionId(
     classSectionId: number,
   ): Promise<Subject[]> {
     const result = await db.query<Subject>(
       `
-        SELECT
-          id,
-          class_section_id,
-          name,
-          description,
-          display_order,
-          created_at,
-          updated_at,
-          deleted_at
-        FROM ${tableName}
-        WHERE class_section_id = $1
-          AND deleted_at IS NULL
+        SELECT ${subjectColumns}
+        FROM ${tableName} AS s
+        LEFT JOIN subject_type AS st
+          ON st.id = s.subject_type_id
+        WHERE s.class_section_id = $1
+          AND s.deleted_at IS NULL
         ORDER BY
-          display_order ASC NULLS LAST,
-          id ASC
+          s.display_order ASC NULLS LAST,
+          s.id ASC
       `,
       [classSectionId],
     );
@@ -249,40 +332,40 @@ export class SubjectModel {
     return result.rows;
   }
 
-  /**
-   * CREATE SUBJECT
-   */
   static async create(
     data: SubjectPayload,
   ): Promise<Subject> {
     const result = await db.query<Subject>(
       `
-        INSERT INTO ${tableName}
-        (
-          class_section_id,
-          name,
-          description,
-          display_order
+        WITH inserted_subject AS (
+          INSERT INTO ${tableName} (
+            class_section_id,
+            subject_type_id,
+            name,
+            description,
+            display_order
+          )
+          VALUES ($1, $2, $3, $4, $5)
+          RETURNING *
         )
-        VALUES
-        (
-          $1,
-          $2,
-          $3,
-          $4
-        )
-        RETURNING
-          id,
-          class_section_id,
-          name,
-          description,
-          display_order,
-          created_at,
-          updated_at,
-          deleted_at
+        SELECT
+          s.id,
+          s.class_section_id,
+          s.subject_type_id,
+          st.title AS subject_type_title,
+          s.name,
+          s.description,
+          s.display_order,
+          s.created_at,
+          s.updated_at,
+          s.deleted_at
+        FROM inserted_subject AS s
+        LEFT JOIN subject_type AS st
+          ON st.id = s.subject_type_id
       `,
       [
         data.class_section_id,
+        data.subject_type_id ?? null,
         data.name,
         data.description ?? null,
         data.display_order ?? null,
@@ -292,12 +375,6 @@ export class SubjectModel {
     return result.rows[0];
   }
 
-  /**
-   * UPDATE SUBJECT
-   *
-   * undefined = don't update field
-   * null = set database value to NULL
-   */
   static async update(
     id: number,
     data: SubjectUpdatePayload,
@@ -305,109 +382,69 @@ export class SubjectModel {
     const updates: string[] = [];
     const values: unknown[] = [];
 
-    let parameterIndex = 1;
-
-    /**
-     * Class section
-     */
     if (data.class_section_id !== undefined) {
-      updates.push(
-        `class_section_id = $${parameterIndex}`,
-      );
-
       values.push(data.class_section_id);
-      parameterIndex++;
+
+      updates.push(
+        `class_section_id = $${values.length}`,
+      );
     }
 
-    /**
-     * Name
-     */
+    if (data.subject_type_id !== undefined) {
+      values.push(data.subject_type_id);
+
+      updates.push(
+        `subject_type_id = $${values.length}`,
+      );
+    }
+
     if (data.name !== undefined) {
-      updates.push(
-        `name = $${parameterIndex}`,
-      );
-
       values.push(data.name);
-      parameterIndex++;
+
+      updates.push(`name = $${values.length}`);
     }
 
-    /**
-     * Description
-     *
-     * null is allowed
-     */
     if (data.description !== undefined) {
-      updates.push(
-        `description = $${parameterIndex}`,
-      );
-
       values.push(data.description);
-      parameterIndex++;
-    }
 
-    /**
-     * Display order
-     *
-     * undefined -> unchanged
-     * null      -> database NULL
-     * number    -> update number
-     */
-    if (data.display_order !== undefined) {
       updates.push(
-        `display_order = $${parameterIndex}`,
+        `description = $${values.length}`,
       );
-
-      values.push(data.display_order);
-      parameterIndex++;
     }
 
-    /**
-     * Nothing to update
-     */
+    if (data.display_order !== undefined) {
+      values.push(data.display_order);
+
+      updates.push(
+        `display_order = $${values.length}`,
+      );
+    }
+
     if (updates.length === 0) {
       return this.findById(id);
     }
 
-    /**
-     * Always update updated_at
-     */
-    updates.push(
-      `updated_at = CURRENT_TIMESTAMP`,
-    );
-
-    /**
-     * Add ID as final parameter
-     */
+    updates.push("updated_at = CURRENT_TIMESTAMP");
     values.push(id);
 
-    const idParameter = parameterIndex;
-
-    const result = await db.query<Subject>(
+    const result = await db.query(
       `
         UPDATE ${tableName}
-        SET
-          ${updates.join(",\n          ")}
-        WHERE id = $${idParameter}
+        SET ${updates.join(", ")}
+        WHERE id = $${values.length}
           AND deleted_at IS NULL
-        RETURNING
-          id,
-          class_section_id,
-          name,
-          description,
-          display_order,
-          created_at,
-          updated_at,
-          deleted_at
+        RETURNING id
       `,
       values,
     );
 
-    return result.rows[0] || null;
+    if ((result.rowCount ?? 0) === 0) {
+      return null;
+    }
+
+    return this.findById(id);
   }
 
-  /**
-   * SOFT DELETE SUBJECT
-   */
   static async delete(
     id: number,
   ): Promise<Subject | null> {
@@ -419,25 +456,14 @@ export class SubjectModel {
           updated_at = CURRENT_TIMESTAMP
         WHERE id = $1
           AND deleted_at IS NULL
-        RETURNING
-          id,
-          class_section_id,
-          name,
-          description,
-          display_order,
-          created_at,
-          updated_at,
-          deleted_at
+        RETURNING *
       `,
       [id],
     );
 
-    return result.rows[0] || null;
+    return result.rows[0] ?? null;
   }
 
-  /**
-   * RESTORE SUBJECT
-   */
   static async restore(
     id: number,
   ): Promise<Subject | null> {
@@ -449,25 +475,14 @@ export class SubjectModel {
           updated_at = CURRENT_TIMESTAMP
         WHERE id = $1
           AND deleted_at IS NOT NULL
-        RETURNING
-          id,
-          class_section_id,
-          name,
-          description,
-          display_order,
-          created_at,
-          updated_at,
-          deleted_at
+        RETURNING *
       `,
       [id],
     );
 
-    return result.rows[0] || null;
+    return result.rows[0] ?? null;
   }
 
-  /**
-   * PERMANENT DELETE
-   */
   static async hardDelete(
     id: number,
   ): Promise<boolean> {

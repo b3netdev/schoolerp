@@ -34,7 +34,6 @@ import {
   type ExamAssignment,
   type ExamAssignFilter,
 } from "../../redux/slicers/examAssignSlicer";
-import { setSubjects, type Subject } from "../../redux/slicers/subjectSlicer";
 import { setTeachers, type Teacher } from "../../redux/slicers/teacherSlice";
 
 type ModalMode = "create" | "edit" | "view" | null;
@@ -49,6 +48,8 @@ type TeacherOption = {
 type ExamOption = {
   id: number;
   name: string;
+  class_id?: number | null;
+  class_ids?: number[] | null;
 };
 
 type SubjectOption = {
@@ -149,18 +150,47 @@ const toExamList = (payload: unknown): Exam[] => {
   return [];
 };
 
-const toSubjectList = (payload: unknown): Subject[] => {
-  if (Array.isArray(payload)) return payload as Subject[];
+const toSubjectList = (payload: unknown): SubjectOption[] => {
+  if (Array.isArray(payload)) return payload as SubjectOption[];
 
   if (
     payload &&
     typeof payload === "object" &&
     Array.isArray((payload as { subjects?: unknown[] }).subjects)
   ) {
-    return (payload as { subjects: Subject[] }).subjects;
+    return (payload as { subjects: SubjectOption[] }).subjects;
   }
 
   return [];
+};
+
+/**
+ * An exam may be assigned to one class (class_id)
+ * or multiple classes (class_ids).
+ */
+const getExamClassIds = (
+  exam: ExamOption | undefined,
+): number[] => {
+  if (!exam) {
+    return [];
+  }
+
+  const ids = [
+    ...(Array.isArray(exam.class_ids)
+      ? exam.class_ids
+      : []),
+    ...(exam.class_id ? [exam.class_id] : []),
+  ];
+
+  return [
+    ...new Set(
+      ids.filter(
+        (id) =>
+          Number.isInteger(Number(id)) &&
+          Number(id) > 0,
+      ),
+    ),
+  ];
 };
 
 export default function ExamAssign() {
@@ -171,7 +201,6 @@ export default function ExamAssign() {
   );
   const teachers = useAppSelector((state) => state.teacher.teachers);
   const exams = useAppSelector((state) => state.exam.exams);
-  const subjects = useAppSelector((state) => state.subject.subjects);
   const { assignmentsByFilter, loadedFilters } = useAppSelector(
     (state) => state.examAssign,
   );
@@ -266,18 +295,6 @@ export default function ExamAssign() {
         );
       }
 
-      if (subjects.length === 0) {
-        requests.push(
-          api
-            .get("/subjects/get-subjects", {
-              params: { status: "active" },
-            })
-            .then((result) => {
-              dispatch(setSubjects(toSubjectList(result.data?.data)));
-            }),
-        );
-      }
-
       if (requests.length === 0) {
         return;
       }
@@ -318,7 +335,7 @@ export default function ExamAssign() {
     if (
       canManage &&
       selectedAcademicYearId &&
-      (teachers.length === 0 || exams.length === 0 || subjects.length === 0)
+      (teachers.length === 0 || exams.length === 0)
     ) {
       void fetchOptions();
     }
@@ -326,7 +343,6 @@ export default function ExamAssign() {
     canManage,
     exams.length,
     selectedAcademicYearId,
-    subjects.length,
     teachers.length,
   ]);
 
@@ -658,7 +674,6 @@ export default function ExamAssign() {
           isLoadingOptions={isLoadingOptions}
           teachers={teachers}
           exams={exams}
-          subjects={subjects}
           onClose={closeModal}
           onSubmit={handleSubmit}
           onChange={updateField}
@@ -677,7 +692,6 @@ function ExamAssignModal({
   isLoadingOptions,
   teachers,
   exams,
-  subjects,
   onClose,
   onSubmit,
   onChange,
@@ -690,7 +704,6 @@ function ExamAssignModal({
   isLoadingOptions: boolean;
   teachers: TeacherOption[];
   exams: ExamOption[];
-  subjects: SubjectOption[];
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onChange: <Key extends keyof ExamAssignFormValues>(
@@ -698,7 +711,85 @@ function ExamAssignModal({
     value: ExamAssignFormValues[Key],
   ) => void;
 }) {
+  const [examSubjects, setExamSubjects] = useState<
+    SubjectOption[]
+  >([]);
+  const [isLoadingSubjects, setIsLoadingSubjects] =
+    useState(false);
+
   const isView = mode === "view";
+
+  const selectedExam = useMemo(
+    () =>
+      exams.find(
+        (exam) =>
+          exam.id === Number(form.exam_id),
+      ),
+    [exams, form.exam_id],
+  );
+
+  const examClassIds = useMemo(
+    () => getExamClassIds(selectedExam),
+    [selectedExam],
+  );
+
+  const examClassIdsKey = examClassIds.join(",");
+
+  /**
+   * Fetch subjects only from classes selected
+   * while creating this exam.
+   */
+  useEffect(() => {
+    const loadExamSubjects = async () => {
+      if (!form.exam_id || examClassIds.length === 0) {
+        setExamSubjects([]);
+        return;
+      }
+
+      try {
+        setIsLoadingSubjects(true);
+
+        const results = await Promise.all(
+          examClassIds.map((classId) =>
+            api.get("/subjects/get-subjects", {
+              params: {
+                status: "all",
+                page: 1,
+                limit: 20,
+                class_id: classId,
+              },
+            }),
+          ),
+        );
+
+        const list = results.flatMap((result) =>
+          toSubjectList(result.data?.data),
+        );
+
+        setExamSubjects(
+          Array.from(
+            new Map(
+              list.map((subject) => [
+                subject.id,
+                subject,
+              ]),
+            ).values(),
+          ),
+        );
+      } catch (requestError) {
+        console.error(
+          "Unable to load subjects for the selected exam:",
+          requestError,
+        );
+
+        setExamSubjects([]);
+      } finally {
+        setIsLoadingSubjects(false);
+      }
+    };
+
+    void loadExamSubjects();
+  }, [form.exam_id, examClassIdsKey]);
 
   const title =
     mode === "create"
@@ -799,7 +890,13 @@ function ExamAssignModal({
               <Field label="Exam" required>
                 <select
                   value={form.exam_id}
-                  onChange={(event) => onChange("exam_id", event.target.value)}
+                  onChange={(event) => {
+                    onChange(
+                      "exam_id",
+                      event.target.value,
+                    );
+                    onChange("subject_id", "");
+                  }}
                   className={inputClass}
                   disabled={isSaving || isLoadingOptions}
                   required
@@ -823,16 +920,27 @@ function ExamAssignModal({
                     onChange("subject_id", event.target.value)
                   }
                   className={inputClass}
-                  disabled={isSaving || isLoadingOptions}
+                  disabled={
+                    isSaving ||
+                    isLoadingOptions ||
+                    !form.exam_id ||
+                    isLoadingSubjects
+                  }
                   required
                 >
                   <option value="">
-                    {isLoadingOptions
-                      ? "Loading subjects..."
-                      : "Select subject"}
+                    {!form.exam_id
+                      ? "Select exam first"
+                      : isLoadingSubjects
+                        ? "Loading subjects..."
+                        : examClassIds.length === 0
+                          ? "No class assigned to this exam"
+                          : examSubjects.length === 0
+                            ? "No subjects found for this exam class"
+                            : "Select subject"}
                   </option>
 
-                  {subjects.map((subject) => (
+                  {examSubjects.map((subject) => (
                     <option key={subject.id} value={subject.id}>
                       {subject.name}
                     </option>

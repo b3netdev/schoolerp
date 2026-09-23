@@ -36,6 +36,8 @@ const getAcademicSessionName = (value: unknown): string => {
 export const isAuthenticated = catchAsync(
   async (req: Request, _res: Response, next: NextFunction) => {
     const token = req.cookies?.authtoken;
+    console.log("Tokendskhbc:", token);
+    
 
     if (!token) {
       return next(new AppError("Please login first", 401));

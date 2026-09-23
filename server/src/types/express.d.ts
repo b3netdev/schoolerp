@@ -30,6 +30,7 @@ declare global {
       user?: AuthenticatedUser;
       student?: AuthenticatedStudent;
       marksEntryContext?: MarksEntryContext;
+      params?: Record<string, any>;
     }
   }
 }

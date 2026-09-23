@@ -95,6 +95,13 @@ const mainNav: NavItem[] = [
     roles: ["admin", "teacher", "student"],
   },
   {
+    path: "subject-types",
+    icon: LibraryBig,
+    label: "Subject Types",
+    roles: ["admin"],
+  },
+
+  {
     path: "marks-entry",
     icon: PenOff,
     label: "Marks Entry",

@@ -39,6 +39,7 @@ import TeacherSignin from "./pages/teachers/TeacherSignin";
 import Exam from "./pages/Exam";
 import MyRoutine from "./pages/teachers/MyRoutine";
 import Grades from "./pages/Grade";
+import SubjectType from "./pages/SubjectType";
 
 import ExamAssign from "./pages/ExamAssign";
 const queryClient = new QueryClient();
@@ -111,6 +112,7 @@ function App() {
                 <Route
                   element={<ProtectedRoute allowedRoles={["admin"]} />}
                 >
+                  <Route path="subject-types" element={<SubjectType />} />
                   <Route path="academic-sessions" element={<AcademicSession />} />
                   <Route path="classes" element={<Classes />} />
                   <Route path="students" element={<Students />} />

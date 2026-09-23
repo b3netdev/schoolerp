@@ -29,6 +29,7 @@ import ExamAssignRouter from "./routes/examAssign.route.js";
 import MarksEntryRouter from "./routes/marksEntry.route.js";
 import RoutineRouter from './routes/classRoutine.route.js'
 import NoticeRouter from "./routes/notice.route.js";
+import SubjectTypeRouter from "./routes/SubjectType.route.js";
 import cookieParser from "cookie-parser";
 const app = express();
 
@@ -74,6 +75,7 @@ app.use(`/${process.env.API_VERSION}/marks-entry`, MarksEntryRouter);
 app.use(`/${process.env.API_VERSION}/grade`, GradeRouter);
 app.use(`/${process.env.API_VERSION}/routine`, RoutineRouter);
 app.use(`/${process.env.API_VERSION}/notice`, NoticeRouter);
+app.use(`/${process.env.API_VERSION}/subject-type`, SubjectTypeRouter);
 
 app.use(errorHandler);
 

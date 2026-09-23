@@ -830,6 +830,8 @@ create table grade(
 id SERIAL PRIMARY KEY,
 grade VARCHAR(10) NOT NULL,
 range_from INTEGER ,
+class_id INTEGER
+  REFERENCES public.classes(id),
 range_to INTEGER,
 remarks TEXT,
 description TEXT,

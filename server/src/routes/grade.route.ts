@@ -1,18 +1,51 @@
 import { Router } from "express";
+
+
+
 import {
-  addGrade,
+  isAuthenticated,
+} from "../middlewares/auth.middleware.js";
+import {
+  addGradesBulk,
   deleteGrade,
-  getGradeById,
   getGrades,
+  hardDeleteGrade,
+  restoreGrade,
   updateGrade,
 } from "../controllers/grade.controller.js";
 
 const router = Router();
 
-router.get("/get-grades", getGrades);
-router.get("/get-grade/:id", getGradeById);
-router.post("/add-grade", addGrade);
-router.patch("/update-grade/:id", updateGrade);
-router.delete("/delete-grade/:id", deleteGrade);
+router.use(isAuthenticated);
+
+router.get(
+  "/get-grades",
+  getGrades,
+);
+
+router.post(
+  "/add-grades-bulk",
+  addGradesBulk,
+);
+
+router.patch(
+  "/update-grade/:id",
+  updateGrade,
+);
+
+router.delete(
+  "/delete-grade/:id",
+  deleteGrade,
+);
+
+router.patch(
+  "/restore-grade/:id",
+  restoreGrade,
+);
+
+router.delete(
+  "/hard-delete-grade/:id",
+  hardDeleteGrade,
+);
 
 export default router;

@@ -1,16 +1,39 @@
-import { FormEvent, useEffect, useState } from "react";
-import axios from "axios";
+import {
+  FormEvent,
+  useEffect,
+  useState,
+} from "react";
+
+import {
+  Loader2,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
+
+import { toast } from "sonner";
+import api from "@/lib/api";
+
+interface ClassItem {
+  id: number;
+  class_name: string;
+}
 
 interface Grade {
   id: number;
   grade: string;
+  class_id: number;
+  class_name?: string;
   range_from: number | null;
   range_to: number | null;
   remarks: string | null;
   description: string | null;
+  deleted_at: string | null;
 }
 
-interface GradeFormData {
+interface GradeDraft {
+  key: string;
   grade: string;
   range_from: string;
   range_to: string;
@@ -18,408 +41,860 @@ interface GradeFormData {
   description: string;
 }
 
-const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/grade`;
-
-const initialFormData: GradeFormData = {
+const createGradeDraft = (): GradeDraft => ({
+  key: crypto.randomUUID(),
   grade: "",
   range_from: "",
   range_to: "",
   remarks: "",
   description: "",
-};
+});
 
-const GradeManagement = () => {
-  const [grades, setGrades] = useState<Grade[]>([]);
-  const [formData, setFormData] =
-    useState<GradeFormData>(initialFormData);
+export default function GradeManagement() {
+  const [classes, setClasses] = useState<
+    ClassItem[]
+  >([]);
 
-  const [editId, setEditId] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<"success" | "error">(
-    "success"
-  );
+  const [grades, setGrades] = useState<
+    Grade[]
+  >([]);
 
-  const showMessage = (text: string, type: "success" | "error") => {
-    setMessage(text);
-    setMessageType(type);
+  const [classId, setClassId] = useState("");
+
+  const [status, setStatus] = useState<
+    "active" | "trash"
+  >("active");
+
+  const [isLoading, setIsLoading] =
+    useState(false);
+
+  const [isSubmitting, setIsSubmitting] =
+    useState(false);
+
+  const [isAddOpen, setIsAddOpen] =
+    useState(false);
+
+  const [draftClassId, setDraftClassId] =
+    useState("");
+
+  const [drafts, setDrafts] = useState<
+    GradeDraft[]
+  >([]);
+
+  const [editItem, setEditItem] =
+    useState<Grade | null>(null);
+
+  const [deleteItem, setDeleteItem] =
+    useState<Grade | null>(null);
+
+  const loadClasses = async () => {
+    try {
+      const response = await api.get(
+        "/class/get-classes",
+        {
+          params: {
+            status: "active",
+          },
+        },
+      );
+
+      setClasses(
+        Array.isArray(response.data?.data)
+          ? response.data.data
+          : [],
+      );
+    } catch {
+      setClasses([]);
+      toast.error("Unable to load classes.");
+    }
   };
 
-  const fetchGrades = async () => {
-    try {
-      setLoading(true);
+  const loadGrades = async () => {
+    if (!classId) {
+      setGrades([]);
+      return;
+    }
 
-      const response = await axios.get(`${API_BASE_URL}/get-grades`);
+    try {
+      setIsLoading(true);
+
+      const response = await api.get(
+        "/grade/get-grades",
+        {
+          params: {
+            class_id: Number(classId),
+            status,
+          },
+        },
+      );
 
       setGrades(
-        Array.isArray(response.data?.data) ? response.data.data : []
+        Array.isArray(response.data?.data)
+          ? response.data.data
+          : [],
       );
     } catch (error: any) {
       setGrades([]);
-      showMessage(
-        error?.response?.data?.message || "Unable to fetch grades.",
-        "error"
+
+      toast.error(
+        error?.response?.data?.message ||
+          "Unable to load grades.",
       );
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchGrades();
+    void loadClasses();
   }, []);
 
-  const handleChange = (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  useEffect(() => {
+    void loadGrades();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classId, status]);
+
+  const openBulkModal = () => {
+    setDraftClassId(classId);
+    setDrafts([createGradeDraft()]);
+    setIsAddOpen(true);
+  };
+
+  const updateDraft = (
+    key: string,
+    field: keyof Omit<GradeDraft, "key">,
+    value: string,
   ) => {
-    const { name, value } = event.target;
-
-    setFormData((previous) => ({
-      ...previous,
-      [name]: value,
-    }));
+    setDrafts((current) =>
+      current.map((item) =>
+        item.key === key
+          ? {
+              ...item,
+              [field]: value,
+            }
+          : item,
+      ),
+    );
   };
 
-  const resetForm = () => {
-    setFormData(initialFormData);
-    setEditId(null);
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const submitBulkGrades = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
     event.preventDefault();
-    setMessage("");
 
-    if (!formData.grade.trim()) {
-      showMessage("Grade is required.", "error");
+    if (!draftClassId) {
+      toast.error("Please select a class.");
       return;
     }
 
-    if (
-      formData.range_from &&
-      formData.range_to &&
-      Number(formData.range_from) > Number(formData.range_to)
-    ) {
-      showMessage("Range from cannot be greater than range to.", "error");
-      return;
-    }
-
-    const payload = {
-      grade: formData.grade.trim(),
-      range_from: formData.range_from ? Number(formData.range_from) : null,
-      range_to: formData.range_to ? Number(formData.range_to) : null,
-      remarks: formData.remarks.trim() || null,
-      description: formData.description.trim() || null,
-    };
-
-    try {
-      setSubmitting(true);
-
-      if (editId) {
-        await axios.patch(`${API_BASE_URL}/update-grade/${editId}`, payload);
-        showMessage("Grade updated successfully.", "success");
-      } else {
-        await axios.post(`${API_BASE_URL}/add-grade`, payload);
-        showMessage("Grade added successfully.", "success");
+    for (const item of drafts) {
+      if (!item.grade.trim()) {
+        toast.error(
+          "Every grade row needs a grade name.",
+        );
+        return;
       }
 
-      resetForm();
-      await fetchGrades();
+      if (
+        item.range_from &&
+        item.range_to &&
+        Number(item.range_from) >
+          Number(item.range_to)
+      ) {
+        toast.error(
+          `Invalid mark range for ${item.grade}.`,
+        );
+        return;
+      }
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const response = await api.post(
+        "/grade/add-grades-bulk",
+        {
+          class_id: Number(draftClassId),
+          grades: drafts.map((item) => ({
+            grade: item.grade.trim(),
+            range_from: item.range_from
+              ? Number(item.range_from)
+              : null,
+            range_to: item.range_to
+              ? Number(item.range_to)
+              : null,
+            remarks:
+              item.remarks.trim() || null,
+            description:
+              item.description.trim() || null,
+          })),
+        },
+      );
+
+      toast.success(
+        response.data?.message ||
+          "Grades added successfully.",
+      );
+
+      setClassId(draftClassId);
+      setStatus("active");
+      setIsAddOpen(false);
+
+      await loadGrades();
     } catch (error: any) {
-      showMessage(
-        error?.response?.data?.message || "Unable to save grade.",
-        "error"
+      toast.error(
+        error?.response?.data?.message ||
+          "Unable to add grades.",
       );
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleEdit = (item: Grade) => {
-    setEditId(item.id);
-    setMessage("");
+  const submitEdit = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
 
-    setFormData({
-      grade: item.grade,
-      range_from: item.range_from?.toString() || "",
-      range_to: item.range_to?.toString() || "",
-      remarks: item.remarks || "",
-      description: item.description || "",
-    });
+    if (!editItem) {
+      return;
+    }
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    try {
+      setIsSubmitting(true);
+
+      const response = await api.patch(
+        `/grade/update-grade/${editItem.id}`,
+        {
+          grade: editItem.grade.trim(),
+          class_id: editItem.class_id,
+          range_from: editItem.range_from,
+          range_to: editItem.range_to,
+          remarks:
+            editItem.remarks?.trim() || null,
+          description:
+            editItem.description?.trim() || null,
+        },
+      );
+
+      toast.success(
+        response.data?.message ||
+          "Grade updated successfully.",
+      );
+
+      setEditItem(null);
+
+      await loadGrades();
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message ||
+          "Unable to update grade.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDelete = async (id: number) => {
+  const softDelete = async () => {
+    if (!deleteItem) {
+      return;
+    }
+
+    try {
+      const response = await api.delete(
+        `/grade/delete-grade/${deleteItem.id}`,
+      );
+
+      toast.success(
+        response.data?.message ||
+          "Grade moved to trash.",
+      );
+
+      setDeleteItem(null);
+
+      await loadGrades();
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message ||
+          "Unable to delete grade.",
+      );
+    }
+  };
+
+  const restoreGrade = async (id: number) => {
+    try {
+      const response = await api.patch(
+        `/grade/restore-grade/${id}`,
+      );
+
+      toast.success(
+        response.data?.message ||
+          "Grade restored successfully.",
+      );
+
+      await loadGrades();
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message ||
+          "Unable to restore grade.",
+      );
+    }
+  };
+
+  const hardDeleteGrade = async (id: number) => {
     const confirmed = window.confirm(
-      "Are you sure you want to delete this grade?"
+      "Permanently delete this grade?",
     );
 
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     try {
-      setSubmitting(true);
-
-      await axios.delete(`${API_BASE_URL}/delete-grade/${id}`);
-
-      if (editId === id) {
-        resetForm();
-      }
-
-      showMessage("Grade deleted successfully.", "success");
-      await fetchGrades();
-    } catch (error: any) {
-      showMessage(
-        error?.response?.data?.message || "Unable to delete grade.",
-        "error"
+      const response = await api.delete(
+        `/grade/hard-delete-grade/${id}`,
       );
-    } finally {
-      setSubmitting(false);
+
+      toast.success(
+        response.data?.message ||
+          "Grade permanently deleted.",
+      );
+
+      await loadGrades();
+    } catch (error: any) {
+      toast.error(
+        error?.response?.data?.message ||
+          "Unable to permanently delete grade.",
+      );
     }
   };
-
-  const inputClass =
-    "mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100";
 
   return (
     <div className="mx-auto w-full max-w-7xl p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-800">
+        <h1 className="text-2xl font-bold text-slate-800">
           Grade Management
         </h1>
+
         <p className="mt-1 text-sm text-slate-500">
-          Manage grade ranges, remarks, and descriptions.
+          Create and manage class-wise grade ranges.
         </p>
       </div>
 
-      {message && (
-        <div
-          className={`mb-5 rounded-lg border px-4 py-3 text-sm font-medium ${
-            messageType === "success"
-              ? "border-green-200 bg-green-50 text-green-700"
-              : "border-red-200 bg-red-50 text-red-700"
-          }`}
-        >
-          {message}
-        </div>
-      )}
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-slate-200 p-5 md:flex-row md:items-end md:justify-between">
+          <div className="w-full max-w-sm">
+            <label className="mb-2 block text-sm font-semibold text-slate-700">
+              Select Class
+            </label>
 
-      <section className="mb-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-5 py-4">
-          <h2 className="text-base font-semibold text-slate-800">
-            {editId ? "Update Grade" : "Add New Grade"}
-          </h2>
-        </div>
+            <select
+              value={classId}
+              onChange={(event) =>
+                setClassId(event.target.value)
+              }
+              className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            >
+              <option value="">
+                Select class to view grades
+              </option>
 
-        <form onSubmit={handleSubmit} className="p-5">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-6">
-            <div className="md:col-span-2">
-              <label className="text-sm font-medium text-slate-700">
-                Grade <span className="text-red-500">*</span>
-              </label>
-
-              <input
-                type="text"
-                name="grade"
-                value={formData.grade}
-                onChange={handleChange}
-                className={inputClass}
-                placeholder="Example: A+"
-                maxLength={10}
-                required
-              />
-            </div>
-
-            <div className="md:col-span-1">
-              <label className="text-sm font-medium text-slate-700">
-                Range From
-              </label>
-
-              <input
-                type="number"
-                name="range_from"
-                value={formData.range_from}
-                onChange={handleChange}
-                className={inputClass}
-                placeholder="0"
-                min="0"
-                max="100"
-              />
-            </div>
-
-            <div className="md:col-span-1">
-              <label className="text-sm font-medium text-slate-700">
-                Range To
-              </label>
-
-              <input
-                type="number"
-                name="range_to"
-                value={formData.range_to}
-                onChange={handleChange}
-                className={inputClass}
-                placeholder="100"
-                min="0"
-                max="100"
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="text-sm font-medium text-slate-700">
-                Remarks
-              </label>
-
-              <input
-                type="text"
-                name="remarks"
-                value={formData.remarks}
-                onChange={handleChange}
-                className={inputClass}
-                placeholder="Example: Excellent"
-              />
-            </div>
-
-            <div className="md:col-span-6">
-              <label className="text-sm font-medium text-slate-700">
-                Description
-              </label>
-
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                className={`${inputClass} min-h-24 resize-y`}
-                placeholder="Optional grade description"
-                rows={3}
-              />
-            </div>
+              {classes.map((item) => (
+                <option
+                  key={item.id}
+                  value={item.id}
+                >
+                  {item.class_name}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-3">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {submitting
-                ? "Saving..."
-                : editId
-                ? "Update Grade"
-                : "Add Grade"}
-            </button>
+          <button
+            type="button"
+            onClick={openBulkModal}
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            <Plus className="size-4" />
+            Add Grades
+          </button>
+        </div>
 
-            {editId && (
+        <div className="flex gap-2 border-b border-slate-200 px-5 pt-4">
+          {(["active", "trash"] as const).map(
+            (item) => (
+              <button
+                key={item}
+                type="button"
+                onClick={() => setStatus(item)}
+                className={`rounded-t-lg px-4 py-2 text-sm font-semibold ${
+                  status === item
+                    ? "bg-blue-50 text-blue-700"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {item === "active"
+                  ? "Active"
+                  : "Trash"}
+              </button>
+            ),
+          )}
+        </div>
+
+        {!classId ? (
+          <div className="p-12 text-center text-sm text-slate-500">
+            Select a class to view its grades.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                <tr>
+                  <th className="px-5 py-4">SL</th>
+                  <th className="px-5 py-4">Grade</th>
+                  <th className="px-5 py-4">Range</th>
+                  <th className="px-5 py-4">Remarks</th>
+                  <th className="px-5 py-4">Description</th>
+                  <th className="px-5 py-4 text-right">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-slate-100">
+                {isLoading ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-5 py-10 text-center text-slate-500"
+                    >
+                      Loading grades...
+                    </td>
+                  </tr>
+                ) : grades.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={6}
+                      className="px-5 py-10 text-center text-slate-500"
+                    >
+                      No grades found.
+                    </td>
+                  </tr>
+                ) : (
+                  grades.map((item, index) => (
+                    <tr key={item.id}>
+                      <td className="px-5 py-4">
+                        {index + 1}
+                      </td>
+
+                      <td className="px-5 py-4 font-semibold text-slate-800">
+                        {item.grade}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        {item.range_from ?? "-"} -{" "}
+                        {item.range_to ?? "-"}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        {item.remarks ?? "-"}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        {item.description ?? "-"}
+                      </td>
+
+                      <td className="px-5 py-4 text-right">
+                        {status === "active" ? (
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setEditItem(item)
+                              }
+                              className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100"
+                            >
+                              <Pencil className="size-3.5" />
+                              Edit
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDeleteItem(item)
+                              }
+                              className="inline-flex items-center gap-1 rounded-md bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+                            >
+                              <Trash2 className="size-3.5" />
+                              Delete
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                restoreGrade(item.id)
+                              }
+                              className="rounded-md bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-700 hover:bg-green-100"
+                            >
+                              Restore
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                hardDeleteGrade(item.id)
+                              }
+                              className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+                            >
+                              Delete Permanently
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {isAddOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
+          <form
+            onSubmit={submitBulkGrades}
+            className="flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b p-5">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">
+                  Add Grades
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-500">
+                  Add multiple grade ranges for one class.
+                </p>
+              </div>
+
               <button
                 type="button"
-                onClick={resetForm}
-                disabled={submitting}
-                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => setIsAddOpen(false)}
+              >
+                <X className="size-5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-5">
+              <label className="mb-2 block text-sm font-semibold text-slate-700">
+                Class *
+              </label>
+
+              <select
+                value={draftClassId}
+                onChange={(event) =>
+                  setDraftClassId(event.target.value)
+                }
+                className="h-10 w-full max-w-md rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-500"
+              >
+                <option value="">
+                  Select class
+                </option>
+
+                {classes.map((item) => (
+                  <option
+                    key={item.id}
+                    value={item.id}
+                  >
+                    {item.class_name}
+                  </option>
+                ))}
+              </select>
+
+              <div className="mt-6 space-y-3">
+                {drafts.map((item, index) => (
+                  <div
+                    key={item.key}
+                    className="rounded-xl border border-slate-200 p-4"
+                  >
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="font-semibold text-slate-700">
+                        Grade {index + 1}
+                      </p>
+
+                      {drafts.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDrafts((current) =>
+                              current.filter(
+                                (grade) =>
+                                  grade.key !==
+                                  item.key,
+                              ),
+                            )
+                          }
+                          className="text-sm font-semibold text-red-600"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-5">
+                      <input
+                        value={item.grade}
+                        onChange={(event) =>
+                          updateDraft(
+                            item.key,
+                            "grade",
+                            event.target.value,
+                          )
+                        }
+                        placeholder="Grade (A+)"
+                        className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+                      />
+
+                      <input
+                        type="number"
+                        min="0"
+                        value={item.range_from}
+                        onChange={(event) =>
+                          updateDraft(
+                            item.key,
+                            "range_from",
+                            event.target.value,
+                          )
+                        }
+                        placeholder="Range From"
+                        className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+                      />
+
+                      <input
+                        type="number"
+                        min="0"
+                        value={item.range_to}
+                        onChange={(event) =>
+                          updateDraft(
+                            item.key,
+                            "range_to",
+                            event.target.value,
+                          )
+                        }
+                        placeholder="Range To"
+                        className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+                      />
+
+                      <input
+                        value={item.remarks}
+                        onChange={(event) =>
+                          updateDraft(
+                            item.key,
+                            "remarks",
+                            event.target.value,
+                          )
+                        }
+                        placeholder="Remarks"
+                        className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+                      />
+
+                      <input
+                        value={item.description}
+                        onChange={(event) =>
+                          updateDraft(
+                            item.key,
+                            "description",
+                            event.target.value,
+                          )
+                        }
+                        placeholder="Description"
+                        className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setDrafts((current) => [
+                    ...current,
+                    createGradeDraft(),
+                  ])
+                }
+                className="mt-4 inline-flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700"
+              >
+                <Plus className="size-4" />
+                Add Grade Row
+              </button>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t p-5">
+              <button
+                type="button"
+                onClick={() => setIsAddOpen(false)}
+                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold"
               >
                 Cancel
               </button>
-            )}
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {isSubmitting && (
+                  <Loader2 className="size-4 animate-spin" />
+                )}
+                Save Grades
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {editItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
+          <form
+            onSubmit={submitEdit}
+            className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-slate-800">
+                Edit Grade
+              </h2>
+
+              <button
+                type="button"
+                onClick={() => setEditItem(null)}
+              >
+                <X className="size-5 text-slate-500" />
+              </button>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <input
+                value={editItem.grade}
+                onChange={(event) =>
+                  setEditItem({
+                    ...editItem,
+                    grade: event.target.value,
+                  })
+                }
+                placeholder="Grade"
+                className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+              />
+
+              <input
+                value={editItem.remarks ?? ""}
+                onChange={(event) =>
+                  setEditItem({
+                    ...editItem,
+                    remarks: event.target.value,
+                  })
+                }
+                placeholder="Remarks"
+                className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+              />
+
+              <input
+                type="number"
+                value={editItem.range_from ?? ""}
+                onChange={(event) =>
+                  setEditItem({
+                    ...editItem,
+                    range_from: event.target.value
+                      ? Number(event.target.value)
+                      : null,
+                  })
+                }
+                placeholder="Range From"
+                className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+              />
+
+              <input
+                type="number"
+                value={editItem.range_to ?? ""}
+                onChange={(event) =>
+                  setEditItem({
+                    ...editItem,
+                    range_to: event.target.value
+                      ? Number(event.target.value)
+                      : null,
+                  })
+                }
+                placeholder="Range To"
+                className="h-10 rounded-lg border border-slate-300 px-3 text-sm"
+              />
+
+              <textarea
+                value={editItem.description ?? ""}
+                onChange={(event) =>
+                  setEditItem({
+                    ...editItem,
+                    description: event.target.value,
+                  })
+                }
+                placeholder="Description"
+                className="min-h-24 rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2"
+              />
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setEditItem(null)}
+                className="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-semibold"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white"
+              >
+                Update Grade
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {deleteItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-2xl">
+            <h2 className="text-lg font-bold text-slate-800">
+              Delete Grade
+            </h2>
+
+            <p className="mt-2 text-sm text-slate-600">
+              Move "{deleteItem.grade}" to trash?
+            </p>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteItem(null)}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={softDelete}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Move to Trash
+              </button>
+            </div>
           </div>
-        </form>
-      </section>
-
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
-          <h2 className="text-base font-semibold text-slate-800">
-            Grade List
-          </h2>
-
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-            {grades.length} {grades.length === 1 ? "Grade" : "Grades"}
-          </span>
         </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-190 text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-5 py-4 font-semibold">SL</th>
-                <th className="px-5 py-4 font-semibold">Grade</th>
-                <th className="px-5 py-4 font-semibold">Mark Range</th>
-                <th className="px-5 py-4 font-semibold">Remarks</th>
-                <th className="px-5 py-4 font-semibold">Description</th>
-                <th className="px-5 py-4 text-center font-semibold">Actions</th>
-              </tr>
-            </thead>
-
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-5 py-10 text-center text-slate-500"
-                  >
-                    Loading grades...
-                  </td>
-                </tr>
-              ) : grades.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-5 py-10 text-center text-slate-500"
-                  >
-                    No grades found.
-                  </td>
-                </tr>
-              ) : (
-                grades.map((item, index) => (
-                  <tr
-                    key={item.id}
-                    className="transition-colors hover:bg-slate-50"
-                  >
-                    <td className="px-5 py-4 text-slate-500">{index + 1}</td>
-
-                    <td className="px-5 py-4">
-                      <span className="inline-flex rounded-md border border-blue-100 bg-blue-50 px-2.5 py-1 font-bold text-blue-700">
-                        {item.grade}
-                      </span>
-                    </td>
-
-                    <td className="px-5 py-4 font-medium text-slate-700">
-                      {item.range_from ?? "-"} - {item.range_to ?? "-"}
-                    </td>
-
-                    <td className="px-5 py-4 text-slate-600">
-                      {item.remarks || "—"}
-                    </td>
-
-                    <td className="max-w-xs px-5 py-4 text-slate-600">
-                      {item.description || "—"}
-                    </td>
-
-                    <td className="px-5 py-4">
-                      <div className="flex justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleEdit(item)}
-                          className="rounded-md border border-blue-200 px-3 py-1.5 text-xs font-semibold text-blue-700 transition hover:bg-blue-50"
-                        >
-                          Edit
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(item.id)}
-                          disabled={submitting}
-                          className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      )}
     </div>
   );
-};
-
-export default GradeManagement;
+}

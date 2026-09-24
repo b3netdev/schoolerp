@@ -520,6 +520,30 @@ export default function ExamAssign() {
     }
   };
 
+  const handleHardDelete = async (assignment: ExamAssignment) => {
+    if (
+      !window.confirm(
+        `Permanently delete "${assignment.exam_name || "this assignment"}"? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setError("");
+
+      await api.delete(`/exam-assign/${assignment.id}/hard-delete`);
+      dispatch(removeExamAssignment(assignment.id));
+    } catch (requestError) {
+      setError(
+        getErrorMessage(
+          requestError,
+          "Unable to permanently delete exam assignment.",
+        ),
+      );
+    }
+  };
+
   const getAssignmentFromRow = (row: Record<string, unknown>) => {
     const id = Number(row.id);
 
@@ -548,6 +572,12 @@ export default function ExamAssign() {
     const assignment = getAssignmentFromRow(row);
 
     if (assignment) void handleRestore(assignment);
+  };
+
+  const handlePermanentDeleteClick = (row: Record<string, unknown>) => {
+    const assignment = getAssignmentFromRow(row);
+
+    if (assignment) void handleHardDelete(assignment);
   };
 
   return (
@@ -641,6 +671,11 @@ export default function ExamAssign() {
               onRestore={
                 canManage && filter === "trash"
                   ? handleRestoreClick
+                  : undefined
+              }
+              onPermanentDelete={
+                canManage && filter === "trash"
+                  ? handlePermanentDeleteClick
                   : undefined
               }
             />

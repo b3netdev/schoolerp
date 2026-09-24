@@ -12,5 +12,10 @@ router.patch("/:id", isAuthenticated, ExamAssignController.update);
 
 router.delete("/:id", isAuthenticated, ExamAssignController.delete);
 router.patch("/:id/restore", isAuthenticated, ExamAssignController.restore);
+router.delete(
+	"/:id/hard-delete",
+	isAuthenticated,
+	ExamAssignController.hardDelete,
+);
 
 export default router;

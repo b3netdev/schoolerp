@@ -1,8 +1,20 @@
-import { Badge, statusToBadgeVariant } from "@/components/common/Badge";
-import { Avatar } from "@/components/common/Avatar";
-import { ActionButtonGroup } from "@/components/common/ActionButtonGroup";
+import {
+  Badge,
+  statusToBadgeVariant,
+} from "@/components/common/Badge";
 
-export type ColumnType = "text" | "avatar-text" | "badge" | "status" | "actions";
+import { Avatar } from "@/components/common/Avatar";
+
+import {
+  ActionButtonGroup,
+} from "@/components/common/ActionButtonGroup";
+
+export type ColumnType =
+  | "text"
+  | "avatar-text"
+  | "badge"
+  | "status"
+  | "actions";
 
 export interface Column {
   key: string;
@@ -14,11 +26,31 @@ export interface Column {
 interface DataTableProps {
   columns: Column[];
   data: Record<string, unknown>[];
-  onView?: (row: Record<string, unknown>) => void;
-  onEdit?: (row: Record<string, unknown>) => void;
-  onDelete?: (row: Record<string, unknown>) => void;
-  onRestore?: (row: Record<string, unknown>) => void;
-  onPermanentDelete?: (row: Record<string, unknown>) => void;
+
+  onView?: (
+    row: Record<string, unknown>,
+  ) => void;
+
+  onEdit?: (
+    row: Record<string, unknown>,
+  ) => void;
+
+  onDelete?: (
+    row: Record<string, unknown>,
+  ) => void;
+
+  onAssign?: (
+    row: Record<string, unknown>,
+  ) => void;
+
+  onRestore?: (
+    row: Record<string, unknown>,
+  ) => void;
+
+  onPermanentDelete?: (
+    row: Record<string, unknown>,
+  ) => void;
+
   emptyMessage?: string;
 }
 
@@ -28,37 +60,54 @@ export function DataTable({
   onView,
   onEdit,
   onDelete,
+  onAssign,
   onRestore,
   onPermanentDelete,
   emptyMessage = "No records found.",
 }: DataTableProps) {
-  const hasActions = Boolean(onView || onEdit || onDelete || onRestore || onPermanentDelete);
+  const hasActions = Boolean(
+    onView ||
+      onEdit ||
+      onDelete ||
+      onAssign ||
+      onRestore ||
+      onPermanentDelete,
+  );
 
   if (data.length === 0) {
     return (
-      <div className="text-center py-12 text-muted-foreground text-sm">
+      <div className="py-12 text-center text-sm text-muted-foreground">
         {emptyMessage}
       </div>
     );
   }
 
   return (
-    <div className="overflow-x-auto -mx-6">
-      <table className="w-full min-w-[640px]" data-testid="data-table">
+    <div className="-mx-6 overflow-x-auto">
+      <table
+        className="w-full min-w-[640px]"
+        data-testid="data-table"
+      >
         <thead>
           <tr className="border-b border-border">
-            {columns.map((col) => (
+            {columns.map((column) => (
               <th
-                key={col.key}
-                className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide"
-                style={col.width ? { width: col.width } : undefined}
+                key={column.key}
+                className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+                style={
+                  column.width
+                    ? {
+                        width: column.width,
+                      }
+                    : undefined
+                }
               >
-                {col.label}
+                {column.label}
               </th>
             ))}
 
             {hasActions && (
-              <th className="px-6 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Actions
               </th>
             )}
@@ -69,54 +118,115 @@ export function DataTable({
           {data.map((row, rowIndex) => (
             <tr
               key={String(row.id ?? rowIndex)}
-              className="hover:bg-muted/40 transition-colors"
+              className="transition-colors hover:bg-muted/40"
               data-testid={`table-row-${rowIndex}`}
             >
-              {columns.map((col) => {
-                const val = String(row[col.key] ?? "");
-                const initials = String(row.initials ?? "");
-                const name = String(row.name ?? val);
+              {columns.map((column) => {
+                const value = String(
+                  row[column.key] ?? "",
+                );
 
-                if (col.type === "avatar-text") {
+                const initials = String(
+                  row.initials ?? "",
+                );
+
+                const name = String(
+                  row.name ?? value,
+                );
+
+                if (column.type === "avatar-text") {
                   return (
-                    <td key={col.key} className="px-6 py-3">
+                    <td
+                      key={column.key}
+                      className="px-6 py-3"
+                    >
                       <div className="flex items-center gap-3">
-                        <Avatar initials={initials} name={name} size="sm" />
+                        <Avatar
+                          initials={initials}
+                          name={name}
+                          size="sm"
+                        />
+
                         <span className="text-sm font-medium text-foreground">
-                          {val}
+                          {value}
                         </span>
                       </div>
                     </td>
                   );
                 }
 
-                if (col.type === "badge" || col.type === "status") {
+                if (
+                  column.type === "badge" ||
+                  column.type === "status"
+                ) {
                   return (
-                    <td key={col.key} className="px-6 py-3">
-                      <Badge variant={statusToBadgeVariant(val)}>{val}</Badge>
+                    <td
+                      key={column.key}
+                      className="px-6 py-3"
+                    >
+                      <Badge
+                        variant={
+                          statusToBadgeVariant(value)
+                        }
+                      >
+                        {value}
+                      </Badge>
                     </td>
                   );
                 }
 
                 return (
                   <td
-                    key={col.key}
+                    key={column.key}
                     className="px-6 py-3 text-sm text-muted-foreground"
                   >
-                    {val}
+                    {value}
                   </td>
                 );
               })}
 
               {hasActions && (
                 <td className="px-6 py-3">
-                  <ActionButtonGroup
-                    onView={onView ? () => onView(row) : undefined}
-                    onEdit={onEdit ? () => onEdit(row) : undefined}
-                    onDelete={onDelete ? () => onDelete(row) : undefined}
-                    onRestore={onRestore ? () => onRestore(row) : undefined}
-                    onPermanentDelete={onPermanentDelete ? () => onPermanentDelete(row) : undefined}
-                  />
+                  <div className="flex items-center gap-2">
+                    <ActionButtonGroup
+                      onView={
+                        onView
+                          ? () => onView(row)
+                          : undefined
+                      }
+                      onEdit={
+                        onEdit
+                          ? () => onEdit(row)
+                          : undefined
+                      }
+                      onDelete={
+                        onDelete
+                          ? () => onDelete(row)
+                          : undefined
+                      }
+                      onRestore={
+                        onRestore
+                          ? () => onRestore(row)
+                          : undefined
+                      }
+                      onPermanentDelete={
+                        onPermanentDelete
+                          ? () =>
+                              onPermanentDelete(row)
+                          : undefined
+                      }
+                    />
+
+                    {onAssign && (
+                      <button
+                        type="button"
+                        onClick={() => onAssign(row)}
+                        className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition hover:opacity-90"
+                      >
+                        Assign
+                      </button>
+                    )}
+                  </div>
                 </td>
               )}
             </tr>

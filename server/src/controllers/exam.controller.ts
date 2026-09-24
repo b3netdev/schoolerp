@@ -38,6 +38,23 @@ const getAcademicYearId = (req: Request): number =>
     "Current academic session",
   );
 
+const getAcademicYearIdForListing = (req: Request): number => {
+  const bodyAcademicYearId = (req.body as { academic_year_id?: unknown })
+    ?.academic_year_id;
+
+  if (bodyAcademicYearId !== undefined) {
+    return getValidId(bodyAcademicYearId, "Academic session");
+  }
+
+  const queryAcademicYearId = req.query.academic_year_id;
+
+  if (queryAcademicYearId !== undefined) {
+    return getValidId(queryAcademicYearId, "Academic session");
+  }
+
+  return getAcademicYearId(req);
+};
+
 const getValidDate = (value: unknown, fieldName: string): string => {
   if (typeof value !== "string" || !value.trim()) {
     throw new AppError(`${fieldName} is required.`, 400);
@@ -180,13 +197,7 @@ export class ExamController {
       if (!filters.includes(status)) {
         return next(new AppError("Invalid exam status filter.", 400));
       }
-
-      
-
-      const academicYearId = getValidId(
-        req.body.default_academic_session,
-        "Academic session",
-      );
+      const academicYearId = getAcademicYearIdForListing(req);
 
       const exams = await ExamModel.findByStatus(academicYearId, status);
 

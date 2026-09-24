@@ -245,4 +245,22 @@ export class ExamAssignModel {
 
     return this.findById(result.rows[0].id, academicYearId);
   }
+
+  static async hardDelete(
+    id: number,
+    academicYearId: number,
+  ): Promise<boolean> {
+    const result = await query<{ id: number }>(
+      `
+      DELETE FROM public.exam_assign
+      WHERE id = $1
+        AND academic_year_id = $2
+        AND deleted_at IS NOT NULL
+      RETURNING id
+    `,
+      [id, academicYearId],
+    );
+
+    return Boolean(result.rows[0]);
+  }
 }

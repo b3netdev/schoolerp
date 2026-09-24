@@ -258,4 +258,33 @@ export class ExamAssignController {
       }
     },
   );
+
+  static hardDelete = catchAsync(
+    async (req: Request, res: Response, next: NextFunction) => {
+      if (!checkAdmin(req, next)) return;
+
+      const id = Number(req.params.id);
+      const academicYearId = getAcademicYearIdFromMiddleware(req);
+
+      if (!id || Number.isNaN(id)) {
+        return next(new AppError("Invalid exam assignment ID.", 400));
+      }
+
+      const deleted = await ExamAssignModel.hardDelete(id, academicYearId);
+
+      if (!deleted) {
+        return next(
+          new AppError(
+            "Deleted exam assignment was not found in this academic year.",
+            404,
+          ),
+        );
+      }
+
+      res.status(200).json({
+        status: "success",
+        message: "Exam assignment permanently deleted successfully.",
+      });
+    },
+  );
 }

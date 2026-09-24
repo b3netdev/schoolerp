@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
@@ -17,6 +18,7 @@ import {
   StatusTabs,
   type StatusTabOption,
 } from "@/components/common/StatusTabs";
+import { SubjectExamAssignModal } from "@/components/SubjectExamAssignModal";
 import { ListingSkeleton } from "@/components/tables/ListingSkeleton";
 
 import {
@@ -103,6 +105,7 @@ const columns: Column[] = [
 
 export default function Subjects() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
 
   const subjects = useAppSelector(
     (state) => state.subject.subjects,
@@ -118,6 +121,8 @@ export default function Subjects() {
   const { getClassSections } = useClassSection();
 
   const [search, setSearch] = useState("");
+  const [assignItem, setAssignItem] =
+    useState<Subject | null>(null);
   const [page, setPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(false);
@@ -323,13 +328,11 @@ export default function Subjects() {
           relation.id,
         ),
 
-        label: `Class ${relation.class_name} - Section ${
-          relation.section_name
-        }${
-          relation.section_stream
+        label: `Class ${relation.class_name} - Section ${relation.section_name
+          }${relation.section_stream
             ? ` (${relation.section_stream})`
             : ""
-        }`,
+          }`,
       }));
   }, [classSectionRelations]);
 
@@ -402,45 +405,45 @@ export default function Subjects() {
    */
   const tableData:
     SubjectTableRow[] = useMemo(
-    () => {
-      return subjects?.map(
-        (subject) => {
-          const classSection =
-            classSectionOptions.find(
-              (option) =>
-                Number(
-                  option.value,
-                ) ===
-                subject.class_section_id,
-            );
+      () => {
+        return subjects?.map(
+          (subject) => {
+            const classSection =
+              classSectionOptions.find(
+                (option) =>
+                  Number(
+                    option.value,
+                  ) ===
+                  subject.class_section_id,
+              );
 
-          return {
-            ...subject,
+            return {
+              ...subject,
 
-            class_section_name:
-              classSection?.label ??
-              "Not assigned",
+              class_section_name:
+                classSection?.label ??
+                "Not assigned",
 
-            subject_type_name:
-              subject.subject_type_title ??
-              "Not assigned",
+              subject_type_name:
+                subject.subject_type_title ??
+                "Not assigned",
 
-            /**
-             * Keep NULL display
-             * order visually empty.
-             */
-            display_order:
-              subject.display_order ??
-              null,
-          };
-        },
-      ) ?? [];
-    },
-    [
-      subjects,
-      classSectionOptions,
-    ],
-  );
+              /**
+               * Keep NULL display
+               * order visually empty.
+               */
+              display_order:
+                subject.display_order ??
+                null,
+            };
+          },
+        ) ?? [];
+      },
+      [
+        subjects,
+        classSectionOptions,
+      ],
+    );
 
   /**
    * Search
@@ -498,7 +501,7 @@ export default function Subjects() {
 
       const hasDisplayOrder =
         rawDisplayOrder !==
-          undefined &&
+        undefined &&
         rawDisplayOrder !== null &&
         String(
           rawDisplayOrder,
@@ -526,7 +529,7 @@ export default function Subjects() {
 
         subject_type_id:
           values.subject_type_id &&
-          String(values.subject_type_id).trim() !== ""
+            String(values.subject_type_id).trim() !== ""
             ? Number(values.subject_type_id)
             : null,
 
@@ -537,7 +540,7 @@ export default function Subjects() {
         description:
           String(
             values.description ??
-              "",
+            "",
           ).trim() || null,
       };
 
@@ -580,7 +583,7 @@ export default function Subjects() {
 
       toast.success(
         response.data?.message ||
-          "Subject added successfully.",
+        "Subject added successfully.",
       );
 
       setAddOpen(false);
@@ -597,7 +600,7 @@ export default function Subjects() {
       toast.error(
         error?.response?.data
           ?.message ||
-          "Unable to add subject.",
+        "Unable to add subject.",
       );
     }
   };
@@ -618,7 +621,7 @@ export default function Subjects() {
 
       const hasDisplayOrder =
         rawDisplayOrder !==
-          undefined &&
+        undefined &&
         rawDisplayOrder !== null &&
         String(
           rawDisplayOrder,
@@ -637,7 +640,7 @@ export default function Subjects() {
 
         subject_type_id:
           values.subject_type_id &&
-          String(values.subject_type_id).trim() !== ""
+            String(values.subject_type_id).trim() !== ""
             ? Number(values.subject_type_id)
             : null,
 
@@ -648,7 +651,7 @@ export default function Subjects() {
         description:
           String(
             values.description ??
-              "",
+            "",
           ).trim() || null,
       };
 
@@ -691,7 +694,7 @@ export default function Subjects() {
 
       toast.success(
         response.data?.message ||
-          "Subject updated successfully.",
+        "Subject updated successfully.",
       );
 
       setEditItem(null);
@@ -708,7 +711,7 @@ export default function Subjects() {
       toast.error(
         error?.response?.data
           ?.message ||
-          "Unable to update subject.",
+        "Unable to update subject.",
       );
     }
   };
@@ -736,7 +739,7 @@ export default function Subjects() {
 
         toast.success(
           response.data?.message ||
-            "Subject moved to trash.",
+          "Subject moved to trash.",
         );
 
         setDeleteItem(null);
@@ -744,7 +747,7 @@ export default function Subjects() {
         toast.error(
           error?.response?.data
             ?.message ||
-            "Unable to move subject to trash.",
+          "Unable to move subject to trash.",
         );
       }
     };
@@ -772,7 +775,7 @@ export default function Subjects() {
 
         toast.success(
           response.data?.message ||
-            "Subject restored successfully.",
+          "Subject restored successfully.",
         );
 
         setRestoreItem(null);
@@ -780,7 +783,7 @@ export default function Subjects() {
         toast.error(
           error?.response?.data
             ?.message ||
-            "Unable to restore subject.",
+          "Unable to restore subject.",
         );
       }
     };
@@ -810,7 +813,7 @@ export default function Subjects() {
 
         toast.success(
           response.data?.message ||
-            "Subject permanently deleted successfully.",
+          "Subject permanently deleted successfully.",
         );
 
         setPermanentDeleteItem(
@@ -820,7 +823,7 @@ export default function Subjects() {
         toast.error(
           error?.response?.data
             ?.message ||
-            "Unable to permanently delete subject.",
+          "Unable to permanently delete subject.",
         );
       }
     };
@@ -842,6 +845,17 @@ export default function Subjects() {
     );
   };
 
+  const handleAssign = (
+    row: Record<string, unknown>,
+  ) => {
+    const subject = getSubjectFromRow(row);
+
+    if (!subject) {
+      return;
+    }
+
+    setAssignItem(subject);
+  };
 
   const editInitialValues =
     useMemo<
@@ -871,12 +885,12 @@ export default function Subjects() {
         display_order:
           editItem.display_order ===
             null ||
-          editItem.display_order ===
+            editItem.display_order ===
             undefined
             ? ""
             : String(
-                editItem.display_order,
-              ),
+              editItem.display_order,
+            ),
       };
     }, [editItem]);
 
@@ -1043,78 +1057,83 @@ export default function Subjects() {
               }
               onEdit={
                 statusFilter ===
-                "all"
+                  "all"
                   ? (row) => {
-                      const subject =
-                        getSubjectFromRow(
-                          row,
-                        );
+                    const subject =
+                      getSubjectFromRow(
+                        row,
+                      );
 
-                      if (
-                        subject
-                      ) {
-                        setEditItem(
-                          subject,
-                        );
-                      }
+                    if (
+                      subject
+                    ) {
+                      setEditItem(
+                        subject,
+                      );
                     }
+                  }
                   : undefined
               }
               onDelete={
                 statusFilter ===
-                "all"
+                  "all"
                   ? (row) => {
-                      const subject =
-                        getSubjectFromRow(
-                          row,
-                        );
+                    const subject =
+                      getSubjectFromRow(
+                        row,
+                      );
 
-                      if (
-                        subject
-                      ) {
-                        setDeleteItem(
-                          subject,
-                        );
-                      }
+                    if (
+                      subject
+                    ) {
+                      setDeleteItem(
+                        subject,
+                      );
                     }
+                  }
+                  : undefined
+              }
+              onAssign={
+                statusFilter === "all"
+                  ? handleAssign
                   : undefined
               }
               onRestore={
                 statusFilter ===
-                "trash"
+                  "trash"
                   ? (row) => {
-                      const subject =
-                        getSubjectFromRow(
-                          row,
-                        );
+                    const subject =
+                      getSubjectFromRow(
+                        row,
+                      );
 
-                      if (
-                        subject
-                      ) {
-                        setRestoreItem(
-                          subject,
-                        );
-                      }
+                    if (
+                      subject
+                    ) {
+                      setRestoreItem(
+                        subject,
+                      );
                     }
+                  }
                   : undefined
               }
               onPermanentDelete={
                 statusFilter ===
-                "trash"
+                  "trash"
                   ? (row) => {
-                      const subject =
-                        getSubjectFromRow(
-                          row,
-                        );
+                    const subject =
+                      getSubjectFromRow(
+                        row,
+                      );
 
-                      if (
-                        subject
-                      ) {
-                        setPermanentDeleteItem(
-                          subject,
-                        );
-                      }
+                    if (
+                      subject
+                    ) {
+                      setPermanentDeleteItem(
+                        subject,
+                      );
                     }
+                  }
                   : undefined
               }
             />
@@ -1190,10 +1209,9 @@ export default function Subjects() {
           handleDelete
         }
         title="Delete Subject"
-        description={`Are you sure you want to move "${
-          deleteItem?.name ??
+        description={`Are you sure you want to move "${deleteItem?.name ??
           ""
-        }" to trash? You can restore it later.`}
+          }" to trash? You can restore it later.`}
         confirmLabel="Move to Trash"
       />
 
@@ -1210,10 +1228,9 @@ export default function Subjects() {
           handleRestore
         }
         title="Restore Subject"
-        description={`Are you sure you want to restore "${
-          restoreItem?.name ??
+        description={`Are you sure you want to restore "${restoreItem?.name ??
           ""
-        }"?`}
+          }"?`}
         confirmLabel="Restore Subject"
       />
 
@@ -1232,12 +1249,30 @@ export default function Subjects() {
           handlePermanentDelete
         }
         title="Permanently Delete Subject"
-        description={`Are you sure you want to permanently delete "${
-          permanentDeleteItem?.name ??
+        description={`Are you sure you want to permanently delete "${permanentDeleteItem?.name ??
           ""
-        }"? This action cannot be undone.`}
+          }"? This action cannot be undone.`}
         confirmLabel="Delete Permanently"
         variant="danger"
+      />
+      <SubjectExamAssignModal
+        isOpen={Boolean(assignItem)}
+        subject={assignItem}
+        classId={
+          assignItem
+            ? (
+              classSectionRelations.find(
+                (relation) =>
+                  relation.id ===
+                  assignItem.class_section_id,
+              )?.class_id ?? null
+            )
+            : null
+        }
+        onClose={() => setAssignItem(null)}
+        onSuccess={() => {
+          setAssignItem(null);
+        }}
       />
     </div>
   );

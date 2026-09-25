@@ -142,6 +142,9 @@ export class MarksEntryController {
 
       const filters: MarksEntryFilters = {
         status: req.query.status === "trash" ? "trash" : "all",
+        exam_assign_id: req.query.exam_assign_id
+          ? Number(req.query.exam_assign_id)
+          : undefined,
         exam_id: req.query.exam_id
           ? Number(req.query.exam_id)
           : undefined,

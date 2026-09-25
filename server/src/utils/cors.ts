@@ -5,6 +5,8 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   "http://0.0.0.0:5173",
+  "http://192.168.0.113:5173",
+  "http://192.168.1.126:5173",
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 

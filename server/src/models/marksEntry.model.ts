@@ -71,6 +71,7 @@ export interface UpdateMarksEntryPayload {
 
 export interface MarksEntryFilters {
   status?: MarksEntryStatus;
+  exam_assign_id?: number;
   exam_id?: number;
   subject_id?: number;
   student_id?: number;
@@ -135,6 +136,11 @@ export class MarksEntryModel {
       sql += ` AND me.deleted_at IS NOT NULL`;
     } else {
       sql += ` AND me.deleted_at IS NULL`;
+    }
+
+    if (filters.exam_assign_id) {
+      values.push(filters.exam_assign_id);
+      sql += ` AND me.exam_assign_id = $${values.length}`;
     }
 
     if (filters.exam_id) {

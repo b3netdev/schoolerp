@@ -15,6 +15,13 @@ export interface ExamAssign {
   subject_id: number;
   subject_name?: string | null;
 
+  class_section_id?: number;
+  class_id?: number;
+  class_name?: string | null;
+  section_id?: number;
+  section_name?: string | null;
+  section_stream?: string | null;
+
   academic_year_id: number;
   academic_year_name?: string | null;
 
@@ -55,11 +62,21 @@ export class ExamAssignModel {
         t.employee_code,
         e.name AS exam_name,
         s.name AS subject_name,
+        csr.id AS class_section_id,
+        csr.class_id,
+        c.class_name,
+        csr.section_id,
+        sec.name AS section_name,
+        stream.name AS section_stream,
         ac.name AS academic_year_name
       FROM public.exam_assign ea
       INNER JOIN public.teachers t ON t.id = ea.teacher_id
       INNER JOIN public.exam e ON e.id = ea.exam_id
       INNER JOIN public.subjects s ON s.id = ea.subject_id
+      INNER JOIN public.class_section_relation csr ON csr.id = s.class_section_id
+      INNER JOIN public.classes c ON c.id = csr.class_id
+      INNER JOIN public.section sec ON sec.id = csr.section_id
+      LEFT JOIN public.stream stream ON stream.id = sec.stream_id
       INNER JOIN public.academic_session ac ON ac.id = ea.academic_year_id
       WHERE ea.academic_year_id = $1
     `;
@@ -93,11 +110,21 @@ export class ExamAssignModel {
         t.employee_code,
         e.name AS exam_name,
         s.name AS subject_name,
+        csr.id AS class_section_id,
+        csr.class_id,
+        c.class_name,
+        csr.section_id,
+        sec.name AS section_name,
+        stream.name AS section_stream,
         ac.name AS academic_year_name
       FROM public.exam_assign ea
       INNER JOIN public.teachers t ON t.id = ea.teacher_id
       INNER JOIN public.exam e ON e.id = ea.exam_id
       INNER JOIN public.subjects s ON s.id = ea.subject_id
+      INNER JOIN public.class_section_relation csr ON csr.id = s.class_section_id
+      INNER JOIN public.classes c ON c.id = csr.class_id
+      INNER JOIN public.section sec ON sec.id = csr.section_id
+      LEFT JOIN public.stream stream ON stream.id = sec.stream_id
       INNER JOIN public.academic_session ac ON ac.id = ea.academic_year_id
       WHERE ea.id = $1
         AND ea.academic_year_id = $2

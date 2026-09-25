@@ -36,8 +36,13 @@ type ExamAssignment = {
   subject_id: number;
   subject_name: string;
 
+  class_section_id?: number;
+
   class_id?: number;
   class_name?: string;
+  section_id?: number;
+  section_name?: string;
+  section_stream?: string | null;
 
   assign_till?: string | null;
 };
@@ -50,10 +55,6 @@ type ClassSectionRelation = {
   section_name: string;
   section_stream?: string | null;
   deleted_at?: string | null;
-};
-
-type SubjectDetails = {
-  class_section_id: number;
 };
 
 type Student = {
@@ -210,15 +211,10 @@ export default function MarksEntry() {
       .filter((relation) => !relation.deleted_at)
       .forEach((relation) => classMap.set(relation.class_id, relation.class_name));
 
-    const classes = Array.from(classMap, ([id, name]) => ({ id, name }));
-    const assignedClass = classes.filter(
-      (item) => String(item.id) === selectedClassId,
-    );
-
-    return (assignedClass.length ? assignedClass : classes).sort((a, b) =>
+    return Array.from(classMap, ([id, name]) => ({ id, name })).sort((a, b) =>
       a.name.localeCompare(b.name, undefined, { numeric: true }),
     );
-  }, [classSectionRelations, selectedClassId]);
+  }, [classSectionRelations]);
 
   const availableSections = useMemo(
     () =>
@@ -228,6 +224,16 @@ export default function MarksEntry() {
           String(relation.class_id) === selectedClassId,
       ),
     [classSectionRelations, selectedClassId],
+  );
+
+  const availableAssignments = useMemo(
+    () =>
+      assignments.filter(
+        (assignment) =>
+          Number(assignment.class_section_id) ===
+          Number(selectedClassSectionId),
+      ),
+    [assignments, selectedClassSectionId],
   );
 
   const visibleStudents = useMemo(
@@ -319,39 +325,6 @@ export default function MarksEntry() {
   useEffect(() => {
     void Promise.all([loadAssignments(), getClassSections("all")]);
   }, []);
-
-  useEffect(() => {
-    if (!selectedAssignment) {
-      setSelectedClassId("");
-      setSelectedClassSectionId("");
-      setSelectedStudentId("");
-      setStudents([]);
-      setMarkValues({});
-      return;
-    }
-
-    const loadSubjectClass = async () => {
-      try {
-        const response = await api.get(
-          `/subjects/get-subject/${selectedAssignment.subject_id}`,
-        );
-        const subject = response.data?.data as SubjectDetails;
-        const relation = classSectionRelations.find(
-          (item) => item.id === subject.class_section_id,
-        );
-
-        setSelectedClassId(relation ? String(relation.class_id) : "");
-        setSelectedClassSectionId("");
-        setSelectedStudentId("");
-        setStudents([]);
-        setMarkValues({});
-      } catch (requestError) {
-        setError(getErrorMessage(requestError, "Unable to load subject class."));
-      }
-    };
-
-    void loadSubjectClass();
-  }, [selectedAssignment, classSectionRelations]);
 
   useEffect(() => {
     if (!selectedAssignment || !selectedClassSectionId) {
@@ -610,7 +583,7 @@ export default function MarksEntry() {
 
       <div className="mb-6 rounded-xl border border-border bg-card p-5">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <label className="order-3 mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Exam Assignment
             <select
               value={selectedExamAssignId}
@@ -619,7 +592,7 @@ export default function MarksEntry() {
                 setSaved(false);
                 setError("");
               }}
-              disabled={isLoadingAssignments}
+              disabled={isLoadingAssignments || !selectedClassSectionId}
               className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="">
@@ -628,7 +601,7 @@ export default function MarksEntry() {
                   : "Select assigned exam"}
               </option>
 
-              {assignments.map((assignment) => (
+              {availableAssignments.map((assignment) => (
                 <option key={assignment.id} value={assignment.id}>
                   {assignment.exam_name} — {assignment.subject_name}
                 </option>
@@ -636,18 +609,19 @@ export default function MarksEntry() {
             </select>
           </label>
 
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <label className="order-1 mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Class
             <select
               value={selectedClassId}
               onChange={(event) => {
                 setSelectedClassId(event.target.value);
                 setSelectedClassSectionId("");
+                setSelectedExamAssignId("");
                 setSelectedStudentId("");
                 setStudents([]);
                 setMarkValues({});
               }}
-              disabled={!selectedAssignment || availableClasses.length === 0}
+              disabled={availableClasses.length === 0}
               className="mt-1.5 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm font-normal normal-case tracking-normal text-foreground outline-none transition focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <option value="">Select class</option>
@@ -659,13 +633,16 @@ export default function MarksEntry() {
             </select>
           </label>
 
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <label className="order-2 mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Section
             <select
               value={selectedClassSectionId}
               onChange={(event) => {
                 setSelectedClassSectionId(event.target.value);
+                setSelectedExamAssignId("");
                 setSelectedStudentId("");
+                setStudents([]);
+                setMarkValues({});
                 setSaved(false);
               }}
               disabled={!selectedClassId || availableSections.length === 0}
@@ -681,7 +658,7 @@ export default function MarksEntry() {
             </select>
           </label>
 
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <label className="order-4 mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Student
             <select
               value={selectedStudentId}
@@ -700,7 +677,7 @@ export default function MarksEntry() {
         </div>
 
         <p className="mt-3 text-xs text-muted-foreground">
-          Select an assigned exam, then choose its class, section, and student
+          Select a class and section first, then choose an exam and student
           before entering marks.
         </p>
       </div>
@@ -756,8 +733,8 @@ export default function MarksEntry() {
 
           {!selectedAssignment ? (
             <EmptyState
-              title="Select an exam assignment"
-              description="Choose an assigned exam and subject to load students."
+              title="Select a class, section, and exam"
+              description="Choose a class and section first, then select an assigned exam to load students."
             />
           ) : isLoadingStudents ? (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">

@@ -247,7 +247,8 @@ export default function Attendance() {
   const today = useMemo(() => formatDateForInput(new Date()), []);
 
   const [selectedDate, setSelectedDate] = useState(today);
-  const [selectedClassSectionId, setSelectedClassSectionId] = useState("");
+  const [selectedClassId, setSelectedClassId] = useState("");
+  const [selectedSectionId, setSelectedSectionId] = useState("");
   const [search, setSearch] = useState("");
   const [attendanceMap, setAttendanceMap] = useState<AttendanceMap>({});
 
@@ -306,6 +307,51 @@ export default function Attendance() {
         }),
       );
   }, [classSectionRelations]);
+
+  const classOptions = useMemo(() => {
+    const uniqueClasses = new Map<string, string>();
+
+    activeClassSections.forEach((relation) => {
+      if (relation.class_id !== null && relation.class_id !== undefined) {
+        uniqueClasses.set(String(relation.class_id), relation.class_name || "Class");
+      }
+    });
+
+    return Array.from(uniqueClasses, ([id, name]) => ({ id, name })).sort(
+      (first, second) => first.name.localeCompare(second.name, undefined, { numeric: true }),
+    );
+  }, [activeClassSections]);
+
+  const sectionOptions = useMemo(() => {
+    if (!selectedClassId) return [];
+
+    const uniqueSections = new Map<string, string>();
+
+    activeClassSections
+      .filter((relation) => String(relation.class_id) === selectedClassId)
+      .forEach((relation) => {
+        if (relation.section_id !== null && relation.section_id !== undefined) {
+          uniqueSections.set(
+            String(relation.section_id),
+            `${relation.section_name || "Section"}${relation.section_stream ? ` (${relation.section_stream})` : ""}`,
+          );
+        }
+      });
+
+    return Array.from(uniqueSections, ([id, name]) => ({ id, name })).sort(
+      (first, second) => first.name.localeCompare(second.name, undefined, { numeric: true }),
+    );
+  }, [activeClassSections, selectedClassId]);
+
+  const selectedClassSectionId = useMemo(() => {
+    const relation = activeClassSections.find(
+      (item) =>
+        String(item.class_id) === selectedClassId &&
+        String(item.section_id) === selectedSectionId,
+    );
+
+    return relation ? String(relation.id) : "";
+  }, [activeClassSections, selectedClassId, selectedSectionId]);
 
   const classStudents = useMemo(() => {
     const classSectionId = toPositiveInteger(selectedClassSectionId);
@@ -584,12 +630,12 @@ export default function Attendance() {
             <h2 className="font-semibold text-foreground">Take Attendance</h2>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Select a date and class. The logged-in admin or teacher is recorded
+            Select a date, class, and section. The logged-in admin or teacher is recorded
             automatically by the backend.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-3">
           <div>
             <label
               htmlFor="attendance-date"
@@ -614,27 +660,58 @@ export default function Attendance() {
 
           <div>
             <label
-              htmlFor="attendance-class-section"
+              htmlFor="attendance-class"
               className="mb-1.5 block text-sm font-medium text-foreground"
             >
-              Class / Section
+              Class
             </label>
 
             <div className="relative">
               <Users className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <select
-                id="attendance-class-section"
-                value={selectedClassSectionId}
-                onChange={(event) =>
-                  setSelectedClassSectionId(event.target.value)
-                }
+                id="attendance-class"
+                value={selectedClassId}
+                onChange={(event) => {
+                  setSelectedClassId(event.target.value);
+                  setSelectedSectionId("");
+                }}
                 disabled={submitting}
                 className="h-10 w-full appearance-none rounded-lg border border-border bg-background pl-9 pr-9 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <option value="">Select class & section</option>
-                {activeClassSections.map((relation) => (
-                  <option key={String(relation.id)} value={String(relation.id)}>
-                    {getClassSectionName(relation)}
+                <option value="">Select class</option>
+                {classOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="attendance-section"
+              className="mb-1.5 block text-sm font-medium text-foreground"
+            >
+              Section
+            </label>
+
+            <div className="relative">
+              <Users className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <select
+                id="attendance-section"
+                value={selectedSectionId}
+                onChange={(event) => setSelectedSectionId(event.target.value)}
+                disabled={!selectedClassId || submitting}
+                className="h-10 w-full appearance-none rounded-lg border border-border bg-background pl-9 pr-9 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <option value="">
+                  {selectedClassId ? "Select section" : "Select class first"}
+                </option>
+                {sectionOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
                   </option>
                 ))}
               </select>
